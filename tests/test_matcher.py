@@ -132,4 +132,18 @@ def test_tables_both_repos_create_are_never_extracted() -> None:
     a = _repo("resume-app", exposes=[(T, "profiles"), (T, "products")])
     b = _repo("shop-app", exposes=[(T, "profiles"), (T, "products")])
     (edge,) = match_edges([a, b])
+    assert edge.confidence is Confidence.AMBIGUOUS
+
+
+def test_single_owned_table_caps_at_inferred() -> None:
+    owner = _repo("orders-svc", exposes=[(T, "orders"), (T, "order_items")])
+    user = _repo("payments", consumes=[(T, "orders")], exposes=[(T, "order_items")])
+    (edge,) = match_edges([owner, user])
     assert edge.confidence is Confidence.INFERRED
+
+
+def test_query_only_overlap_is_ambiguous() -> None:
+    a = _repo("a", consumes=[(T, "invoices"), (T, "ledgers")])
+    b = _repo("b", consumes=[(T, "invoices"), (T, "ledgers")])
+    (edge,) = match_edges([a, b])
+    assert edge.confidence is Confidence.AMBIGUOUS

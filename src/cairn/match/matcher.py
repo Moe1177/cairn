@@ -118,15 +118,10 @@ def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
     for a, b in combinations([r.id for r in repos], 2):
         shared = sorted(set(tables[a].refs) & set(tables[b].refs))
         score = noisy_or(specificity(df[t]) for t in shared) if shared else 0.0
-        confidence = db_confidence(score)
+        owned = _owned_by_one_side(shared, tables[a], tables[b])
+        confidence = _db_tier(db_confidence(score), owned)
         if confidence is None:
             continue
-        if (
-            confidence is Confidence.EXTRACTED
-            and _owned_by_one_side(shared, tables[a], tables[b]) < 2
-        ):
-            # Same names alone (e.g. both apps create `profiles`) don't prove a shared database.
-            confidence = Confidence.INFERRED
         source, target = _db_direction(a, b, shared, tables)
         evidence = [
             ev for t in shared for ev in (*tables[source].refs[t][:1], *tables[target].refs[t][:1])
@@ -148,6 +143,17 @@ def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
 def _owned_by_one_side(shared: list[str], a: _TableRefs, b: _TableRefs) -> int:
     """Shared tables that exactly one repo creates and the other only queries."""
     return sum((t in a.created) != (t in b.created) for t in shared)
+
+
+def _db_tier(base: Confidence | None, owned: int) -> Confidence | None:
+    """Spec §16.1: name-only overlap is ambiguous; a single owned table caps at inferred."""
+    if base is None:
+        return None
+    if owned == 0:
+        return Confidence.AMBIGUOUS
+    if owned == 1 and base is Confidence.EXTRACTED:
+        return Confidence.INFERRED
+    return base
 
 
 def _db_direction(
