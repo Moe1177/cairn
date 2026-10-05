@@ -12,7 +12,10 @@ runner = CliRunner()
 
 @pytest.fixture(autouse=True)
 def _cairn_home(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("CAIRN_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("CAIRN_HOME", str(tmp_path / "home" / ".cairn"))
+    monkeypatch.setenv("CAIRN_USER_HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+    monkeypatch.setattr("cairn.integrations.harnesses._claude_cli", lambda args: None)
 
 
 def _ws(tmp_path: Path) -> Path:
@@ -47,10 +50,10 @@ def test_init_declined_skips_install(tmp_path: Path) -> None:
     assert "cairn install claude" in result.output
 
 
-def test_install_unsupported_harness(tmp_path: Path) -> None:
-    result = runner.invoke(app, ["install", "codex", str(_ws(tmp_path))])
+def test_install_unknown_harness(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["install", "vim", str(_ws(tmp_path))])
     assert result.exit_code == 1
-    assert "not supported yet" in result.output
+    assert "unknown harness" in result.output
 
 
 def test_install_then_uninstall(tmp_path: Path) -> None:
@@ -146,3 +149,18 @@ def test_set_summary_cli_updates_index(tmp_path: Path) -> None:
     assert "- alpha (@acme/alpha, core): Core shared library" in index_file(ws).read_text(
         encoding="utf-8"
     )
+
+
+def test_install_all_continues_past_a_broken_config(tmp_path: Path) -> None:
+    # Review Focus 5
+    ws = _ws(tmp_path)
+    runner.invoke(app, ["scan", str(ws)])
+    gemini = tmp_path / "home" / ".gemini" / "settings.json"
+    gemini.parent.mkdir(parents=True)
+    gemini.write_text("{broken", encoding="utf-8")
+    result = runner.invoke(app, ["install", "all", str(ws)])
+    assert result.exit_code == 1
+    assert "gemini: error:" in result.output
+    assert "Codex: pointer" in result.output and "Cursor:" in result.output
+    status = runner.invoke(app, ["status", str(ws)]).output
+    assert "Harnesses: claude, codex, cursor" in status

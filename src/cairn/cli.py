@@ -2,6 +2,7 @@
 
 import sys
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -10,7 +11,13 @@ import typer
 from cairn.authored_store import annotate_edge, set_summary
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
-from cairn.integrations.claude import install_claude, is_installed, sync_claude, uninstall_claude
+from cairn.integrations.claude import install_claude, is_installed, sync_claude
+from cairn.integrations.harnesses import (
+    HARNESSES,
+    install_harness,
+    installed_harnesses,
+    uninstall_harness,
+)
 from cairn.load import load_authored
 from cairn.model.graph import Confidence
 from cairn.scan import ScanResult, scan_workspace
@@ -19,7 +26,6 @@ from cairn.store.workspace_store import load_workspace
 app = typer.Typer(
     no_args_is_help=True, add_completion=False, help="cairn: a workspace map for coding agents."
 )
-SUPPORTED_HARNESSES = ("claude",)
 PathArg = Annotated[Path, typer.Argument(help="Workspace root (default: current directory).")]
 
 
@@ -39,12 +45,26 @@ def _fail(message: str) -> NoReturn:
     raise typer.Exit(1)
 
 
-def _check_harness(harness: str) -> None:
-    if harness not in SUPPORTED_HARNESSES:
-        _fail(
-            f"'{harness}' is not supported yet (supported: {', '.join(SUPPORTED_HARNESSES)}). "
-            "Codex, Gemini CLI and Cursor arrive in the next release."
-        )
+def _harness_names(harness: str) -> tuple[str, ...]:
+    if harness == "all":
+        return HARNESSES
+    if harness not in HARNESSES:
+        _fail(f"unknown harness '{harness}' (choose from: {', '.join(HARNESSES)}, all).")
+    return (harness,)
+
+
+def _run_for(names: tuple[str, ...], action: Callable[[str], tuple[str, ...]]) -> None:
+    """Run per harness; one broken harness config doesn't stop the others."""
+    failed = False
+    for name in names:
+        try:
+            for line in action(name):
+                typer.echo(line)
+        except CairnError as exc:
+            failed = True
+            typer.echo(f"{name}: error: {exc}", err=True)
+    if failed:
+        raise typer.Exit(1)
 
 
 def _scan_and_write(path: Path) -> ScanResult:
@@ -113,27 +133,23 @@ def init(
 
 
 @app.command()
-def install(harness: str, path: PathArg = Path(".")) -> None:
-    """Load the index into a harness (Phase 1: claude)."""
-    _check_harness(harness)
-    try:
-        target = install_claude(path.resolve())
-    except CairnError as exc:
-        _fail(str(exc))
-    typer.echo(f"Claude Code: index added to {target}")
+def install(
+    harness: str,
+    path: PathArg = Path("."),
+    per_repo: Annotated[
+        bool, typer.Option("--per-repo", help="Cursor: also add a git-excluded rule to each repo.")
+    ] = False,
+) -> None:
+    """Load cairn into a harness: claude, codex, gemini, cursor, or all."""
+    root = path.resolve()
+    _run_for(_harness_names(harness), lambda name: install_harness(name, root, per_repo=per_repo))
 
 
 @app.command()
 def uninstall(harness: str, path: PathArg = Path(".")) -> None:
-    """Remove cairn's block from a harness's context file."""
-    _check_harness(harness)
-    try:
-        removed = uninstall_claude(path.resolve())
-    except CairnError as exc:
-        _fail(str(exc))
-    typer.echo(
-        "Claude Code: cairn block removed." if removed else "Claude Code: cairn was not installed."
-    )
+    """Remove cairn from a harness: claude, codex, gemini, cursor, or all."""
+    root = path.resolve()
+    _run_for(_harness_names(harness), lambda name: uninstall_harness(name, root))
 
 
 @app.command()
@@ -161,6 +177,7 @@ def status(path: PathArg = Path(".")) -> None:
         f"Repos without an authored summary: {', '.join(missing) or 'none'}",
         f"Detector errors: {'; '.join(errors) or 'none'}",
         f"Claude Code integration: {'installed' if is_installed(root) else 'not installed'}",
+        f"Harnesses: {', '.join(installed_harnesses(root)) or 'none'}",
     ]
     weak = [e for e in workspace.edges if e.confidence is Confidence.AMBIGUOUS]
     if weak:
