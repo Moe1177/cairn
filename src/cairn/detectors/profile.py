@@ -194,9 +194,15 @@ def _layout(ctx: DetectorContext) -> tuple[LayoutEntry, ...]:
     ignore = DEFAULT_IGNORE_DIRS | frozenset(ctx.config.ignore_dirs)
     try:
         children = sorted(
-            p
-            for p in primary.iterdir()
-            if p.is_dir() and not is_link(p) and not p.name.startswith(".") and p.name not in ignore
+            (
+                p
+                for p in primary.iterdir()
+                if p.is_dir()
+                and not is_link(p)
+                and not p.name.startswith(".")
+                and p.name not in ignore
+            ),
+            key=lambda p: p.name,  # string order: identical on every OS (spec §20.2)
         )
     except OSError:
         return ()

@@ -294,3 +294,15 @@ def test_unregister_matches_like_register(tmp_path: Path, monkeypatch) -> None:
     register_workspace(ws)
     unregister_workspace(tmp_path / "work")
     assert list_workspaces() == ()
+
+
+def test_layout_order_is_the_same_on_every_os(tmp_path: Path) -> None:
+    # final review M3: Path sorting is case-insensitive on Windows only.
+    from cairn.detectors.profile import ProfileDetector
+    from tests.helpers import ctx_for
+
+    repo = make_repo(tmp_path, "app", {"package.json": "{}"})
+    for name in ("alpha", "Beta", "Zeta"):
+        (repo / name).mkdir()
+    layout = [e.path for e in ProfileDetector().run(ctx_for(tmp_path, repo)).layout]
+    assert layout == sorted(layout)
