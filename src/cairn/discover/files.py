@@ -25,6 +25,9 @@ DEFAULT_IGNORE_DIRS = frozenset(
         ".turbo",
         ".cache",
         "coverage",
+        "fixtures",
+        "__fixtures__",
+        "testdata",
     }
 )
 _BINARY_SNIFF_BYTES = 8192

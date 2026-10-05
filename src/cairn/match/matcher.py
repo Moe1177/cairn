@@ -154,6 +154,7 @@ def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
     providers = {r.id: {f.value for f in _facts(r, False, FactKind.DB_PROVIDER)} for r in repos}
     linked = _linked_refs(repos)
     df = Counter(name for refs in tables.values() for name in refs.refs)
+    creators = Counter(name for refs in tables.values() for name in refs.created)
     edges = []
     for a, b in combinations([r.id for r in repos], 2):
         if _disjoint(linked[a], linked[b]):
@@ -163,7 +164,11 @@ def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
         owned = _owned_by_one_side(shared, tables[a], tables[b])
         if owned == 0 and _disjoint(providers[a], providers[b]):
             continue  # name-only overlap across different DB providers (e.g. Neon vs Supabase)
-        confidence = _db_tier(db_confidence(score), owned)
+        sole_owner = any(
+            creators[t] == 1 and (t in tables[a].created) != (t in tables[b].created)
+            for t in shared
+        )
+        confidence = _db_tier(db_confidence(score), owned, sole_owner=sole_owner)
         if confidence is None:
             continue
         source, target = _db_direction(a, b, shared, tables)
@@ -189,13 +194,19 @@ def _owned_by_one_side(shared: list[str], a: _TableRefs, b: _TableRefs) -> int:
     return sum((t in a.created) != (t in b.created) for t in shared)
 
 
-def _db_tier(base: Confidence | None, owned: int) -> Confidence | None:
-    """Spec §16.1: name-only overlap is ambiguous; a single owned table caps at inferred."""
+def _db_tier(base: Confidence | None, owned: int, *, sole_owner: bool) -> Confidence | None:
+    """Spec §16.1: name-only overlap is ambiguous; a single owned table caps at inferred.
+
+    A table that exactly one repo in the workspace creates, queried by the other side, is
+    at least inferred however many repos query it: that owner link is what agents need.
+    """
     if base is None:
         return None
     if owned == 0:
         return Confidence.AMBIGUOUS
     if owned == 1 and base is Confidence.EXTRACTED:
+        return Confidence.INFERRED
+    if sole_owner and base is Confidence.AMBIGUOUS:
         return Confidence.INFERRED
     return base
 

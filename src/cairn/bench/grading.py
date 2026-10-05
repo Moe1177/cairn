@@ -53,22 +53,57 @@ def _inside(path: str, roots: tuple[str, ...]) -> str | None:
     return None
 
 
+def _heading_repo(line: str, repo_ids: set[str]) -> str | None | bool:
+    """For a heading-like line with no paths: the one repo it names, or None.
+
+    Returns False when the line isn't a heading (the current context carries on).
+    """
+    stripped = line.strip().strip("-* ").strip()
+    heading = line.lstrip().startswith("#") or stripped.endswith(":") or line.strip().endswith("**")
+    if not stripped or not heading or _PATH.search(line):
+        return False
+    named = [r for r in repo_ids if re.search(rf"(?<![\w-]){re.escape(r)}(?![\w-])", line)]
+    return named[0] if len(named) == 1 else None
+
+
+def _strip_root_tail(path: str, ws_parts: tuple[str, ...], repo_ids: set[str]) -> str:
+    """`ws/orders-svc/x` (relative to the workspace's parent) -> `orders-svc/x`."""
+    segments = path.split("/")
+    for i in range(1, min(len(segments), len(ws_parts) + 1)):
+        if segments[i] in repo_ids and tuple(segments[:i]) == ws_parts[-i:]:
+            return "/".join(segments[i:])
+    return path
+
+
 def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[str]) -> set[str]:
-    """Workspace paths (`repo/path`) named in `text`; bare paths are relative to the working repo."""
+    """Workspace paths (`repo/path`) named in `text`.
+
+    A bare path belongs to the repo named by the heading it sits under (`**orders-svc:**`),
+    else to the working repo.
+    """
     roots = _root_spellings(ws_root)
+    ws_parts = tuple(p for p in ws_root.as_posix().split("/") if p)
     found: set[str] = set()
-    for token in _PATH.findall(text):
-        path = token.replace("\\", "/").rstrip(_TRAILING)
-        if path.startswith("/") or _DRIVE.match(path):
-            inside = _inside(path, roots)
-            if inside is None:
-                continue
-            path = inside
-        elif path.split("/", 1)[0] not in repo_ids:
-            path = f"{working_repo}/{path}"
-        path = posixpath.normpath(path)
-        if not path.startswith(".."):
-            found.add(path)
+    context = working_repo
+    for line in text.splitlines():
+        heading = _heading_repo(line, repo_ids)
+        if heading is not False:
+            context = heading or working_repo
+            continue
+        for token in _PATH.findall(line):
+            path = token.replace("\\", "/").rstrip(_TRAILING)
+            if path.startswith("/") or _DRIVE.match(path):
+                inside = _inside(path, roots)
+                if inside is None:
+                    continue
+                path = inside
+            else:
+                path = _strip_root_tail(path, ws_parts, repo_ids)
+                if path.split("/", 1)[0] not in repo_ids:
+                    path = f"{context}/{path}"
+            path = posixpath.normpath(path)
+            if not path.startswith(".."):
+                found.add(path)
     return found
 
 
