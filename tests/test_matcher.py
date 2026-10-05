@@ -196,3 +196,11 @@ def test_local_supabase_ids_only_make_ambiguous_edges() -> None:
     b = _repo("b", consumes=[(FactKind.DB_PROJECT_REF, "supabase-local:app")])
     (edge,) = match_edges([a, b])
     assert edge.confidence is Confidence.AMBIGUOUS and edge.score == 0.3
+
+
+def test_duplicate_package_owners_are_ambiguous() -> None:
+    kit = _repo("ui-kit", exposes=[(FactKind.PACKAGE, "npm:@acme/ui-kit")])
+    fork = _repo("ui-kit-fork", exposes=[(FactKind.PACKAGE, "npm:@acme/ui-kit")])
+    site = _repo("site", consumes=[(FactKind.PACKAGE, "npm:@acme/ui-kit")])
+    edges = {(e.target, e.confidence) for e in match_edges([kit, fork, site])}
+    assert edges == {("ui-kit", Confidence.AMBIGUOUS), ("ui-kit-fork", Confidence.AMBIGUOUS)}

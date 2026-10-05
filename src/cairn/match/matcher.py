@@ -110,24 +110,29 @@ def _edge(
 
 
 def _package_edges(repos: list[RepoFacts]) -> list[Edge]:
-    owners: dict[str, str] = {}
+    owners: dict[str, list[str]] = {}
     for repo in repos:
         for fact in _facts(repo, True, FactKind.PACKAGE):
-            owners.setdefault(fact.value, repo.id)
-    return [
-        _edge(
-            repo.id,
-            owners[f.value],
-            EdgeType.DEPENDS_ON_PACKAGE,
-            Confidence.EXTRACTED,
-            1.0,
-            [f"package:{f.value}"],
-            f.evidence,
-        )
-        for repo in repos
-        for f in _facts(repo, False, FactKind.PACKAGE)
-        if owners.get(f.value) not in (None, repo.id)
-    ]
+            owners.setdefault(fact.value, []).append(repo.id)
+    edges = []
+    for repo in repos:
+        for fact in _facts(repo, False, FactKind.PACKAGE):
+            candidates = [o for o in owners.get(fact.value, []) if o != repo.id]
+            # Two repos publishing the same name: we can't tell which one is consumed.
+            unique = len(candidates) == 1
+            edges += [
+                _edge(
+                    repo.id,
+                    owner,
+                    EdgeType.DEPENDS_ON_PACKAGE,
+                    Confidence.EXTRACTED if unique else Confidence.AMBIGUOUS,
+                    1.0 if unique else 0.3,
+                    [f"package:{fact.value}"],
+                    fact.evidence,
+                )
+                for owner in candidates
+            ]
+    return edges
 
 
 def _table_refs(repo: RepoFacts, stop: frozenset[str]) -> _TableRefs:
