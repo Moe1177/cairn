@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST, db_confidence, noisy_or, specificity
+from cairn.match.services import http_edges
 from cairn.model.graph import (
     MAX_EVIDENCE,
     SYMMETRIC_TYPES,
@@ -27,6 +28,7 @@ class RepoFacts:
     id: str
     path: str
     contracts: Contracts
+    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,7 @@ def match_edges(
             *_project_ref_edges(ordered),
             *_path_edges(ordered),
             *_mention_edges(ordered),
+            *http_edges(ordered),
         ]
     )
     return merged  # corroboration runs after overrides (see match.overrides)

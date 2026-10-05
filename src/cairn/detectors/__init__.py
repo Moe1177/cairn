@@ -3,6 +3,7 @@
 from cairn.detectors.base import Detector
 from cairn.detectors.database import DatabaseDetector
 from cairn.detectors.docs import DocsDetector
+from cairn.detectors.http import HttpDetector
 from cairn.detectors.identity import IdentityDetector
 from cairn.detectors.packages import PackagesDetector
 from cairn.detectors.pathrefs import PathRefsDetector
@@ -13,6 +14,7 @@ RELATION_DETECTORS: tuple[Detector, ...] = (
     PackagesDetector(),
     DatabaseDetector(),
     PathRefsDetector(),
+    HttpDetector(),
     DocsDetector(),
 )
 

@@ -71,6 +71,8 @@ class Fact(Frozen):
     kind: FactKind
     value: str = Field(min_length=1)
     evidence: tuple[Evidence, ...] = ()
+    # What a call's base URL came from (an env var or service host), spec §21.1.
+    hints: tuple[str, ...] = ()
 
 
 class Contracts(Frozen):

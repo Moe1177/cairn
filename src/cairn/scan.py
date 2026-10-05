@@ -109,7 +109,9 @@ def scan_workspace(
         for loc in locations
     )
     stop = DEFAULT_TABLE_STOPLIST | frozenset(t.lower() for t in config.stop_tables)
-    edges = match_edges([RepoFacts(r.id, r.path, r.contracts) for r in repos], stop_tables=stop)
+    edges = match_edges(
+        [RepoFacts(r.id, r.path, r.contracts, r.aliases) for r in repos], stop_tables=stop
+    )
     overridden = apply_overrides(edges, relations, authored, frozenset(r.id for r in repos))
     workspace = Workspace(
         workspace_root=root.as_posix(),

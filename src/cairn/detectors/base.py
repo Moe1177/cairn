@@ -97,15 +97,27 @@ class Detector(Protocol):
 
 def merge_facts(facts: Iterable[Fact]) -> tuple[Fact, ...]:
     grouped: dict[tuple[str, str], list[Evidence]] = {}
+    hints: dict[tuple[str, str], list[str]] = {}
     for fact in facts:
-        bucket = grouped.setdefault((fact.kind.value, fact.value), [])
+        key = (fact.kind.value, fact.value)
+        bucket = grouped.setdefault(key, [])
         for ev in fact.evidence:
             if ev not in bucket and len(bucket) < MAX_EVIDENCE:
                 bucket.append(ev)
+        known = hints.setdefault(key, [])
+        known += [h for h in fact.hints if h not in known][: _MAX_HINTS - len(known)]
     return tuple(
-        Fact(kind=FactKind(kind), value=value, evidence=tuple(evidence))
+        Fact(
+            kind=FactKind(kind),
+            value=value,
+            evidence=tuple(evidence),
+            hints=tuple(hints[(kind, value)]),
+        )
         for (kind, value), evidence in sorted(grouped.items())
     )
+
+
+_MAX_HINTS = 5
 
 
 def combine_results(results: Iterable[DetectorResult]) -> DetectorResult:
