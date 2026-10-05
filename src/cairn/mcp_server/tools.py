@@ -10,7 +10,7 @@ from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
 from cairn.load import load_authored
-from cairn.model.graph import Confidence, Repo, Workspace
+from cairn.model.graph import Confidence, Package, Repo, Workspace
 from cairn.paths import cards_dir
 from cairn.render.card import relate_line
 from cairn.resolve import resolve_repo
@@ -86,6 +86,9 @@ def _find(ws_root: Path, name: str) -> tuple[Workspace, Repo | None, str]:
     for repo in workspace.repos:
         if lowered == repo.id.lower() or lowered in (a.lower() for a in repo.aliases):
             return workspace, repo, ""
+    owner = _package_owner(workspace, lowered)
+    if owner is not None:
+        return workspace, owner[0], ""
     matches = resolve_repo(workspace, load_authored(ws_root), name, limit=3)
     if matches and matches[0].score == 1.0:
         return workspace, workspace.repo(matches[0].repo_id), ""
@@ -93,9 +96,25 @@ def _find(ws_root: Path, name: str) -> tuple[Workspace, Repo | None, str]:
     return workspace, None, f"No repo named '{name}'. Did you mean: {hint}? (use resolve_repo)"
 
 
+def _package_owner(workspace: Workspace, lowered: str) -> tuple[Repo, Package] | None:
+    """The repo whose monorepo contains a package with this exact name (spec §21.4)."""
+    for repo in workspace.repos:
+        for package in repo.packages:
+            if package.name.lower() == lowered:
+                return repo, package
+    return None
+
+
 @locked
 def resolve_text(ws_root: Path, query: str) -> str:
     workspace = _workspace(ws_root)
+    owner = _package_owner(workspace, query.strip().lower())
+    if owner is not None:
+        repo, package = owner
+        return clean_inline(
+            f"- {repo.id}: package {package.name} at `{package.path}` → .cairn/cards/{repo.id}.md",
+            400,
+        )
     matches = resolve_repo(workspace, load_authored(ws_root), query, limit=5)
     if not matches:
         known = ", ".join(r.id for r in workspace.repos[:MAX_LINES])

@@ -79,6 +79,7 @@ def _sections(repo: Repo, workspace: Workspace, note: str | None) -> list[_Secti
             tuple(f"⚠ {e.detector} detector failed: {e.message}" for e in repo.detector_errors),
         ),
         _Section("Relates", _relates(repo, workspace)),
+        _Section("Packages", tuple(f"{_safe(p.name)} → {_safe(p.path)}" for p in repo.packages)),
         _Section("Run", tuple(f"{_safe(c.name)} `{_safe(c.run)}`" for c in repo.commands)),
         _Section(
             "Layout",

@@ -14,7 +14,8 @@ from cairn.detectors.manifests import (
     pyproject_requirement_names,
     requirements_names,
 )
-from cairn.model.graph import Fact, FactKind
+from cairn.discover.workspaces import workspace_packages
+from cairn.model.graph import Fact, FactKind, Package
 
 Found = tuple[list[Fact], list[Fact]]
 _CARGO_DEP_SECTIONS = ("dependencies", "dev-dependencies", "build-dependencies")
@@ -26,12 +27,21 @@ class PackagesDetector:
     def run(self, ctx: DetectorContext) -> DetectorResult:
         exposes: list[Fact] = []
         consumes: list[Fact] = []
-        for root in ctx.repo.app_roots:
+        members = workspace_packages(ctx.repo.root, ctx.config.max_file_bytes)
+        member_roots = [ctx.repo.root / m.path for m in members]
+        # Monorepo packages publish and depend like app roots do (spec §21.4).
+        for root in dict.fromkeys((*ctx.repo.app_roots, *member_roots)):
             for probe in (_npm, _python, _go, _cargo):
                 found_exposes, found_consumes = probe(ctx, root)
                 exposes += found_exposes
                 consumes += found_consumes
-        return DetectorResult(exposes=merge_facts(exposes), consumes=merge_facts(consumes))
+        repo_path = ctx.repo.rel_path(ctx.workspace_root)
+        packages = tuple(
+            Package(name=m.name, path=f"{repo_path}/{m.path}", stack=m.stack) for m in members
+        )
+        return DetectorResult(
+            exposes=merge_facts(exposes), consumes=merge_facts(consumes), packages=packages
+        )
 
 
 def _fact(ctx: DetectorContext, path: Path, text: str, value: str, needle: str) -> Fact:

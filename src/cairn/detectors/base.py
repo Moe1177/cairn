@@ -9,7 +9,15 @@ from typing import Protocol
 from cairn.config import CairnConfig
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, crosses_link, iter_files, read_text
 from cairn.discover.repos import RepoLocation
-from cairn.model.graph import MAX_EVIDENCE, Command, Evidence, Fact, FactKind, LayoutEntry
+from cairn.model.graph import (
+    MAX_EVIDENCE,
+    Command,
+    Evidence,
+    Fact,
+    FactKind,
+    LayoutEntry,
+    Package,
+)
 from cairn.security.redact import make_snippet
 
 # Test code, fixtures, and examples hold fake data that would create false edges.
@@ -78,6 +86,7 @@ class DetectorResult:
     commands: tuple[Command, ...] = ()
     layout: tuple[LayoutEntry, ...] = ()
     readme_excerpt: str | None = None
+    packages: tuple[Package, ...] = ()
 
 
 class Detector(Protocol):
@@ -109,6 +118,7 @@ def combine_results(results: Iterable[DetectorResult]) -> DetectorResult:
         commands=tuple(c for r in items for c in r.commands),
         layout=tuple(e for r in items for e in r.layout),
         readme_excerpt=next((r.readme_excerpt for r in items if r.readme_excerpt), None),
+        packages=tuple({p.path: p for r in items for p in r.packages}.values()),
     )
 
 

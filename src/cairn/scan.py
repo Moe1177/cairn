@@ -248,6 +248,7 @@ def _build_repo(
         layout=first.layout,
         readme_excerpt=first.readme_excerpt,
         summary_stale=summary_stale,
+        packages=second.packages,
         contracts=Contracts(exposes=second.exposes, consumes=second.consumes),
         detector_errors=(*first_errors, *second_errors),
     )
