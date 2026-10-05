@@ -157,7 +157,9 @@ def _uninstall_gemini(ws_root: Path) -> Lines:
 def _install_cursor(ws_root: Path, per_repo: bool) -> Lines:
     home = cursor_home()
     cf.write_owned(home / "commands" / "cairn.md", SKILL_BODY)
-    cf.set_json_server(home / "mcp.json", server_command(), label="cursor")
+    # Cursor starts stdio servers outside the project; it expands ${workspaceFolder} itself.
+    command = [*server_command(), "--from", "${workspaceFolder}"]
+    cf.set_json_server(home / "mcp.json", command, label="cursor")
     lines = [f"Cursor: /cairn command and MCP server installed in {home}"]
     if per_repo:
         count, skipped = _cursor_rules(ws_root, add=True)

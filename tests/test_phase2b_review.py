@@ -136,8 +136,9 @@ def test_existing_claude_registration_is_replaced(env, monkeypatch) -> None:
 # I5: never register a path inside uv's cache
 def test_ephemeral_uvx_environment_registers_uvx_command(monkeypatch) -> None:
     cache_exe = "C:\\Users\\me\\AppData\\Local\\uv\\cache\\archive-v0\\abc\\Scripts\\cairn.exe"
-    monkeypatch.setattr(sc.shutil, "which", lambda name: cache_exe)
-    assert sc.server_command() == ["uvx", "--from", "cairnmap", "cairn", "serve"]
+    monkeypatch.setattr(sc.shutil, "which", lambda name: cache_exe if name == "cairn" else None)
+    monkeypatch.setattr(sc.sys, "executable", cache_exe.replace("cairn.exe", "python.exe"))
+    assert sc.server_command() == sc.UVX_COMMAND  # pinned: cairnmap==<version>
     assert sc.is_ephemeral(Path(cache_exe))
     assert not sc.is_ephemeral(Path("C:/Users/me/.local/bin/cairn.exe"))
 

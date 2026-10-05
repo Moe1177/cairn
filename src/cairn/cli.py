@@ -251,6 +251,16 @@ def annotate_edge_cmd(
         _fail(str(exc))
 
 
+def serve_start(workspace: Path | None, from_dir: Path | None) -> tuple[Path | None, Path]:
+    """(workspace root or None, folder the search started from) for `cairn serve`."""
+    from cairn.mcp_server.server import find_workspace
+
+    start = from_dir or Path.cwd()
+    if workspace:
+        return workspace.resolve(), start
+    return (find_workspace(start) if start.is_dir() else None), start
+
+
 @app.command()
 def serve(
     workspace: Annotated[
@@ -259,14 +269,22 @@ def serve(
             "--workspace", help="Workspace root (default: found from the current directory)."
         ),
     ] = None,
+    from_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--from",
+            help="Find the workspace from this folder instead of the current directory "
+            "(editors that start servers elsewhere pass the open folder).",
+        ),
+    ] = None,
 ) -> None:
     """Run the cairn MCP server over stdio (harnesses start this for you)."""
-    from cairn.mcp_server.server import build_server, find_workspace
+    from cairn.mcp_server.server import build_server
 
-    root = workspace.resolve() if workspace else find_workspace(Path.cwd())
+    root, start = serve_start(workspace, from_dir)
     # Outside a workspace the server still starts and its tools explain how to set one up,
     # so a globally registered cairn never shows as a failed server in unrelated projects.
-    build_server(root, start=Path.cwd()).run()
+    build_server(root, start=start).run()
 
 
 @app.command("set-summary")
