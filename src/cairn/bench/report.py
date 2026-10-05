@@ -54,7 +54,7 @@ def render_markdown(records: Sequence["RunRecord"]) -> str:
     parts = [
         "# cairn benchmark",
         "",
-        "Conditions: A cold · B hand-written doc · C cairn INDEX · D INDEX + cards · E D + MCP",
+        "Conditions: A cold, B hand-written doc, C cairn INDEX, D INDEX + cards, E D + MCP",
         "",
         *_summary(records),
         "",

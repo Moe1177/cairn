@@ -9,3 +9,4 @@ htmlcov/
 .ruff_cache/
 /.cairn/
 .superpowers/
+bench/results/
