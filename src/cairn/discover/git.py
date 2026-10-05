@@ -53,3 +53,18 @@ def _git(root: Path, args: list[str], timeout: float) -> str | None:
     except (OSError, subprocess.TimeoutExpired):
         return None
     return result.stdout.strip() if result.returncode == 0 else None
+
+
+def summary_is_stale(root: Path, since: str, threshold: int, timeout: float = 10.0) -> bool:
+    """Spec §18: stale when manifests or top-level entries changed, or > threshold files changed."""
+    from cairn.discover.repos import MANIFEST_NAMES
+
+    changed = _git(root, ["diff", "--name-only", since, "HEAD"], timeout)
+    if changed is None:
+        return True  # sha unknown here (rebased away, shallow clone): be safe
+    files = [f for f in changed.splitlines() if f.strip()]
+    if len(files) > threshold or any(Path(f).name in MANIFEST_NAMES for f in files):
+        return True
+    before = _git(root, ["ls-tree", "--name-only", since], timeout)
+    after = _git(root, ["ls-tree", "--name-only", "HEAD"], timeout)
+    return before is None or after is None or set(before.split()) != set(after.split())

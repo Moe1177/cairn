@@ -46,7 +46,10 @@ def _header(repo: Repo, authored: Authored | None) -> str:
 def _summary(repo: Repo, authored: Authored | None) -> str:
     if authored and authored.summary:
         flat = " ".join(authored.summary.split())
-        return flat if len(flat) <= SUMMARY_MAX else flat[: SUMMARY_MAX - 1] + "…"
+        text = flat if len(flat) <= SUMMARY_MAX else flat[: SUMMARY_MAX - 1] + "…"
+        if repo.summary_stale and authored.summary_sha:
+            text += f" (possibly stale: written at {authored.summary_sha[:7]})"
+        return text
     if repo.readme_excerpt:
         return f"{repo.readme_excerpt} (auto from README)"
     return "(no summary yet)"

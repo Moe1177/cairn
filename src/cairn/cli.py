@@ -197,6 +197,7 @@ def status(path: PathArg = Path(".")) -> None:
         _fail("No map found. Run `cairn scan` first.")
     counts = Counter(e.confidence.value for e in workspace.edges)
     missing = [r.id for r in workspace.repos if not (r.id in authored and authored[r.id].summary)]
+    stale = [r.id for r in workspace.repos if r.summary_stale]
     errors = [
         f"{r.id}: {e.detector}: {e.message}" for r in workspace.repos for e in r.detector_errors
     ]
@@ -207,6 +208,7 @@ def status(path: PathArg = Path(".")) -> None:
         f"Edges: {len(workspace.edges)} "
         f"({', '.join(f'{counts[c.value]} {c.value}' for c in Confidence)})",
         f"Repos without an authored summary: {', '.join(missing) or 'none'}",
+        f"Possibly stale summaries: {', '.join(stale) or 'none'}",
         f"Detector errors: {'; '.join(errors) or 'none'}",
         f"Claude Code integration: {'installed' if is_installed(root) else 'not installed'}",
         f"Harnesses: {', '.join(installed_harnesses(root)) or 'none'}",

@@ -12,7 +12,7 @@ from cairn.detectors import IDENTITY_DETECTORS, LIVE_DETECTOR_IDS
 from cairn.detectors.base import Detector, DetectorContext, DetectorResult, combine_results
 from cairn.detectors.identity import clean_aliases
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists
-from cairn.discover.git import GitInfo, git_info
+from cairn.discover.git import GitInfo, git_info, summary_is_stale
 from cairn.discover.repos import RepoLocation, discover_repos
 from cairn.errors import CairnError
 from cairn.load import load_authored, load_config, load_relations
@@ -90,6 +90,7 @@ def scan_workspace(
             ),
             gits[loc.id],
             aliases[loc.id],
+            _is_stale(loc, gits[loc.id], authored.get(loc.id), config),
         )
         for loc in locations
     )
@@ -131,6 +132,18 @@ def _read_repo(
         )
         save_entry(root, loc.id, entry)
     return _RepoRead(identity, relation, False)
+
+
+def _is_stale(
+    loc: RepoLocation, git: GitInfo, authored: Authored | None, config: CairnConfig
+) -> bool:
+    """Only asks git when an authored summary was written at a different commit."""
+    if not (authored and authored.summary and authored.summary_sha and git.head_sha):
+        return False
+    sha, head = authored.summary_sha, git.head_sha
+    if head.startswith(sha) or sha.startswith(head):
+        return False
+    return summary_is_stale(loc.root, sha, config.stale_file_threshold)
 
 
 def _merge(a: Run, b: Run) -> Run:
@@ -196,6 +209,7 @@ def _build_repo(
     relation: Run,
     git: GitInfo,
     aliases: tuple[str, ...],
+    summary_stale: bool = False,
 ) -> Repo:
     first, first_errors = identity
     second, second_errors = relation
@@ -211,6 +225,7 @@ def _build_repo(
         commands=first.commands,
         layout=first.layout,
         readme_excerpt=first.readme_excerpt,
+        summary_stale=summary_stale,
         contracts=Contracts(exposes=second.exposes, consumes=second.consumes),
         detector_errors=(*first_errors, *second_errors),
     )

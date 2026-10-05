@@ -13,3 +13,4 @@ class CairnConfig(Frozen):
     ignore_dirs: tuple[str, ...] = ()
     stop_tables: tuple[str, ...] = ()
     stop_aliases: tuple[str, ...] = ()
+    stale_file_threshold: int = Field(default=50, ge=1)
