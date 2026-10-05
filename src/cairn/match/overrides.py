@@ -25,7 +25,7 @@ def apply_overrides(
     kept = [
         _annotate(e, reviews, whys)
         for e in edges
-        if not _removed(e, relations.remove_edges) and reviews.get(e.key) != "rejected"
+        if not _removed(e, relations.remove_edges) and _lookup(reviews, e) != "rejected"
     ]
     manual, warnings = _manual_edges(relations, known_ids, whys)
     warnings += _unknown_keys("aliases", relations.aliases, known_ids)
@@ -33,12 +33,24 @@ def apply_overrides(
     return OverrideResult(edges=merge_edges([*kept, *manual]), warnings=tuple(warnings))
 
 
+def edge_keys(edge: Edge) -> tuple[str, ...]:
+    """Keys an author may use for this edge; symmetric edges match either direction."""
+    if edge.type in SYMMETRIC_TYPES:
+        return (edge.key, f"{edge.target}->{edge.source}:{edge.type.value}")
+    return (edge.key,)
+
+
+def _lookup(mapping: Mapping[str, str], edge: Edge) -> str | None:
+    return next((mapping[k] for k in edge_keys(edge) if k in mapping), None)
+
+
 def _annotate(edge: Edge, reviews: Mapping[str, str], whys: Mapping[str, str]) -> Edge:
     update: dict[str, object] = {}
-    if reviews.get(edge.key) == "confirmed" and edge.confidence is Confidence.AMBIGUOUS:
+    if _lookup(reviews, edge) == "confirmed" and edge.confidence is Confidence.AMBIGUOUS:
         update["confidence"] = Confidence.INFERRED
-    if edge.key in whys:
-        update["why"] = whys[edge.key]
+    why = _lookup(whys, edge)
+    if why is not None:
+        update["why"] = why
     return edge.model_copy(update=update) if update else edge
 
 

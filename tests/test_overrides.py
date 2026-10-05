@@ -57,3 +57,14 @@ def test_manual_edges_and_warnings() -> None:
     assert manual.note == "use the API" and manual.signals == ("manual",)
     joined = "\n".join(result.warnings)
     assert "ghost" in joined and "phantom" in joined and "nobody" in joined
+
+
+def test_symmetric_edge_reviews_and_whys_match_either_direction() -> None:
+    # Final review I6: shares_db direction is invisible to users and can flip.
+    edges = [_edge("a", "b", EdgeType.SHARES_DB), _edge("a", "c", EdgeType.SHARES_DB)]
+    authored = {
+        "b": Authored(edge_reviews={"b->a:shares_db": "rejected"}),
+        "c": Authored(edge_whys={"c->a:shares_db": "same Postgres instance"}),
+    }
+    (edge,) = apply_overrides(edges, Relations(), authored, KNOWN).edges
+    assert edge.key == "a->c:shares_db" and edge.why == "same Postgres instance"

@@ -10,7 +10,7 @@ from cairn.config import CairnConfig
 from cairn.detectors import IDENTITY_DETECTORS, RELATION_DETECTORS
 from cairn.detectors.base import Detector, DetectorContext, DetectorResult, combine_results
 from cairn.detectors.identity import clean_aliases
-from cairn.discover.files import DEFAULT_IGNORE_DIRS
+from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists
 from cairn.discover.git import GitInfo, git_info
 from cairn.discover.repos import RepoLocation, discover_repos
 from cairn.errors import CairnError
@@ -38,6 +38,8 @@ def scan_workspace(ws_root: Path, *, now: datetime | None = None) -> ScanResult:
     root = ws_root.resolve()
     if not root.is_dir():
         raise CairnError(f"{ws_root} is not a directory")
+    if safe_exists(root / ".git"):
+        raise _inside_repo_error(root, root)
     config, relations, authored = load_config(root), load_relations(root), load_authored(root)
     locations = discover_repos(
         root,
@@ -45,6 +47,9 @@ def scan_workspace(ws_root: Path, *, now: datetime | None = None) -> ScanResult:
         max_depth=config.max_depth,
         ignore_repos=frozenset(relations.ignore_repos),
     )
+    enclosing = next((p for p in root.parents if safe_exists(p / ".git")), None)
+    if not locations and enclosing is not None:
+        raise _inside_repo_error(root, enclosing)
     gits = {loc.id: git_info(loc.root) for loc in locations}
     identity = {
         loc.id: _run_all(IDENTITY_DETECTORS, DetectorContext(root, loc, config))
@@ -73,6 +78,13 @@ def scan_workspace(ws_root: Path, *, now: datetime | None = None) -> ScanResult:
         edges=overridden.edges,
     )
     return ScanResult(workspace, authored, relations, config, overridden.warnings)
+
+
+def _inside_repo_error(root: Path, repo: Path) -> CairnError:
+    return CairnError(
+        f"{root} is inside the git repository {repo}. Run cairn from the folder that "
+        f"contains your repos (for example {repo.parent}), so it never writes into a repo."
+    )
 
 
 def build_alias_table(aliases: Mapping[str, Sequence[str]]) -> dict[str, str]:

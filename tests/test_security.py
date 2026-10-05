@@ -82,3 +82,10 @@ def test_snippet_truncates_long_lines() -> None:
     snippet = make_snippet("  " + "a " * 200)
     assert len(snippet) == 160
     assert snippet.endswith("…")
+
+
+def test_url_credentials_with_empty_user_or_at_sign_are_redacted() -> None:
+    # Final review: redis://:pw@host and passwords containing "@" leaked.
+    assert redact("redis://:SuperSecretPw@cache:6379") == f"redis://{REDACTED}@cache:6379"
+    out = redact("postgres://admin:p@ssW0rd@db.example.com/x")
+    assert "ssW0rd" not in out and out.endswith("@db.example.com/x")

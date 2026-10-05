@@ -4,7 +4,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from cairn.discover.files import DEFAULT_IGNORE_DIRS
+from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists, safe_is_dir, safe_is_file
 
 MANIFEST_NAMES = (
     "package.json",
@@ -55,7 +55,7 @@ def _children(directory: Path, ignore_dirs: frozenset[str]) -> list[Path]:
     return [
         p
         for p in entries
-        if p.is_dir() and not p.name.startswith(".") and p.name not in ignore_dirs
+        if safe_is_dir(p) and not p.name.startswith(".") and p.name not in ignore_dirs
     ]
 
 
@@ -65,7 +65,7 @@ def _find_repo_roots(root: Path, ignore_dirs: frozenset[str], max_depth: int) ->
     while frontier:
         directory, depth = frontier.pop()
         for child in _children(directory, ignore_dirs):
-            if (child / ".git").exists():
+            if safe_exists(child / ".git"):
                 found.append(child)
             elif depth + 1 < max_depth:
                 frontier.append((child, depth + 1))
@@ -83,7 +83,7 @@ def _assign_ids(ws_root: Path, roots: list[Path]) -> list[str]:
 
 
 def _has_manifest(directory: Path) -> bool:
-    return any((directory / name).is_file() for name in MANIFEST_NAMES)
+    return any(safe_is_file(directory / name) for name in MANIFEST_NAMES)
 
 
 def _app_roots(repo_root: Path, ignore_dirs: frozenset[str]) -> tuple[Path, ...]:
@@ -94,7 +94,7 @@ def _app_roots(repo_root: Path, ignore_dirs: frozenset[str]) -> tuple[Path, ...]
     while frontier:
         directory, depth = frontier.pop(0)
         for child in _children(directory, ignore_dirs):
-            if (child / ".git").exists():
+            if safe_exists(child / ".git"):
                 continue
             if _has_manifest(child):
                 found.append(child)

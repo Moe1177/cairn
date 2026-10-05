@@ -75,6 +75,28 @@ def read_text(path: Path, max_bytes: int = 1_000_000) -> str | None:
     return data.decode("utf-8", errors="replace").removeprefix("﻿")
 
 
+def safe_exists(path: Path) -> bool:
+    """Path.exists() that treats unreadable paths (e.g. EACCES) as absent instead of raising."""
+    try:
+        return path.exists()
+    except OSError:
+        return False
+
+
+def safe_is_dir(path: Path) -> bool:
+    try:
+        return path.is_dir()
+    except OSError:
+        return False
+
+
+def safe_is_file(path: Path) -> bool:
+    try:
+        return path.is_file()
+    except OSError:
+        return False
+
+
 def _keep_dir(
     parent: Path,
     name: str,
@@ -82,7 +104,7 @@ def _keep_dir(
     ignore_dirs: frozenset[str],
     spec: pathspec.PathSpec | None,
 ) -> bool:
-    if name in ignore_dirs or (parent / name / ".git").exists():
+    if name in ignore_dirs or safe_exists(parent / name / ".git"):
         return False
     rel = f"{rel_parent}/{name}/" if rel_parent else f"{name}/"
     return not (spec is not None and spec.match_file(rel))
@@ -90,7 +112,7 @@ def _keep_dir(
 
 def _gitignore_spec(root: Path) -> pathspec.PathSpec | None:
     gitignore = root / ".gitignore"
-    if not gitignore.is_file():
+    if not safe_is_file(gitignore):
         return None
     try:
         lines = gitignore.read_text(encoding="utf-8", errors="replace").splitlines()

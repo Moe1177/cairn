@@ -95,3 +95,12 @@ def test_cli_output_survives_a_legacy_windows_console(tmp_path: Path) -> None:
             check=False,
         )
         assert proc.returncode == 0, proc.stderr.decode("cp1252", errors="replace")
+
+
+def test_init_with_no_repos_does_not_offer_install(tmp_path: Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    result = runner.invoke(app, ["init", str(empty), "--yes"])
+    assert result.exit_code == 0
+    assert "No git repos found" in result.output
+    assert not (empty / "CLAUDE.md").exists()

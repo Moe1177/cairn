@@ -13,6 +13,7 @@ from cairn.detectors.manifests import (
     parse_go_mod,
     project_name,
 )
+from cairn.security.redact import redact
 
 GENERIC_ALIASES = frozenset(
     {
@@ -92,7 +93,8 @@ def first_paragraph(text: str) -> str | None:
             return None  # a scaffold template README says nothing about this repo
         if _is_fragment(flat):
             continue
-        return flat if len(flat) <= EXCERPT_MAX else flat[: EXCERPT_MAX - 1] + "…"
+        safe = redact(flat)
+        return safe if len(safe) <= EXCERPT_MAX else safe[: EXCERPT_MAX - 1] + "…"
     return None
 
 

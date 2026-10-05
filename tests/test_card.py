@@ -136,3 +136,12 @@ def test_estimate_is_close_to_a_real_tokenizer() -> None:
     )
     real = len(encoding.encode(card))
     assert abs(estimate_tokens(card) - real) / real <= 0.35
+
+
+def test_many_app_roots_do_not_crowd_out_relationships() -> None:
+    # Final review (re-graded): 120 app roots blew the budget and dropped Relates.
+    roots = tuple(f"shop-admin/ex{i:03d}" for i in range(120))
+    repo = _admin(app_roots=roots)
+    card = render_card(repo, _ws(repo, [EDGE]))
+    assert estimate_tokens(card) <= 800
+    assert "## Relates" in card and "+117 more" in card

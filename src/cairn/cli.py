@@ -91,6 +91,12 @@ def init(
     try:
         result = _scan_and_write(path)
         _report(result)
+        if not result.workspace.repos:
+            typer.echo(
+                f"No git repos found under {path.resolve()}. "
+                "Run `cairn init` from the folder that contains your repos."
+            )
+            return
         if no_install:
             typer.echo("Run `cairn install claude` to load the index into Claude Code.")
             return

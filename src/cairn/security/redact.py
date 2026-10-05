@@ -19,7 +19,9 @@ _SECRET_PATTERNS = tuple(
         r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
     )
 )
-_URL_CREDENTIALS = re.compile(r"(?<=://)[^/\s:@]+:[^/\s@]+@")
+# userinfo may have an empty user ("redis://:pw@host") or an "@" inside the password;
+# the greedy match runs to the last "@" before the path.
+_URL_CREDENTIALS = re.compile(r"(?<=://)[^/\s]*:[^/\s]*@")
 _LONG_TOKEN = re.compile(r"[A-Za-z0-9_\-]{32,}")
 
 

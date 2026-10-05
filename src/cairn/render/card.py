@@ -8,6 +8,7 @@ from cairn.render.tokens import estimate_tokens
 
 SUMMARY_MAX = 500
 _LIST_PREVIEW = 5
+_APP_ROOT_PREVIEW = 3
 
 
 @dataclass(frozen=True)
@@ -35,7 +36,10 @@ def render_card(
 def _header(repo: Repo, authored: Authored | None) -> str:
     lines = [f"# {repo.id}", f"> {_summary(repo, authored)}", _meta(repo)]
     if any(root != repo.path for root in repo.app_roots):
-        lines.append("app: " + ", ".join(f"`./{root}`" for root in repo.app_roots))
+        shown = repo.app_roots[:_APP_ROOT_PREVIEW]
+        extra = len(repo.app_roots) - len(shown)
+        more = f" +{extra} more" if extra else ""
+        lines.append("app: " + ", ".join(f"`./{root}`" for root in shown) + more)
     return "\n".join(lines) + "\n"
 
 

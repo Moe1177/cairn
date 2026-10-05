@@ -121,6 +121,12 @@ def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
         confidence = db_confidence(score)
         if confidence is None:
             continue
+        if (
+            confidence is Confidence.EXTRACTED
+            and _owned_by_one_side(shared, tables[a], tables[b]) < 2
+        ):
+            # Same names alone (e.g. both apps create `profiles`) don't prove a shared database.
+            confidence = Confidence.INFERRED
         source, target = _db_direction(a, b, shared, tables)
         evidence = [
             ev for t in shared for ev in (*tables[source].refs[t][:1], *tables[target].refs[t][:1])
@@ -137,6 +143,11 @@ def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
             )
         )
     return edges
+
+
+def _owned_by_one_side(shared: list[str], a: _TableRefs, b: _TableRefs) -> int:
+    """Shared tables that exactly one repo creates and the other only queries."""
+    return sum((t in a.created) != (t in b.created) for t in shared)
 
 
 def _db_direction(

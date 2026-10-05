@@ -30,3 +30,18 @@ def test_empty_file_and_duplicates() -> None:
     assert remove_block(f"{START}\nx\n{END}\n") == ""
     doubled = f"a\n{START}\nold\n{END}\nb\n{START}\nold2\n{END}\n"
     assert upsert_block(doubled, "new").count(START) == 1
+
+
+def test_incomplete_block_is_refused_not_destroyed() -> None:
+    # Final review I2: an orphan START let upsert/remove delete user text.
+    import pytest
+
+    from cairn.errors import CairnError
+
+    broken = f"{START}\nold index\nIMPORTANT USER NOTES\n"
+    with pytest.raises(CairnError):
+        upsert_block(broken, "new")
+    with pytest.raises(CairnError):
+        remove_block(broken)
+    with pytest.raises(CairnError):
+        upsert_block(f"{END}\nx\n{START}\n", "new")

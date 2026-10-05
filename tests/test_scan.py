@@ -86,3 +86,14 @@ def test_alias_table_drops_collisions_and_ids_win() -> None:
 def test_not_a_directory(tmp_path: Path) -> None:
     with pytest.raises(CairnError):
         scan_workspace(tmp_path / "missing")
+
+
+def test_scanning_inside_a_git_repo_is_refused(tmp_path: Path) -> None:
+    # Final review I7: `cairn init` inside a repo wrote into that repo.
+    repo = make_repo(tmp_path, "single")
+    (repo / "src").mkdir()
+    for root in (repo, repo / "src"):
+        with pytest.raises(CairnError) as info:
+            scan_workspace(root)
+        assert "folder that contains your repos" in str(info.value)
+    assert not (repo / ".cairn").exists()

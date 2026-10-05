@@ -85,3 +85,14 @@ def test_corrupt_registry_is_reported(tmp_path: Path) -> None:
     path.write_text("{oops", encoding="utf-8")
     with pytest.raises(CairnInputError):
         list_workspaces()
+
+
+def test_install_leaves_file_untouched_when_block_is_broken(tmp_path: Path) -> None:
+    ws = _ws(tmp_path)
+    original = f"{START}\nold\nIMPORTANT USER NOTES\n"
+    claude_md(ws).write_text(original, encoding="utf-8", newline="")
+    with pytest.raises(CairnError):
+        install_claude(ws)
+    with pytest.raises(CairnError):
+        uninstall_claude(ws)
+    assert claude_md(ws).read_text(encoding="utf-8") == original

@@ -125,3 +125,11 @@ def test_results_are_deterministic() -> None:
         _repo("a", consumes=[(T, "t1"), (T, "t2")]),
     ]
     assert match_edges(repos) == match_edges(list(reversed(repos)))
+
+
+def test_tables_both_repos_create_are_never_extracted() -> None:
+    # Final review I4: two unrelated apps that each create common tables.
+    a = _repo("resume-app", exposes=[(T, "profiles"), (T, "products")])
+    b = _repo("shop-app", exposes=[(T, "profiles"), (T, "products")])
+    (edge,) = match_edges([a, b])
+    assert edge.confidence is Confidence.INFERRED

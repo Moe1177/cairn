@@ -112,3 +112,10 @@ def test_scaffold_readme_yields_no_excerpt_at_all() -> None:
         "First, run the development server:\n\n```bash\nnpm run dev\n```\n"
     )
     assert first_paragraph(scaffold) is None
+
+
+def test_readme_excerpt_is_redacted() -> None:
+    # Final review I1: README text reached workspace.json/cards unredacted.
+    text = "Payments app; staging key sk_test_abcdefghijklmnop1234 lives in the vault.\n"
+    excerpt = first_paragraph(text)
+    assert excerpt is not None and "sk_test_" not in excerpt and "[REDACTED]" in excerpt

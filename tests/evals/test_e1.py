@@ -23,7 +23,7 @@ REMOTES = {
     "mini-eats": {"eats": f"https://bot:{REMOTE_TOKEN}@github.com/acme/eats.git"},
     "polyglot": {},
 }
-SECRETS = ("sk_live_FAKE", "SuperSecretPw123", "ghp_FAKEfake", REMOTE_TOKEN)
+SECRETS = ("sk_live_FAKE", "sk_test_FAKEreadme", "SuperSecretPw123", "ghp_FAKEfake", REMOTE_TOKEN)
 
 
 def _expect(name: str) -> dict:

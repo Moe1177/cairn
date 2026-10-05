@@ -137,12 +137,16 @@ def _scan_sql(ctx: DetectorContext, path: Path, text: str) -> Found:
 def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     exposes: list[Fact] = []
     consumes: list[Fact] = []
-    for line_no, line in enumerate(text.splitlines(), start=1):
+    lines = text.splitlines()
+    for line_no, line in enumerate(lines, start=1):
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
-        refs = [m.group(1) for m in SQL_REF.finditer(line)] + [
-            m.group(1) for m in SUPABASE_REF.finditer(line)
-        ]
+        refs = [m.group(1) for m in SQL_REF.finditer(line)]
         consumes += [_table(ctx, path, line_no, line, name) for name in refs if _is_table(name)]
+    # Query-builder chains are usually split across lines: supabase / .from('t') / .select().
+    for match in SUPABASE_REF.finditer(text):
+        line_no = text.count("\n", 0, match.start(1)) + 1
+        if _is_table(match.group(1)):
+            consumes.append(_table(ctx, path, line_no, lines[line_no - 1], match.group(1)))
     return exposes, consumes
 
 

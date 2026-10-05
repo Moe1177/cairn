@@ -117,3 +117,12 @@ def test_sql_keywords_and_system_catalogs_are_not_tables(tmp_path: Path) -> None
     repo = make_repo(tmp_path, "db", {"migrations/1.sql": sql})
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     assert _tables(result.consumes) == []
+
+
+def test_multiline_supabase_chains_are_detected(tmp_path: Path) -> None:
+    # Final review I5: Prettier splits the chain across lines.
+    code = "const { data } = await supabase\n  .from('orders')\n  .select('*')\n  .eq('id', id);\n"
+    repo = make_repo(tmp_path, "admin", {"lib/orders.ts": code})
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    assert _tables(result.consumes) == ["orders"]
+    assert result.consumes[0].evidence[0].line == 2

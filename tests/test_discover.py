@@ -105,3 +105,27 @@ def test_git_info_survives_missing_git(tmp_path: Path, monkeypatch) -> None:
 
     monkeypatch.setattr(subprocess, "run", no_git)
     assert git_info(tmp_path) == GitInfo()
+
+
+def test_unreadable_directories_do_not_crash_discovery(tmp_path: Path, monkeypatch) -> None:
+    # Final review I3: pathlib re-raises EACCES from exists()/is_dir()/is_file().
+    make_repo(tmp_path, "good", {"package.json": "{}"})
+    make_repo(tmp_path, "nomanifest", {"pgdata/x": "", "app/package.json": "{}"})
+    locked = {"locked", "pgdata"}
+    real_exists, real_is_dir, real_is_file = Path.exists, Path.is_dir, Path.is_file
+
+    def guard(real):
+        def wrapper(self, *args, **kwargs):
+            if locked & set(self.parts):
+                raise PermissionError(13, "Permission denied", str(self))
+            return real(self, *args, **kwargs)
+
+        return wrapper
+
+    (tmp_path / "locked").mkdir()
+    monkeypatch.setattr(Path, "exists", guard(real_exists))
+    monkeypatch.setattr(Path, "is_dir", guard(real_is_dir))
+    monkeypatch.setattr(Path, "is_file", guard(real_is_file))
+    locs = {loc.id: loc for loc in discover_repos(tmp_path)}
+    assert sorted(locs) == ["good", "nomanifest"]
+    assert [p.name for p in locs["nomanifest"].app_roots] == ["app"]

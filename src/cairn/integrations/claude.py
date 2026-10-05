@@ -4,12 +4,13 @@ Claude Code loads CLAUDE.md files from parent directories of the working
 directory, so a block here is visible from inside every repo in the workspace.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 
 from cairn.errors import CairnError
 from cairn.integrations.registry import register_workspace, unregister_workspace
 from cairn.paths import backups_dir, index_file
-from cairn.render.markers import START, remove_block, upsert_block
+from cairn.render.markers import END, START, remove_block, upsert_block
 from cairn.store.atomic import atomic_write_text
 
 _BACKUP_NAME = "CLAUDE.md.orig"
@@ -29,8 +30,9 @@ def install_claude(ws_root: Path) -> Path:
         raise CairnError("No .cairn/INDEX.md found; run `cairn scan` first.")
     target = claude_md(ws_root)
     original = _read(target)
+    updated = _checked(target, lambda: upsert_block(original, _read(index)))
     _backup_once(ws_root, original)
-    atomic_write_text(target, upsert_block(original, _read(index)))
+    atomic_write_text(target, updated)
     register_workspace(ws_root)
     return target
 
@@ -38,10 +40,11 @@ def install_claude(ws_root: Path) -> Path:
 def uninstall_claude(ws_root: Path) -> bool:
     target = claude_md(ws_root)
     original = _read(target)
-    unregister_workspace(ws_root)
-    if START not in original:
+    if START not in original and END not in original:
+        unregister_workspace(ws_root)
         return False
-    updated = remove_block(original)
+    updated = _checked(target, lambda: remove_block(original))
+    unregister_workspace(ws_root)
     if updated.strip():
         atomic_write_text(target, updated)
     else:
@@ -54,6 +57,13 @@ def sync_claude(ws_root: Path) -> bool:
         return False
     install_claude(ws_root)
     return True
+
+
+def _checked(target: Path, edit: Callable[[], str]) -> str:
+    try:
+        return edit()
+    except CairnError as exc:
+        raise CairnError(f"{target}: {exc} The file was left unchanged.") from exc
 
 
 def _read(path: Path) -> str:
