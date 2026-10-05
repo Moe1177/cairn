@@ -368,7 +368,10 @@ def hooks(action: str, path: PathArg = Path(".")) -> None:
     if action not in ("install", "uninstall"):
         _fail("use `cairn hooks install` or `cairn hooks uninstall`.")
     try:
-        count = (install_hooks if action == "install" else uninstall_hooks)(path.resolve())
-    except CairnError as exc:
+        report = (install_hooks if action == "install" else uninstall_hooks)(path.resolve())
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
-    typer.echo(f"git hooks {action}ed in {count} repos")
+    count = len(report.changed)
+    typer.echo(f"git hooks {action}ed in {count} repo{'' if count == 1 else 's'}")
+    for repo, why in report.skipped:
+        typer.echo(f"skipped {repo}: {why}")

@@ -74,6 +74,11 @@ def _git(root: Path, args: list[str], timeout: float) -> str | None:
     return (result.stdout or "").strip() if result.returncode == 0 else None
 
 
+def git_text(root: Path, args: list[str], timeout: float = 5.0) -> str | None:
+    """Stripped stdout of a read-only git command, or None if it failed."""
+    return _git(root, args, timeout)
+
+
 def summary_is_stale(root: Path, since: str, threshold: int, timeout: float = 10.0) -> bool:
     """Spec §18: stale when manifests or top-level entries changed, or > threshold files changed."""
     from cairn.discover.repos import MANIFEST_NAMES
