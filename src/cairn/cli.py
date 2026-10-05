@@ -45,7 +45,10 @@ def _main() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
-            reconfigure(errors="replace")
+            # Piped output is read by agents and scripts that expect UTF-8, not the console
+            # code page; a terminal keeps its own encoding but never crashes on a character.
+            piped = not stream.isatty()
+            reconfigure(**({"encoding": "utf-8"} if piped else {}), errors="replace")
 
 
 def _fail(message: str) -> NoReturn:
@@ -297,7 +300,7 @@ def set_summary_cmd(
     ] = None,
 ) -> None:
     """Save a one-or-two sentence summary for a repo (use - to read stdin), then re-scan."""
-    text = sys.stdin.read() if summary == "-" else summary
+    text = sys.stdin.buffer.read().decode("utf-8-sig", "replace") if summary == "-" else summary
     try:
         written = set_summary(path.resolve(), repo, text, aliases=alias or ())
         typer.echo(f"Saved to {written}")

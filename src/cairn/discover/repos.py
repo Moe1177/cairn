@@ -57,7 +57,7 @@ def _children(directory: Path, ignore_dirs: frozenset[str], *, links: bool = Tru
     """Sub-folders. Links are followed only at workspace level (a linked repo is still a repo);
     inside a repo they could point anywhere, so app-root discovery passes links=False."""
     try:
-        entries = sorted(directory.iterdir())
+        entries = sorted(directory.iterdir(), key=_order)
     except OSError:
         return []
     return [
@@ -88,7 +88,13 @@ def _dedupe_links(paths: list[Path]) -> list[Path]:
     unique: dict[Path, Path] = {}
     for path in sorted(paths, key=lambda p: (_real(p) != p, len(p.parts), str(p))):
         unique.setdefault(_real(path), path)
-    return sorted(unique.values())
+    return sorted(unique.values(), key=_order)
+
+
+def _order(path: Path) -> str:
+    """Windows Paths sort case-insensitively, POSIX ones don't; sort strings instead so every
+    OS produces the same map (spec §20.2)."""
+    return path.as_posix()
 
 
 def _real(path: Path) -> Path:
@@ -126,4 +132,4 @@ def _app_roots(repo_root: Path, ignore_dirs: frozenset[str]) -> tuple[Path, ...]
                 found.append(child)
             elif depth + 1 < _APP_ROOT_SEARCH_DEPTH:
                 frontier.append((child, depth + 1))
-    return tuple(sorted(found)) or (repo_root,)
+    return tuple(sorted(found, key=_order)) or (repo_root,)

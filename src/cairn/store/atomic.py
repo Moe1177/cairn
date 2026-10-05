@@ -2,6 +2,7 @@
 
 import contextlib
 import os
+import stat
 import tempfile
 import time
 from pathlib import Path
@@ -16,15 +17,30 @@ def atomic_write_text(path: Path, text: str) -> None:
     if path.is_symlink():
         path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
+    mode = _mode_for(path)
     fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
+        if mode is not None:
+            os.chmod(tmp_name, mode)  # mkstemp makes 0600; keep what the file had
         _replace(tmp_name, path)
     except BaseException:
         with contextlib.suppress(FileNotFoundError):
             os.unlink(tmp_name)
         raise
+
+
+def _mode_for(path: Path) -> int | None:
+    """POSIX: the existing file's mode, or what a normal create would give (0666 & ~umask)."""
+    if os.name == "nt":
+        return None
+    try:
+        return stat.S_IMODE(os.stat(path).st_mode)
+    except FileNotFoundError:
+        umask = os.umask(0)
+        os.umask(umask)
+        return 0o666 & ~umask
 
 
 def _replace(src: str, dest: Path) -> None:

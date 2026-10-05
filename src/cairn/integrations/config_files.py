@@ -112,11 +112,12 @@ def set_toml_server(path: Path, command: list[str], *, label: str) -> None:
         raise CairnInputError(
             str(path), "already defines [mcp_servers.cairn] outside cairn's block; left untouched"
         )
-    # json.dumps output is a valid TOML basic string (Windows backslashes are escaped).
+    # json.dumps output is a valid TOML basic string (Windows backslashes are escaped);
+    # ensure_ascii=False because TOML rejects JSON's surrogate-pair escapes for emoji.
     body = (
         f"[mcp_servers.{SERVER_NAME}]\n"
-        f"command = {json.dumps(command[0])}\n"
-        f"args = {json.dumps(command[1:])}"
+        f"command = {json.dumps(command[0], ensure_ascii=False)}\n"
+        f"args = {json.dumps(command[1:], ensure_ascii=False)}"
     )
     updated = upsert_block(text, body, start=TOML_START, end=TOML_END)
     expected = {"command": command[0], "args": command[1:]}

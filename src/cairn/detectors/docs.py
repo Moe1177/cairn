@@ -60,7 +60,7 @@ def _doc_files(ctx: DetectorContext) -> list[Path]:
     files: list[Path] = []
     for directory in dict.fromkeys((ctx.repo.root, *ctx.repo.app_roots)):
         try:
-            entries = sorted(directory.iterdir())
+            entries = sorted(directory.iterdir(), key=lambda p: p.name)
         except OSError:
             continue
         files += [

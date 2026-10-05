@@ -129,7 +129,7 @@ def _apply(writes: list[tuple[Path, str | None]]) -> None:
             path.unlink(missing_ok=True)
             continue
         atomic_write_text(path, text)
-        os.chmod(path, 0o755)
+        os.chmod(path, os.stat(path).st_mode | 0o111)  # keep the mode, add exec bits
 
 
 def install_hooks(ws_root: Path) -> HookReport:

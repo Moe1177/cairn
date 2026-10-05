@@ -10,6 +10,11 @@ def user_home() -> Path:
 
 
 def claude_home() -> Path:
+    """$CLAUDE_CONFIG_DIR when set (Claude Code reads skills from there), else ~/.claude.
+    CAIRN_USER_HOME wins so tests never touch a real config."""
+    override = os.environ.get("CLAUDE_CONFIG_DIR")
+    if override and not os.environ.get("CAIRN_USER_HOME"):
+        return Path(override)
     return user_home() / ".claude"
 
 
