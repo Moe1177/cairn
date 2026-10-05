@@ -110,6 +110,14 @@ def _table(ctx: DetectorContext, path: Path, line_no: int, line: str, name: str)
     )
 
 
+_COMMENT_PREFIXES = ("//", "#", "--", "/*", "*")
+
+
+def _is_comment(line: str) -> bool:
+    """Comment-only lines describe code; they are never SQL evidence (spec §16.4)."""
+    return line.lstrip().startswith(_COMMENT_PREFIXES)
+
+
 def _is_table(name: str) -> bool:
     lowered = name.lower()
     return (
@@ -123,6 +131,8 @@ def _scan_sql(ctx: DetectorContext, path: Path, text: str) -> Found:
     exposes: list[Fact] = []
     consumes: list[Fact] = []
     for line_no, line in enumerate(text.splitlines(), start=1):
+        if _is_comment(line):
+            continue
         created = [m.group(1) for m in CREATE_TABLE.finditer(line)]
         exposes += [_table(ctx, path, line_no, line, name) for name in created if _is_table(name)]
         if created:
@@ -140,6 +150,8 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     consumes: list[Fact] = []
     lines = text.splitlines()
     for line_no, line in enumerate(lines, start=1):
+        if _is_comment(line):
+            continue
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
         refs = [m.group(1) for m in SQL_REF.finditer(line)]
         consumes += [_table(ctx, path, line_no, line, name) for name in refs if _is_table(name)]

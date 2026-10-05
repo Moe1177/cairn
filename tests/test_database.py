@@ -127,3 +127,16 @@ def test_multiline_supabase_chains_are_detected(tmp_path: Path) -> None:
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     assert _tables(result.consumes) == ["orders"]
     assert result.consumes[0].evidence[0].line == 2
+
+
+def test_comment_lines_are_not_sql(tmp_path: Path) -> None:
+    code = (
+        "// UPDATE docs when the schema changes\n"
+        "# SELECT * FROM legacy_orders\n"
+        " * FROM the archive notes\n"
+        'const q = "SELECT * FROM invoices" // keep in sync\n'  # Review Focus 4
+    )
+    sql = "-- SELECT * FROM old_table\nSELECT * FROM receipts;\n"
+    repo = make_repo(tmp_path, "app", {"src/q.ts": code, "db/q.sql": sql})
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    assert _tables(result.consumes) == ["invoices", "receipts"]
