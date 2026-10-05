@@ -1,0 +1,7 @@
+{
+  "name": "@mesh/gateway",
+  "dependencies": {
+    "express": "4.19.0",
+    "axios": "1.7.0"
+  }
+}

@@ -23,6 +23,7 @@ REMOTES = {
     "mini-eats": {"eats": f"https://bot:{REMOTE_TOKEN}@github.com/acme/eats.git"},
     "polyglot": {},
     "lookalikes": {},
+    "servicemesh": {},
 }
 SECRETS = ("sk_live_FAKE", "sk_test_FAKEreadme", "SuperSecretPw123", "ghp_FAKEfake", REMOTE_TOKEN)
 
@@ -178,3 +179,20 @@ def test_mcp_resolve_top_hit_equals_resolver(materialize) -> None:
     for case in _expect("mini-eats")["phrasings"]:
         expected = resolve_repo(result.workspace, authored, case["query"])[0].repo_id
         assert tools.resolve_text(ws, case["query"]).startswith(f"- {expected} ")
+
+
+def test_service_links_are_exact(materialize) -> None:
+    """Spec §21.6: HTTP, gRPC, pub/sub, compose, env and monorepo links, with look-alikes
+    (shared /health, an external API, a vague topic, a proto with no implementer) that must
+    not link at all."""
+    _, result = _scan(materialize, "servicemesh")
+    predicted = [
+        (e.source, e.target, e.type.value, e.confidence.value) for e in result.workspace.edges
+    ]
+    expected = [
+        (e["from"], e["to"], e["type"], e["confidence"]) for e in _expect("servicemesh")["edges"]
+    ]
+    metrics = edge_metrics(predicted, expected)
+    assert metrics.recall >= 0.9, metrics.describe()
+    assert metrics.precision == 1.0, metrics.describe()
+    assert metrics.tier_accuracy == 1.0, metrics.describe()

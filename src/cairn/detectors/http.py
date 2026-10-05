@@ -73,10 +73,10 @@ class HttpDetector:
         exposes: list[Fact] = []
         consumes: list[Fact] = []
         for path in ctx.files(_wanted):
-            exposes += _file_route(ctx, path)
             text = ctx.read(path)
             if not text:
                 continue
+            exposes += _file_route(ctx, path, text)
             if path.suffix.lower() in _SPEC_SUFFIXES:
                 exposes += _spec_routes(ctx, path, text)
             elif path.suffix.lower() in _CODE_SUFFIXES:
@@ -105,7 +105,7 @@ def _fact(
     return [Fact(kind=FactKind.HTTP_ROUTE, value=template, evidence=evidence, hints=hints)]
 
 
-def _file_route(ctx: DetectorContext, path: Path) -> list[Fact]:
+def _file_route(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
     """Next.js serves routes from the filesystem: app/**/route.ts and pages/api/**."""
     parts = PurePosixPath(ctx.rel(path)).parts
     stem = PurePosixPath(parts[-1]).stem.lower()
@@ -122,7 +122,8 @@ def _file_route(ctx: DetectorContext, path: Path) -> list[Fact]:
     else:
         return []
     route = "/" + "/".join(segments)
-    return _fact(ctx, path, 1, f"{ctx.rel(path)} (file route)", route)
+    first_line = text.splitlines()[0] if text.splitlines() else ""
+    return _fact(ctx, path, 1, first_line, route)
 
 
 def _spec_routes(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:

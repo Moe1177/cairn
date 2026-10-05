@@ -1,0 +1,3 @@
+# platform
+
+Shared frontend packages.

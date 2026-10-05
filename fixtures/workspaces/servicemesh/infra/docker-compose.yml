@@ -1,0 +1,17 @@
+services:
+  web:
+    build: ../web
+    depends_on:
+      - gateway
+  gateway:
+    build:
+      context: ../gateway
+    depends_on:
+      - trips
+      - billing
+  trips:
+    build: ../trips-api
+  billing:
+    build: ../billing
+  kafka:
+    image: bitnami/kafka:3.7

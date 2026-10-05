@@ -1,0 +1,6 @@
+{
+  "name": "@mesh/ui",
+  "dependencies": {
+    "@mesh/config": "workspace:*"
+  }
+}

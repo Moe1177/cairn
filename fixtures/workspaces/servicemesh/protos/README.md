@@ -1,0 +1,3 @@
+# protos
+
+Shared service definitions.
