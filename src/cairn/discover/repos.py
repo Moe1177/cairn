@@ -4,7 +4,13 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists, safe_is_dir, safe_is_file
+from cairn.discover.files import (
+    DEFAULT_IGNORE_DIRS,
+    is_link,
+    safe_exists,
+    safe_is_dir,
+    safe_is_file,
+)
 
 MANIFEST_NAMES = (
     "package.json",
@@ -47,7 +53,9 @@ def discover_repos(
     return tuple(sorted(locations, key=lambda loc: loc.id))
 
 
-def _children(directory: Path, ignore_dirs: frozenset[str]) -> list[Path]:
+def _children(directory: Path, ignore_dirs: frozenset[str], *, links: bool = True) -> list[Path]:
+    """Sub-folders. Links are followed only at workspace level (a linked repo is still a repo);
+    inside a repo they could point anywhere, so app-root discovery passes links=False."""
     try:
         entries = sorted(directory.iterdir())
     except OSError:
@@ -55,7 +63,10 @@ def _children(directory: Path, ignore_dirs: frozenset[str]) -> list[Path]:
     return [
         p
         for p in entries
-        if safe_is_dir(p) and not p.name.startswith(".") and p.name not in ignore_dirs
+        if safe_is_dir(p)
+        and not p.name.startswith(".")
+        and p.name not in ignore_dirs
+        and (links or not is_link(p))
     ]
 
 
@@ -108,7 +119,7 @@ def _app_roots(repo_root: Path, ignore_dirs: frozenset[str]) -> tuple[Path, ...]
     frontier = [(repo_root, 0)]
     while frontier:
         directory, depth = frontier.pop(0)
-        for child in _children(directory, ignore_dirs):
+        for child in _children(directory, ignore_dirs, links=False):
             if safe_exists(child / ".git"):
                 continue
             if _has_manifest(child):

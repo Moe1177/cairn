@@ -1,6 +1,7 @@
 """Walk and read repository files safely and deterministically."""
 
 import os
+import stat
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -31,6 +32,28 @@ DEFAULT_IGNORE_DIRS = frozenset(
     }
 )
 _BINARY_SNIFF_BYTES = 8192
+# Windows reparse tags for symlinks and junctions. Other reparse points (OneDrive
+# placeholders, dedup) are ordinary files and must still be read.
+_LINK_TAGS = frozenset({0xA000000C, 0xA0000003})
+
+
+def is_link(path: Path) -> bool:
+    """A symlink, or a Windows junction. Never followed inside a repo (spec §20.1)."""
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return False
+    return stat.S_ISLNK(info.st_mode) or getattr(info, "st_reparse_tag", 0) in _LINK_TAGS
+
+
+def crosses_link(root: Path, path: Path) -> bool:
+    """True when any existing component of `path` below `root` is a link."""
+    current = root
+    for part in path.relative_to(root).parts:
+        current = current / part
+        if is_link(current):
+            return True
+    return False
 
 
 def iter_files(
@@ -55,7 +78,7 @@ def iter_files(
             if spec is not None and spec.match_file(rel):
                 continue
             path = current / name
-            if is_forbidden(path):
+            if is_forbidden(path) or is_link(path):
                 continue
             try:
                 size = path.stat().st_size
@@ -66,7 +89,7 @@ def iter_files(
 
 
 def read_text(path: Path, max_bytes: int = 1_000_000) -> str | None:
-    if is_forbidden(path):
+    if is_forbidden(path) or is_link(path):
         return None
     try:
         with path.open("rb") as handle:
@@ -107,7 +130,7 @@ def _keep_dir(
     ignore_dirs: frozenset[str],
     spec: pathspec.PathSpec | None,
 ) -> bool:
-    if name in ignore_dirs or safe_exists(parent / name / ".git"):
+    if name in ignore_dirs or is_link(parent / name) or safe_exists(parent / name / ".git"):
         return False
     rel = f"{rel_parent}/{name}/" if rel_parent else f"{name}/"
     return not (spec is not None and spec.match_file(rel))

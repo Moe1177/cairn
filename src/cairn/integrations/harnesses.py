@@ -7,6 +7,7 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
+from cairn.discover.files import crosses_link
 from cairn.errors import CairnError
 from cairn.integrations import config_files as cf
 from cairn.integrations.claude import install_claude, is_installed, uninstall_claude
@@ -161,8 +162,9 @@ def _install_cursor(ws_root: Path, per_repo: bool) -> Lines:
     cf.set_json_server(home / "mcp.json", server_command(), label="cursor")
     lines = [f"Cursor: /cairn command and MCP server installed in {home}"]
     if per_repo:
-        count = _cursor_rules(ws_root, add=True)
+        count, skipped = _cursor_rules(ws_root, add=True)
         lines.append(f"Cursor: pointer rule added to {count} repos (git-excluded)")
+        lines += [f"Cursor: skipped {repo}: {why}" for repo, why in skipped]
     return tuple(lines)
 
 
@@ -170,22 +172,27 @@ def _uninstall_cursor(ws_root: Path) -> Lines:
     home = cursor_home()
     cf.remove_owned(home / "commands" / "cairn.md")
     cf.remove_json_server(home / "mcp.json", label="cursor")
-    count = _cursor_rules(ws_root, add=False)
+    count, _ = _cursor_rules(ws_root, add=False)
     return (f"Cursor: cairn removed (rules removed from {count} repos).",)
 
 
-def _cursor_rules(ws_root: Path, *, add: bool) -> int:
+def _cursor_rules(ws_root: Path, *, add: bool) -> tuple[int, list[tuple[str, str]]]:
     workspace = load_workspace(ws_root)
     if workspace is None:
         if add:
             raise CairnError("No map found. Run `cairn scan` first.")
-        return 0  # nothing to clean per repo; the global cleanup already happened
+        return 0, []  # nothing to clean per repo; the global cleanup already happened
     count = 0
+    skipped: list[tuple[str, str]] = []
     for repo in workspace.repos:
         root = ws_root / repo.path
         if not (root / ".git").is_dir():
             continue  # worktrees/submodules keep .git as a file; leave them alone
         exclude = root / ".git" / "info" / "exclude"
+        if crosses_link(root, root / _RULE) or crosses_link(root, exclude):
+            # A committed link (e.g. `.cursor` -> elsewhere) would redirect the write.
+            skipped.append((repo.id, "the rule path goes through a symlink or junction"))
+            continue
         if add:
             cf.write_owned(root / _RULE, cursor_rule_mdc(ws_root.resolve().as_posix()))
             _set_exclude(exclude, present=True)
@@ -193,7 +200,7 @@ def _cursor_rules(ws_root: Path, *, add: bool) -> int:
         elif cf.remove_owned(root / _RULE):
             _set_exclude(exclude, present=False)
             count += 1
-    return count
+    return count, skipped
 
 
 def _set_exclude(exclude: Path, *, present: bool) -> None:

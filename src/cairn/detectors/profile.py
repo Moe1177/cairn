@@ -12,7 +12,7 @@ from cairn.detectors.manifests import (
     parse_go_mod,
     python_requirement_names,
 )
-from cairn.discover.files import DEFAULT_IGNORE_DIRS
+from cairn.discover.files import DEFAULT_IGNORE_DIRS, is_link
 from cairn.model.graph import Command, LayoutEntry
 
 _JS_STACK = (
@@ -188,7 +188,7 @@ def _layout(ctx: DetectorContext) -> tuple[LayoutEntry, ...]:
         children = sorted(
             p
             for p in primary.iterdir()
-            if p.is_dir() and not p.name.startswith(".") and p.name not in ignore
+            if p.is_dir() and not is_link(p) and not p.name.startswith(".") and p.name not in ignore
         )
     except OSError:
         return ()
