@@ -304,7 +304,9 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
    hardening (0.1).
 2. ✅ HTTP, gRPC, pub/sub, compose and env-var relationships; packages inside monorepos (0.2).
 3. Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify).
-4. Larger benchmark suites (real open-source workspaces), significance testing, and more harnesses.
+4. Efficiency: faster scans on very large workspaces, faster and more reliable CI, and product
+   polish (`cairn doctor`, shell completion).
+5. Larger benchmark suites (real open-source workspaces), significance testing, and more harnesses.
 
 ## Contributing
 
