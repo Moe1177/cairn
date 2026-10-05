@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
 
 import cairn
 from cairn.cli import app, serve_start
@@ -87,4 +86,8 @@ def test_serve_from_finds_the_workspace_above_a_folder(tmp_path: Path) -> None:
     root, start = serve_start(None, nested)
     assert root == tmp_path.resolve() and start == nested
     assert serve_start(None, Path("${workspaceFolder}"))[0] is None  # unexpanded: no workspace
-    assert "--from" in CliRunner().invoke(app, ["serve", "--help"]).output
+    # Check the registered option, not rendered help: CI forces colour, which splits the text.
+    from typer.main import get_command
+
+    serve = get_command(app).commands["serve"]  # type: ignore[attr-defined]
+    assert any("--from" in param.opts for param in serve.params)
