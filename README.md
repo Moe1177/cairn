@@ -1,8 +1,8 @@
 # cairn
 
-[![CI](https://github.com/Moe1177/cairn/actions/workflows/ci.yml/badge.svg)](https://github.com/Moe1177/cairn/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/cairnmap)](https://pypi.org/project/cairnmap/)
-[![Python](https://img.shields.io/pypi/pyversions/cairnmap)](https://pypi.org/project/cairnmap/)
+[![CI](https://github.com/Moe1177/cairn/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/Moe1177/cairn/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/cairnmap?label=pypi)](https://pypi.org/project/cairnmap/)
+[![Python](https://img.shields.io/pypi/pyversions/cairnmap?label=python)](https://pypi.org/project/cairnmap/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Moe1177/cairn/blob/main/LICENSE)
 
 **A map of all your repos for coding agents.** cairn scans every git repo in a folder once, works
