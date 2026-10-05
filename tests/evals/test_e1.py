@@ -156,3 +156,25 @@ def test_scan_never_opens_forbidden_files(materialize, monkeypatch) -> None:
     monkeypatch.setattr(Path, "open", spy)
     write_outputs(ws, scan_workspace(ws))
     assert opened and [p for p in opened if is_forbidden(p)] == []
+
+
+def test_mcp_tool_outputs_respect_budgets(materialize) -> None:
+    from cairn.mcp_server import tools
+
+    for name in REMOTES:
+        ws, result = _scan(materialize, name)
+        for repo in result.workspace.repos:
+            assert estimate_tokens(tools.card_text(ws, repo.id)) <= result.config.card_budget
+            related = tools.related_text(ws, repo.id, include_unconfirmed=True)
+            assert len(related.splitlines()) <= tools.MAX_LINES + 2
+        assert len(tools.find_across_text(ws, "a").splitlines()) <= tools.MAX_LINES + 1
+
+
+def test_mcp_resolve_top_hit_equals_resolver(materialize) -> None:
+    from cairn.mcp_server import tools
+
+    ws, result = _scan(materialize, "mini-eats")
+    authored = load_authored(ws)
+    for case in _expect("mini-eats")["phrasings"]:
+        expected = resolve_repo(result.workspace, authored, case["query"])[0].repo_id
+        assert tools.resolve_text(ws, case["query"]).startswith(f"- {expected} ")
