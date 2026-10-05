@@ -44,13 +44,13 @@ def test_code_references_and_framework_prefixes(tmp_path: Path) -> None:
     assert all(f.kind is FactKind.ENV_VAR_NAME for f in facts)
 
 
-def test_generic_names_make_no_edge_and_specific_ones_stay_ambiguous(tmp_path: Path) -> None:
+def test_a_shared_env_var_alone_is_never_a_link(tmp_path: Path) -> None:
+    # Dogfooding: unrelated projects all read STRIPE_SECRET_KEY / APP_URL. On its own a shared
+    # name is only noise in `cairn status`; it exists solely to back up a real link.
     make_repo(tmp_path, "a", {".env.example": "PORT=1\nNODE_ENV=dev\nLEDGER_QUEUE=x\n"})
     make_repo(tmp_path, "b", {"main.py": "os.getenv('PORT')\nos.getenv('LEDGER_QUEUE')"})
     make_repo(tmp_path, "c", {"main.go": 'os.Getenv("NODE_ENV")'})
-    edges = _edges(tmp_path)
-    assert edges[(frozenset({"a", "b"}), EdgeType.SHARES_ENV)] is Confidence.AMBIGUOUS
-    assert (frozenset({"a", "c"}), EdgeType.SHARES_ENV) not in edges
+    assert not any(t is EdgeType.SHARES_ENV for _, t in _edges(tmp_path))
 
 
 def test_another_link_upgrades_shares_env_to_inferred(tmp_path: Path) -> None:
