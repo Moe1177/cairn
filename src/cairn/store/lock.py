@@ -20,7 +20,9 @@ _POLL = 0.05
 @contextmanager
 def workspace_lock(ws_root: Path, timeout: float = 60.0) -> Iterator[None]:
     """Serialize work across threads (RLock) and processes (OS file lock). Re-entrant per thread."""
-    with _THREAD_LOCK:
+    if not _THREAD_LOCK.acquire(timeout=timeout):
+        raise CairnError("another cairn task is still updating this workspace")
+    try:
         depth = getattr(_HELD, "depth", 0)
         if depth:
             _HELD.depth = depth + 1
@@ -42,6 +44,29 @@ def workspace_lock(ws_root: Path, timeout: float = 60.0) -> Iterator[None]:
                 _HELD.depth = 0
                 if locked:
                     _release(handle.fileno())
+    finally:
+        _THREAD_LOCK.release()
+
+
+_FILE_THREAD_LOCK = threading.Lock()
+
+
+@contextmanager
+def file_lock(lock_path: Path, timeout: float = 10.0) -> Iterator[None]:
+    """Serialize a read-modify-write of a shared file (e.g. ~/.cairn/registry.json)."""
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if not _FILE_THREAD_LOCK.acquire(timeout=timeout):
+        raise CairnError(f"timed out waiting for {lock_path}")
+    try:
+        with lock_path.open("a+b") as handle:
+            locked = _acquire(handle.fileno(), timeout)
+            try:
+                yield
+            finally:
+                if locked:
+                    _release(handle.fileno())
+    finally:
+        _FILE_THREAD_LOCK.release()
 
 
 # What a held lock looks like: flock's EWOULDBLOCK/EAGAIN, msvcrt's EACCES (Windows errno 13).

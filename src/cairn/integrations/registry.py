@@ -6,6 +6,7 @@ from pathlib import Path
 
 from cairn.errors import CairnInputError
 from cairn.store.atomic import atomic_write_text
+from cairn.store.lock import file_lock
 
 
 def cairn_home() -> Path:
@@ -33,9 +34,10 @@ def list_workspaces() -> tuple[str, ...]:
 
 def register_workspace(ws_root: Path) -> None:
     entry = ws_root.resolve().as_posix()
-    current = list_workspaces()
-    if not any(_same_folder(entry, known) for known in current):
-        _save((*current, entry))
+    with file_lock(registry_file().with_suffix(".lock")):
+        current = list_workspaces()
+        if not any(_same_folder(entry, known) for known in current):
+            _save((*current, entry))
 
 
 def _same_folder(a: str, b: str) -> bool:
@@ -50,9 +52,10 @@ def _same_folder(a: str, b: str) -> bool:
 
 def unregister_workspace(ws_root: Path) -> None:
     entry = ws_root.resolve().as_posix()
-    current = list_workspaces()
-    if entry in current:
-        _save(tuple(w for w in current if w != entry))
+    with file_lock(registry_file().with_suffix(".lock")):
+        current = list_workspaces()
+        if entry in current:
+            _save(tuple(w for w in current if w != entry))
 
 
 def _save(workspaces: tuple[str, ...]) -> None:

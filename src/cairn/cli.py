@@ -26,13 +26,17 @@ from cairn.integrations.harnesses import (
 )
 from cairn.load import load_authored
 from cairn.model.graph import Confidence
+from cairn.paths import cairn_dir
 from cairn.scan import ScanResult, scan_workspace
 from cairn.scan_log import render_log
 from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
 app = typer.Typer(
-    no_args_is_help=True, add_completion=False, help="cairn: a workspace map for coding agents."
+    no_args_is_help=True,
+    add_completion=False,
+    pretty_exceptions_enable=False,
+    help="cairn: a workspace map for coding agents.",
 )
 PathArg = Annotated[Path, typer.Argument(help="Workspace root (default: current directory).")]
 
@@ -80,8 +84,14 @@ def _run_for(names: tuple[str, ...], action: Callable[[str], tuple[str, ...]]) -
 
 def _scan_and_write(path: Path, *, use_cache: bool = True) -> ScanResult:
     root = path.resolve()
+    first: ScanResult | None = None
+    if not cairn_dir(root).exists():
+        # First scan here: don't create .cairn/ in a folder that has no repos.
+        first = scan_workspace(root, use_cache=use_cache)
+        if not first.workspace.repos:
+            return first
     with workspace_lock(root):
-        result = scan_workspace(root, use_cache=use_cache)
+        result = first or scan_workspace(root, use_cache=use_cache)
         write_outputs(root, result)
         sync_claude(root)
         return result
@@ -99,6 +109,10 @@ def _summary_line(result: ScanResult) -> str:
 
 
 def _report(result: ScanResult, *, verbose: bool = False) -> None:
+    if not result.workspace.repos:
+        root = result.workspace.workspace_root
+        typer.echo(f"No git repos found under {root}; nothing written.")
+        return
     typer.echo(_summary_line(result))
     for warning in result.warnings:
         typer.echo(f"warning: {warning}", err=True)
@@ -120,7 +134,7 @@ def scan(
     """Map every git repo under PATH into .cairn/."""
     try:
         result = _scan_and_write(path, use_cache=not full)
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
     _report(result, verbose=verbose)
 
@@ -134,7 +148,7 @@ def refresh(
     """Update the map, re-reading only repos that changed since the last scan."""
     try:
         result = _scan_and_write(path)
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
     if not quiet:
         _report(result, verbose=verbose)
@@ -169,7 +183,7 @@ def init(
             typer.echo(f"Claude Code: index added to {install_claude(path.resolve())}")
         else:
             typer.echo("Skipped. Run `cairn install claude` any time.")
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
 
 
@@ -200,7 +214,7 @@ def status(path: PathArg = Path(".")) -> None:
     try:
         workspace = load_workspace(root)
         authored = load_authored(root)
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
     if workspace is None:
         _fail("No map found. Run `cairn scan` first.")
@@ -250,7 +264,7 @@ def annotate_edge_cmd(
         written = annotate_edge(path.resolve(), key, review=review, why=why)
         typer.echo(f"Saved to {written}")
         _report(_scan_and_write(path))
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
 
 
@@ -305,7 +319,7 @@ def set_summary_cmd(
         written = set_summary(path.resolve(), repo, text, aliases=alias or ())
         typer.echo(f"Saved to {written}")
         _report(_scan_and_write(path))
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
 
 
@@ -358,7 +372,7 @@ def bench(
         _fail(f"unknown condition {', '.join(unknown) or '(none)'} (choose from A,B,C,D,E).")
     try:
         suite = load_suite(suite_dir)
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
     task_ids = _comma_list(tasks) if tasks else None
     missing = [t for t in task_ids or () if t not in {task.id for task in suite.tasks}]

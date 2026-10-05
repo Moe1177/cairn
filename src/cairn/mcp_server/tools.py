@@ -1,11 +1,13 @@
 """cairn MCP tool logic: workspace path + arguments in, short capped markdown out."""
 
 import functools
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
 from cairn.discover.git import git_info
 from cairn.emit import write_outputs
+from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
 from cairn.load import load_authored
 from cairn.model.graph import Confidence, Repo, Workspace
@@ -27,13 +29,32 @@ def rescan(ws_root: Path) -> ScanResult:
         return result
 
 
+LOCK_WAIT = 5.0
+_NO_RESCAN = threading.local()
+
+
 def locked(func: Callable[..., str]) -> Callable[..., str]:
     """Run a tool under the workspace lock so reads never race a concurrent rescan."""
 
     @functools.wraps(func)
     def wrapper(ws_root: Path, *args: object, **kwargs: object) -> str:
-        with workspace_lock(ws_root):
-            return func(ws_root, *args, **kwargs)
+        try:
+            with workspace_lock(ws_root, timeout=LOCK_WAIT):
+                return func(ws_root, *args, **kwargs)
+        except CairnError as exc:
+            if "still updating" not in str(exc):
+                raise
+        # Another scan holds the lock: answer from the map on disk (atomically written, so
+        # never half-updated) rather than leaving the agent waiting up to a minute.
+        _NO_RESCAN.active = True
+        try:
+            text = func(ws_root, *args, **kwargs)
+        finally:
+            _NO_RESCAN.active = False
+        return (
+            f"{text}\n(note: another cairn process is updating this workspace; "
+            "this answer may be slightly stale)"
+        )
 
     return wrapper
 
@@ -44,6 +65,8 @@ def _workspace(ws_root: Path) -> Workspace:
 
 def _fresh(ws_root: Path, repo: Repo) -> Workspace:
     """Spec §17: re-scan when the repo's HEAD moved since the map was written."""
+    if getattr(_NO_RESCAN, "active", False):
+        return _workspace(ws_root)
     current = git_info(ws_root / repo.path).head_sha
     if current and repo.head_sha and current != repo.head_sha:
         return rescan(ws_root).workspace
