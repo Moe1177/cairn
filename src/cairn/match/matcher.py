@@ -36,7 +36,7 @@ def match_edges(
     repos: Sequence[RepoFacts], *, stop_tables: frozenset[str] = DEFAULT_TABLE_STOPLIST
 ) -> tuple[Edge, ...]:
     ordered = sorted(repos, key=lambda r: r.id)
-    return merge_edges(
+    merged = merge_edges(
         [
             *_package_edges(ordered),
             *_db_edges(ordered, stop_tables),
@@ -45,6 +45,7 @@ def match_edges(
             *_mention_edges(ordered),
         ]
     )
+    return corroborate(merged)
 
 
 def merge_edges(edges: Iterable[Edge]) -> tuple[Edge, ...]:
@@ -54,6 +55,30 @@ def merge_edges(edges: Iterable[Edge]) -> tuple[Edge, ...]:
         current = merged.get(key)
         merged[key] = edge if current is None else _combine(current, edge)
     return tuple(sorted(merged.values(), key=lambda e: (e.source, e.target, e.type.value)))
+
+
+def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
+    """Spec §16.2: upgrade shares_db one tier when another edge type links the same pair."""
+    items = list(edges)
+    by_pair: dict[frozenset[str], list[Edge]] = {}
+    for edge in items:
+        by_pair.setdefault(frozenset((edge.source, edge.target)), []).append(edge)
+    return tuple(_corroborated(e, by_pair[frozenset((e.source, e.target))]) for e in items)
+
+
+def _corroborated(edge: Edge, same_pair: list[Edge]) -> Edge:
+    if edge.type is not EdgeType.SHARES_DB:
+        return edge
+    others = [o for o in same_pair if o.type is not EdgeType.SHARES_DB]
+    strong = [o for o in others if o.confidence is Confidence.EXTRACTED]
+    if edge.confidence is Confidence.AMBIGUOUS and others:
+        upgraded, by = Confidence.INFERRED, others[0]
+    elif edge.confidence is Confidence.INFERRED and strong:
+        upgraded, by = Confidence.EXTRACTED, strong[0]
+    else:
+        return edge
+    signals = (*edge.signals, f"corroborated:{by.type.value}")
+    return edge.model_copy(update={"confidence": upgraded, "signals": signals})
 
 
 def _facts(repo: RepoFacts, exposes: bool, kind: FactKind) -> list[Fact]:

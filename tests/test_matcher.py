@@ -147,3 +147,45 @@ def test_query_only_overlap_is_ambiguous() -> None:
     b = _repo("b", consumes=[(T, "invoices"), (T, "ledgers")])
     (edge,) = match_edges([a, b])
     assert edge.confidence is Confidence.AMBIGUOUS
+
+
+def _e(src: str, tgt: str, type_: EdgeType, conf: Confidence, signals: tuple[str, ...] = ()) -> Edge:
+    return Edge(source=src, target=tgt, type=type_, confidence=conf, score=0.5, signals=signals)
+
+
+def test_corroboration_upgrades_one_tier() -> None:
+    from cairn.match.matcher import corroborate
+
+    edges = corroborate(
+        [
+            _e("a", "b", EdgeType.SHARES_DB, Confidence.AMBIGUOUS, ("db_table:x",)),
+            _e("b", "a", EdgeType.MENTIONS, Confidence.INFERRED),
+            _e("c", "d", EdgeType.SHARES_DB, Confidence.INFERRED, ("db_table:y",)),
+            _e("c", "d", EdgeType.DEPENDS_ON_PACKAGE, Confidence.EXTRACTED),
+            _e("e", "f", EdgeType.SHARES_DB, Confidence.INFERRED, ("db_table:z",)),
+            _e("e", "f", EdgeType.MENTIONS, Confidence.INFERRED),
+        ]
+    )
+    db = {(e.source, e.target): e for e in edges if e.type is EdgeType.SHARES_DB}
+    assert db[("a", "b")].confidence is Confidence.INFERRED
+    assert "corroborated:mentions" in db[("a", "b")].signals
+    assert db[("c", "d")].confidence is Confidence.EXTRACTED
+    assert db[("e", "f")].confidence is Confidence.INFERRED
+
+
+def test_db_edges_never_corroborate_themselves() -> None:
+    # Review Focus 1
+    from cairn.match.matcher import corroborate
+
+    (edge,) = corroborate(
+        [
+            _e(
+                "a",
+                "b",
+                EdgeType.SHARES_DB,
+                Confidence.AMBIGUOUS,
+                ("db_table:x", "db_project_ref:supabase-local:app"),
+            )
+        ]
+    )
+    assert edge.confidence is Confidence.AMBIGUOUS
