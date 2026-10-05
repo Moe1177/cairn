@@ -67,6 +67,7 @@ SQL_NOT_TABLES = frozenset(
     }
 )
 _SYSTEM_PREFIXES = ("pg_", "sqlite_")
+_LINKED_REF = re.compile(r"[a-z0-9]{8,40}")
 
 Found = tuple[list[Fact], list[Fact]]
 
@@ -162,11 +163,21 @@ def _scan_prisma(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
 
 
 def _scan_supabase(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
+    """Spec §16.3: config.toml holds a *local* id; `supabase link` writes the real project ref."""
+    facts: list[Fact] = []
     project_id = dig(parse_toml(text), "project_id")
-    if not isinstance(project_id, str) or not project_id:
-        return []
-    line_no = next((i for i, line in enumerate(text.splitlines(), 1) if "project_id" in line), 1)
-    evidence = ctx.evidence(path, line_no, text.splitlines()[line_no - 1])
-    return [
-        Fact(kind=FactKind.DB_PROJECT_REF, value=f"supabase:{project_id}", evidence=(evidence,))
-    ]
+    if isinstance(project_id, str) and project_id:
+        line_no = next(
+            (i for i, line in enumerate(text.splitlines(), 1) if "project_id" in line), 1
+        )
+        evidence = ctx.evidence(path, line_no, text.splitlines()[line_no - 1])
+        local = f"supabase-local:{project_id}"
+        facts.append(Fact(kind=FactKind.DB_PROJECT_REF, value=local, evidence=(evidence,)))
+    ref_path = path.parent / ".temp" / "project-ref"
+    linked = (ctx.read(ref_path) or "").strip()
+    if _LINKED_REF.fullmatch(linked):
+        evidence = ctx.evidence(ref_path, 1, linked)
+        facts.append(
+            Fact(kind=FactKind.DB_PROJECT_REF, value=f"supabase:{linked}", evidence=(evidence,))
+        )
+    return facts

@@ -75,18 +75,19 @@ def test_javascript_lookalikes_are_not_tables(tmp_path: Path) -> None:
     assert _tables(result.consumes) == []
 
 
-def test_supabase_project_ref(tmp_path: Path) -> None:
+def test_supabase_local_and_linked_refs(tmp_path: Path) -> None:
     repo = make_repo(
         tmp_path,
         "app",
         {
-            "supabase/config.toml": 'project_id = "abcd1234"\n',
+            "supabase/config.toml": 'project_id = "app"\n',
+            "supabase/.temp/project-ref": "abcdefghijklmnopqrst\n",
             "config.toml": 'project_id = "nope"\n',
         },
     )
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     refs = [f.value for f in result.consumes if f.kind is FactKind.DB_PROJECT_REF]
-    assert refs == ["supabase:abcd1234"]
+    assert refs == ["supabase-local:app", "supabase:abcdefghijklmnopqrst"]
 
 
 def test_test_code_and_fixtures_are_not_evidence(tmp_path: Path) -> None:

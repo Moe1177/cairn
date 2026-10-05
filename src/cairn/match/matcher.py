@@ -18,6 +18,9 @@ from cairn.model.graph import (
     FactKind,
 )
 
+# Spec §16.3: a local Supabase id (folder-name default) is not database identity.
+_LOCAL_REF = "supabase-local:"
+
 
 @dataclass(frozen=True)
 class RepoFacts:
@@ -199,8 +202,8 @@ def _project_ref_edges(repos: list[RepoFacts]) -> list[Edge]:
             a_id,
             b_id,
             EdgeType.SHARES_DB,
-            Confidence.EXTRACTED,
-            1.0,
+            Confidence.AMBIGUOUS if ref.startswith(_LOCAL_REF) else Confidence.EXTRACTED,
+            0.3 if ref.startswith(_LOCAL_REF) else 1.0,
             [f"db_project_ref:{ref}"],
             (*a_fact.evidence, *b_fact.evidence),
         )

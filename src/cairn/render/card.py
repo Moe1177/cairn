@@ -124,8 +124,10 @@ def _describe(edge: Edge) -> str:
         tables = _signal_values(edge, "db_table:")
         if tables:
             parts.append("shares tables " + _join(tables))
-        if _signal_values(edge, "db_project_ref:"):
-            parts.append("same database project")
+        refs = _signal_values(edge, "db_project_ref:")
+        if refs:
+            local = all(r.startswith("supabase-local:") for r in refs)
+            parts.append("same local Supabase project id" if local else "same database project")
         return "; ".join(parts) or "shares a database"
     if edge.type is EdgeType.DEPENDS_ON_PACKAGE:
         return "uses package " + _join(_signal_values(edge, "package:"))

@@ -189,3 +189,10 @@ def test_db_edges_never_corroborate_themselves() -> None:
         ]
     )
     assert edge.confidence is Confidence.AMBIGUOUS
+
+
+def test_local_supabase_ids_only_make_ambiguous_edges() -> None:
+    a = _repo("a", consumes=[(FactKind.DB_PROJECT_REF, "supabase-local:app")])
+    b = _repo("b", consumes=[(FactKind.DB_PROJECT_REF, "supabase-local:app")])
+    (edge,) = match_edges([a, b])
+    assert edge.confidence is Confidence.AMBIGUOUS and edge.score == 0.3
