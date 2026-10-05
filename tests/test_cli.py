@@ -77,3 +77,19 @@ def test_scan_missing_directory_errors(tmp_path: Path) -> None:
     result = runner.invoke(app, ["scan", str(tmp_path / "nope")])
     assert result.exit_code == 1
     assert "error:" in result.output
+
+
+def test_cli_output_survives_a_legacy_windows_console(tmp_path: Path) -> None:
+    # Found while dogfooding: cp1252 consoles cannot encode "→".
+    import os
+    import subprocess
+    import sys
+
+    ws = _ws(tmp_path)
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252", "PYTHONUTF8": "0"}
+    for args in (["scan", str(ws)], ["status", str(ws)]):
+        proc = subprocess.run(
+            [sys.executable, "-c", "from cairn.cli import app; app()", *args],
+            capture_output=True, env=env, check=False,
+        )
+        assert proc.returncode == 0, proc.stderr.decode("cp1252", errors="replace")

@@ -1,5 +1,6 @@
 """cairn command-line interface."""
 
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Annotated, NoReturn
@@ -19,6 +20,17 @@ app = typer.Typer(
 )
 SUPPORTED_HARNESSES = ("claude",)
 PathArg = Annotated[Path, typer.Argument(help="Workspace root (default: current directory).")]
+
+
+@app.callback()
+def _main() -> None:
+    """cairn: a workspace map for coding agents."""
+    # Legacy consoles (e.g. Windows cp1252) cannot encode every character in
+    # paths or messages; print a replacement character instead of crashing.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(errors="replace")
 
 
 def _fail(message: str) -> NoReturn:
@@ -47,7 +59,7 @@ def _summary_line(result: ScanResult) -> str:
     counts = Counter(e.confidence.value for e in workspace.edges)
     detail = ", ".join(f"{counts[c.value]} {c.value}" for c in Confidence if counts[c.value])
     suffix = f" ({detail})" if detail else ""
-    return f"Mapped {len(workspace.repos)} repos and {len(workspace.edges)} relationships{suffix} → .cairn/INDEX.md"
+    return f"Mapped {len(workspace.repos)} repos and {len(workspace.edges)} relationships{suffix} -> .cairn/INDEX.md"
 
 
 def _report(result: ScanResult) -> None:
