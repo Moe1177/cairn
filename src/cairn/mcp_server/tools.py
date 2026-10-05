@@ -1,5 +1,7 @@
 """cairn MCP tool logic: workspace path + arguments in, short capped markdown out."""
 
+import functools
+from collections.abc import Callable
 from pathlib import Path
 
 from cairn.discover.git import git_info
@@ -11,16 +13,29 @@ from cairn.paths import cards_dir
 from cairn.render.card import relate_line
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
+from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
 MAX_LINES = 30
 
 
 def rescan(ws_root: Path) -> ScanResult:
-    result = scan_workspace(ws_root)
-    write_outputs(ws_root, result)
-    sync_claude(ws_root)
-    return result
+    with workspace_lock(ws_root):
+        result = scan_workspace(ws_root)
+        write_outputs(ws_root, result)
+        sync_claude(ws_root)
+        return result
+
+
+def locked(func: Callable[..., str]) -> Callable[..., str]:
+    """Run a tool under the workspace lock so reads never race a concurrent rescan."""
+
+    @functools.wraps(func)
+    def wrapper(ws_root: Path, *args: object, **kwargs: object) -> str:
+        with workspace_lock(ws_root):
+            return func(ws_root, *args, **kwargs)
+
+    return wrapper
 
 
 def _workspace(ws_root: Path) -> Workspace:
@@ -54,6 +69,7 @@ def _find(ws_root: Path, name: str) -> tuple[Workspace, Repo | None, str]:
     return workspace, None, f"No repo named '{name}'. Did you mean: {hint}? (use resolve_repo)"
 
 
+@locked
 def resolve_text(ws_root: Path, query: str) -> str:
     workspace = _workspace(ws_root)
     matches = resolve_repo(workspace, load_authored(ws_root), query, limit=5)
@@ -66,6 +82,7 @@ def resolve_text(ws_root: Path, query: str) -> str:
     )
 
 
+@locked
 def card_text(ws_root: Path, repo: str) -> str:
     _, found, message = _find(ws_root, repo)
     if found is None:
@@ -77,12 +94,14 @@ def card_text(ws_root: Path, repo: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+@locked
 def related_text(
     ws_root: Path, repo: str, edge_type: str | None = None, include_unconfirmed: bool = False
 ) -> str:
-    workspace, found, message = _find(ws_root, repo)
+    _, found, message = _find(ws_root, repo)
     if found is None:
         return message
+    workspace = _fresh(ws_root, found)
     edges = [
         e
         for e in workspace.edges_for(found.id)
@@ -96,6 +115,7 @@ def related_text(
     return "\n".join([f"{found.id} relationships ({len(edges)}):", *lines])
 
 
+@locked
 def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
     workspace = _workspace(ws_root)
     needle = query.strip().lower()
@@ -113,6 +133,7 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
     return "\n".join(_cap(lines)) if lines else f"Nothing in the map matches '{query}'."
 
 
+@locked
 def refresh_text(ws_root: Path) -> str:
     previous = load_workspace(ws_root)
     before = {r.id: r.head_sha for r in previous.repos} if previous else {}
@@ -125,10 +146,12 @@ def refresh_text(ws_root: Path) -> str:
     )
 
 
+@locked
 def query_text(ws_root: Path, repo: str, question: str) -> str:
     _, found, message = _find(ws_root, repo)
     if found is None:
         return message
+    found = _fresh(ws_root, found).repo(found.id) or found
     layout = (
         "\n".join(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}" for e in found.layout)
         or "- (no layout recorded)"

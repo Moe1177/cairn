@@ -18,9 +18,9 @@ def env(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("CODEX_HOME", raising=False)
     calls: list[list[str]] = []
 
-    def fake_cli(args: list[str]) -> str:
+    def fake_cli(args: list[str]) -> tuple[int, str]:
         calls.append(args)
-        return "Added stdio MCP server cairn"
+        return 0, "Added stdio MCP server cairn"
 
     monkeypatch.setattr(h, "_claude_cli", fake_cli)
     ws = tmp_path / "ws"

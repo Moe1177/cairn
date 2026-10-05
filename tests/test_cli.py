@@ -133,10 +133,23 @@ def test_annotate_edge_rejects_and_rescans(tmp_path: Path) -> None:
     assert bad.exit_code == 1 and "--confirm, --reject, or --why" in bad.output
 
 
-def test_serve_outside_a_workspace_fails_clearly(tmp_path: Path, monkeypatch) -> None:
+def test_serve_outside_a_workspace_starts_and_explains(tmp_path: Path, monkeypatch) -> None:
+    # Phase 2b review: globally registered servers must not fail in unrelated projects.
+    import cairn.mcp_server.server as srv
+
+    built: list[object] = []
+
+    class FakeServer:
+        def run(self) -> None:
+            built.append("ran")
+
+    monkeypatch.setattr(
+        srv, "build_server", lambda root, start=None: built.append((root, start)) or FakeServer()
+    )
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["serve"])
-    assert result.exit_code == 1 and "No cairn workspace found" in result.output
+    assert result.exit_code == 0
+    assert built[0] == (None, tmp_path) and built[1] == "ran"
 
 
 def test_set_summary_cli_updates_index(tmp_path: Path) -> None:
@@ -166,3 +179,17 @@ def test_install_all_continues_past_a_broken_config(tmp_path: Path) -> None:
     assert "Codex: pointer" in result.output and "Cursor:" in result.output
     status = runner.invoke(app, ["status", str(ws)]).output
     assert "Harnesses: claude, codex, cursor" in status
+
+
+def test_install_all_survives_a_locked_config(tmp_path: Path, monkeypatch) -> None:
+    import cairn.integrations.harnesses as h
+
+    def locked(ws_root: Path, per_repo: bool) -> tuple[str, ...]:
+        raise PermissionError(13, "The process cannot access the file", "settings.json")
+
+    monkeypatch.setitem(h._INSTALLERS, "gemini", locked)
+    ws = _ws(tmp_path)
+    runner.invoke(app, ["scan", str(ws)])
+    result = runner.invoke(app, ["install", "all", str(ws)])
+    assert result.exit_code == 1
+    assert "gemini: error:" in result.output and "Cursor:" in result.output

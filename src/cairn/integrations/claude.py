@@ -8,7 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from cairn.errors import CairnError
-from cairn.integrations.registry import register_workspace, unregister_workspace
+from cairn.integrations.registry import register_workspace
 from cairn.paths import backups_dir, index_file
 from cairn.render.markers import END, START, remove_block, upsert_block
 from cairn.store.atomic import atomic_write_text
@@ -41,10 +41,8 @@ def uninstall_claude(ws_root: Path) -> bool:
     target = claude_md(ws_root)
     original = _read(target)
     if START not in original and END not in original:
-        unregister_workspace(ws_root)
         return False
     updated = _checked(target, lambda: remove_block(original))
-    unregister_workspace(ws_root)
     if updated.strip():
         atomic_write_text(target, updated)
     else:

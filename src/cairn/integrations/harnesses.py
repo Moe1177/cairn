@@ -18,7 +18,11 @@ from cairn.integrations.content import (
     skill_markdown,
 )
 from cairn.integrations.homes import claude_home, codex_home, cursor_home, gemini_home
-from cairn.integrations.registry import list_workspaces, register_workspace
+from cairn.integrations.registry import (
+    list_workspaces,
+    register_workspace,
+    unregister_workspace,
+)
 from cairn.integrations.server_command import server_command
 from cairn.store.workspace_store import load_workspace
 
@@ -28,28 +32,45 @@ Lines = tuple[str, ...]
 
 
 def install_harness(name: str, ws_root: Path, *, per_repo: bool = False) -> Lines:
-    register_workspace(ws_root)
-    lines = _INSTALLERS[name](ws_root, per_repo)
+    newly_registered = ws_root.resolve().as_posix() not in list_workspaces()
+    register_workspace(ws_root)  # pointers written by the installer must list this workspace
+    try:
+        lines = _INSTALLERS[name](ws_root, per_repo)
+    except BaseException:
+        if newly_registered and not installed_harnesses(ws_root):
+            unregister_workspace(ws_root)  # a refused install leaves nothing behind
+        raise
     _refresh_pointers()
     return lines
 
 
 def uninstall_harness(name: str, ws_root: Path) -> Lines:
-    return _UNINSTALLERS[name](ws_root)
+    lines = _UNINSTALLERS[name](ws_root)
+    if not installed_harnesses(ws_root):
+        unregister_workspace(ws_root)  # only once no harness uses this workspace any more
+    _refresh_pointers()
+    return lines
 
 
 def installed_harnesses(ws_root: Path) -> Lines:
     checks = {
-        "claude": is_installed(ws_root),
-        "codex": cf.TOML_START_MARK in cf.read_raw(codex_home() / "config.toml"),
-        "gemini": '"cairn"' in cf.read_raw(gemini_home() / "settings.json"),
-        "cursor": '"cairn"' in cf.read_raw(cursor_home() / "mcp.json"),
+        "claude": lambda: is_installed(ws_root),
+        "codex": lambda: cf.TOML_START_MARK in cf.read_raw(codex_home() / "config.toml"),
+        "gemini": lambda: '"cairn"' in cf.read_raw(gemini_home() / "settings.json"),
+        "cursor": lambda: '"cairn"' in cf.read_raw(cursor_home() / "mcp.json"),
     }
-    return tuple(name for name in HARNESSES if checks[name])
+    return tuple(name for name in HARNESSES if _check(checks[name]))
 
 
-def _claude_cli(args: list[str]) -> str | None:
-    """Run the `claude` CLI; None when it isn't installed or can't run."""
+def _check(probe: Callable[[], bool]) -> bool:
+    try:
+        return probe()
+    except CairnError:
+        return False  # an unreadable config can't contain a working cairn entry
+
+
+def _claude_cli(args: list[str]) -> tuple[int, str] | None:
+    """Run the `claude` CLI: (exit code, output), or None when it isn't installed or can't run."""
     exe = shutil.which("claude")
     if exe is None:
         return None
@@ -57,7 +78,7 @@ def _claude_cli(args: list[str]) -> str | None:
         done = subprocess.run([exe, *args], capture_output=True, text=True, timeout=60, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return None
-    return (done.stdout or "") + (done.stderr or "")
+    return done.returncode, (done.stdout or "") + (done.stderr or "")
 
 
 def _refresh_pointers() -> None:
@@ -75,15 +96,24 @@ def _install_claude(ws_root: Path, _per_repo: bool) -> Lines:
     target = install_claude(ws_root)
     skill = claude_home() / "skills" / "cairn" / "SKILL.md"
     cf.write_owned(skill, skill_markdown())
+    return (f"Claude Code: index added to {target}", f"Claude Code skill: {skill}", _register_mcp())
+
+
+def _register_mcp() -> str:
     command = server_command()
-    out = _claude_cli(["mcp", "add", "--scope", "user", "cairn", "--", *command])
-    if out is None:
-        mcp = f"Claude Code MCP: run `claude mcp add --scope user cairn -- {_display(command)}`"
-    elif "already exists" in out.lower():
-        mcp = "Claude Code MCP: already registered"
-    else:
-        mcp = "Claude Code MCP: registered (user scope)"
-    return (f"Claude Code: index added to {target}", f"Claude Code skill: {skill}", mcp)
+    manual = f"claude mcp add --scope user cairn -- {_display(command)}"
+    add = ["mcp", "add", "--scope", "user", "cairn", "--", *command]
+    result = _claude_cli(add)
+    if result is None:
+        return f"Claude Code MCP: run `{manual}`"
+    replaced = False
+    if result[0] != 0 and "already exists" in result[1].lower():
+        _claude_cli(["mcp", "remove", "--scope", "user", "cairn"])  # may point at an old path
+        result, replaced = _claude_cli(add), True
+    if result is None or result[0] != 0:
+        reason = (result[1].strip().splitlines() or ["unknown error"])[0] if result else "not run"
+        return f"Claude Code MCP: `claude mcp add` failed ({reason}); run `{manual}`"
+    return f"Claude Code MCP: {'re-registered' if replaced else 'registered'} (user scope)"
 
 
 def _uninstall_claude(ws_root: Path) -> Lines:
@@ -147,7 +177,9 @@ def _uninstall_cursor(ws_root: Path) -> Lines:
 def _cursor_rules(ws_root: Path, *, add: bool) -> int:
     workspace = load_workspace(ws_root)
     if workspace is None:
-        raise CairnError("No map found. Run `cairn scan` first.")
+        if add:
+            raise CairnError("No map found. Run `cairn scan` first.")
+        return 0  # nothing to clean per repo; the global cleanup already happened
     count = 0
     for repo in workspace.repos:
         root = ws_root / repo.path

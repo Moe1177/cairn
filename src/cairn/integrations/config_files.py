@@ -1,4 +1,9 @@
-"""Edit other tools' config files safely: only cairn's key/block, backups, refuse bad input."""
+"""Edit other tools' config files safely: only cairn's key/block, backups, refuse bad input.
+
+Every editor validates the *result* before writing, keeps the file's BOM and newline style,
+and turns unreadable files (not UTF-8, locked, permission denied) into a CairnInputError so
+the caller can report it and move on to the next harness.
+"""
 
 import json
 import tomllib
@@ -12,13 +17,20 @@ from cairn.store.atomic import atomic_write_text
 
 SERVER_NAME = "cairn"
 TOML_START_MARK = TOML_START
+_BOM = "﻿"
 
 
 def read_raw(path: Path) -> str:
+    """Exact file text ('' if missing); unreadable files become CairnInputError."""
     if not path.is_file():
         return ""
-    with path.open(encoding="utf-8", newline="") as handle:
-        return handle.read()
+    try:
+        with path.open(encoding="utf-8", newline="") as handle:
+            return handle.read()
+    except UnicodeDecodeError as exc:
+        raise CairnInputError(str(path), "isn't UTF-8 text; left untouched") from exc
+    except OSError as exc:
+        raise CairnInputError(str(path), f"can't be read ({exc.strerror or exc})") from exc
 
 
 def backup_once(path: Path, label: str) -> None:
@@ -30,32 +42,48 @@ def backup_once(path: Path, label: str) -> None:
         atomic_write_text(dest, read_raw(path))
 
 
-def _load_json(path: Path) -> dict[str, Any]:
+def _split_bom(raw: str) -> tuple[str, str]:
+    return (_BOM, raw[1:]) if raw.startswith(_BOM) else ("", raw)
+
+
+def _newline(text: str) -> str:
+    return "\r\n" if "\r\n" in text else "\n"
+
+
+def _load_json(path: Path) -> tuple[dict[str, Any], str]:
     raw = read_raw(path)
+    _, text = _split_bom(raw)
     try:
-        data = json.loads(raw) if raw.strip() else {}
+        data = json.loads(text) if text.strip() else {}
     except ValueError as exc:
-        raise CairnInputError(str(path), f"invalid JSON ({exc}); left untouched") from exc
+        hint = " (comments aren't supported; add the cairn entry by hand)" if "//" in text else ""
+        raise CairnInputError(str(path), f"invalid JSON ({exc}){hint}; left untouched") from exc
     servers = data.get("mcpServers", {}) if isinstance(data, dict) else None
     if not isinstance(data, dict) or not isinstance(servers, dict):
         raise CairnInputError(
             str(path), "expected an object with an 'mcpServers' object; left untouched"
         )
-    return data
+    return data, raw
+
+
+def _dump_json(data: dict[str, Any], raw: str) -> str:
+    bom, _ = _split_bom(raw)
+    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+    return bom + text.replace("\n", _newline(raw)) if raw else text
 
 
 def set_json_server(path: Path, command: list[str], *, label: str) -> None:
-    data = _load_json(path)
+    data, raw = _load_json(path)
     entry = {"command": command[0], "args": command[1:]}
     servers = {**data.get("mcpServers", {}), SERVER_NAME: entry}
     backup_once(path, label)
-    atomic_write_text(path, json.dumps({**data, "mcpServers": servers}, indent=2) + "\n")
+    atomic_write_text(path, _dump_json({**data, "mcpServers": servers}, raw))
 
 
 def remove_json_server(path: Path, *, label: str) -> bool:
     if not path.is_file():
         return False
-    data = _load_json(path)
+    data, raw = _load_json(path)
     servers = data.get("mcpServers", {})
     if SERVER_NAME not in servers:
         return False
@@ -65,18 +93,22 @@ def remove_json_server(path: Path, *, label: str) -> bool:
     if remaining == {"mcpServers": {}}:
         path.unlink()  # nothing but cairn's entry was ever in it
     else:
-        atomic_write_text(path, json.dumps(remaining, indent=2) + "\n")
+        atomic_write_text(path, _dump_json(remaining, raw))
     return True
+
+
+def _parse_toml(path: Path, text: str) -> dict[str, Any]:
+    try:
+        return tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise CairnInputError(str(path), f"invalid TOML ({exc}); left untouched") from exc
 
 
 def set_toml_server(path: Path, command: list[str], *, label: str) -> None:
     raw = read_raw(path)
-    outside = remove_block(raw, start=TOML_START, end=TOML_END)
-    try:
-        parsed = tomllib.loads(outside)
-    except tomllib.TOMLDecodeError as exc:
-        raise CairnInputError(str(path), f"invalid TOML ({exc}); left untouched") from exc
-    if SERVER_NAME in parsed.get("mcp_servers", {}):
+    bom, text = _split_bom(raw)
+    outside = remove_block(text, start=TOML_START, end=TOML_END)
+    if SERVER_NAME in _parse_toml(path, outside).get("mcp_servers", {}):
         raise CairnInputError(
             str(path), "already defines [mcp_servers.cairn] outside cairn's block; left untouched"
         )
@@ -86,31 +118,46 @@ def set_toml_server(path: Path, command: list[str], *, label: str) -> None:
         f"command = {json.dumps(command[0])}\n"
         f"args = {json.dumps(command[1:])}"
     )
+    updated = upsert_block(text, body, start=TOML_START, end=TOML_END)
+    expected = {"command": command[0], "args": command[1:]}
+    try:
+        valid = tomllib.loads(updated).get("mcp_servers", {}).get(SERVER_NAME) == expected
+    except tomllib.TOMLDecodeError:
+        valid = False
+    if not valid:
+        raise CairnInputError(
+            str(path),
+            "can't add [mcp_servers.cairn] without breaking this file (is mcp_servers an inline "
+            f"table?); left untouched. Add it by hand:\n{body}",
+        )
     backup_once(path, label)
-    atomic_write_text(path, upsert_block(raw, body, start=TOML_START, end=TOML_END))
+    atomic_write_text(path, bom + updated)
 
 
 def remove_toml_server(path: Path, *, label: str) -> bool:
     raw = read_raw(path)
     if TOML_START not in raw:
         return False
+    bom, text = _split_bom(raw)
     backup_once(path, label)
-    _write_or_delete(path, remove_block(raw, start=TOML_START, end=TOML_END))
+    _write_or_delete(path, bom, remove_block(text, start=TOML_START, end=TOML_END))
     return True
 
 
 def set_marker_text(path: Path, body: str, *, label: str) -> None:
     raw = read_raw(path)
+    bom, text = _split_bom(raw)
     backup_once(path, label)
-    atomic_write_text(path, upsert_block(raw, body))
+    atomic_write_text(path, bom + upsert_block(text, body))
 
 
 def remove_marker_text(path: Path, *, label: str) -> bool:
     raw = read_raw(path)
     if START not in raw:
         return False
+    bom, text = _split_bom(raw)
     backup_once(path, label)
-    _write_or_delete(path, remove_block(raw))
+    _write_or_delete(path, bom, remove_block(text))
     return True
 
 
@@ -128,8 +175,8 @@ def remove_owned(path: Path) -> bool:
     return True
 
 
-def _write_or_delete(path: Path, text: str) -> None:
+def _write_or_delete(path: Path, bom: str, text: str) -> None:
     if text.strip():
-        atomic_write_text(path, text)
+        atomic_write_text(path, bom + text)
     else:
         path.unlink()

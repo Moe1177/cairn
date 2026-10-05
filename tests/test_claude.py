@@ -53,7 +53,8 @@ def test_existing_content_survives_reinstall_and_uninstall(tmp_path: Path) -> No
     assert (backups_dir(ws) / "CLAUDE.md.orig").read_bytes() == original
     assert uninstall_claude(ws) is True
     assert claude_md(ws).read_bytes() == original
-    assert list_workspaces() == ()
+    # The registry is shared by all harnesses; uninstall_harness (not this) unregisters.
+    assert list_workspaces() == (ws.resolve().as_posix(),)
 
 
 def test_uninstall_deletes_file_cairn_created(tmp_path: Path) -> None:

@@ -26,13 +26,49 @@ def find_workspace(start: Path) -> Path | None:
 
 
 def _safe(call: Callable[[], str]) -> str:
+    """Tool errors come back as readable text, never as an opaque tool failure."""
     try:
         return call()
     except CairnError as exc:
         return f"cairn error: {exc}"
+    except (OSError, ValueError) as exc:
+        return f"cairn error: {type(exc).__name__}: {exc}"
 
 
-def build_server(ws_root: Path) -> MCPServer:
+def _no_workspace_server(start: Path) -> MCPServer:
+    """Globally registered servers start in every project; outside a workspace, explain instead of failing."""
+    message = (
+        f"No cairn workspace found at or above {start.as_posix()}. Run `cairn init` in the folder "
+        "that contains your repos, then restart this session."
+    )
+    server = MCPServer("cairn", instructions=message)
+
+    def resolve_repo(name_or_alias: str) -> str:
+        return message
+
+    def repo_card(repo: str) -> str:
+        return message
+
+    def related(repo: str, edge_type: str | None = None, include_unconfirmed: bool = False) -> str:
+        return message
+
+    def find_across(query: str, kind: str | None = None) -> str:
+        return message
+
+    def query(repo: str, question: str) -> str:
+        return message
+
+    def refresh() -> str:
+        return message
+
+    for stub in (resolve_repo, repo_card, related, find_across, query, refresh):
+        server.add_tool(stub, description=message)
+    return server
+
+
+def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServer:
+    if ws_root is None:
+        return _no_workspace_server(start or Path.cwd())
     server = MCPServer("cairn", instructions=pointer_text([ws_root.as_posix()]))
 
     @server.tool()

@@ -21,6 +21,7 @@ from cairn.integrations.harnesses import (
 from cairn.load import load_authored
 from cairn.model.graph import Confidence
 from cairn.scan import ScanResult, scan_workspace
+from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
 app = typer.Typer(
@@ -60,7 +61,7 @@ def _run_for(names: tuple[str, ...], action: Callable[[str], tuple[str, ...]]) -
         try:
             for line in action(name):
                 typer.echo(line)
-        except CairnError as exc:
+        except (CairnError, OSError) as exc:  # e.g. a config file locked by the running app
             failed = True
             typer.echo(f"{name}: error: {exc}", err=True)
     if failed:
@@ -69,10 +70,11 @@ def _run_for(names: tuple[str, ...], action: Callable[[str], tuple[str, ...]]) -
 
 def _scan_and_write(path: Path) -> ScanResult:
     root = path.resolve()
-    result = scan_workspace(root)
-    write_outputs(root, result)
-    sync_claude(root)
-    return result
+    with workspace_lock(root):
+        result = scan_workspace(root)
+        write_outputs(root, result)
+        sync_claude(root)
+        return result
 
 
 def _summary_line(result: ScanResult) -> str:
@@ -224,12 +226,9 @@ def serve(
     from cairn.mcp_server.server import build_server, find_workspace
 
     root = workspace.resolve() if workspace else find_workspace(Path.cwd())
-    if root is None:
-        _fail(
-            "No cairn workspace found above the current directory. Run `cairn init` in the "
-            "folder that contains your repos, or pass --workspace."
-        )
-    build_server(root).run()
+    # Outside a workspace the server still starts and its tools explain how to set one up,
+    # so a globally registered cairn never shows as a failed server in unrelated projects.
+    build_server(root, start=Path.cwd()).run()
 
 
 @app.command("set-summary")
