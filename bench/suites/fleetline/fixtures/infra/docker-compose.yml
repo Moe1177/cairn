@@ -1,0 +1,12 @@
+services:
+  trips:
+    build: ../trips-svc
+    ports: ["8001:8000"]
+  drivers:
+    build: ../drivers-svc
+  pricing:
+    build: ../pricing-svc
+  payments:
+    build: ../payments-svc
+  postgres:
+    image: postgres:16

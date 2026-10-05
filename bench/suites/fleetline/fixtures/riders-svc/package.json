@@ -1,0 +1,14 @@
+{
+  "name": "@fleetline/riders-svc",
+  "private": true,
+  "scripts": {
+    "start": "nest start"
+  },
+  "dependencies": {
+    "@nestjs/core": "10.4.0"
+  },
+  "devDependencies": {
+    "typescript": "5.6.0",
+    "vitest": "2.1.0"
+  }
+}

@@ -1,0 +1,6 @@
+services:
+  trips:
+    build: ../trips-svc
+    volumes:
+      - ../trips-svc/app:/app/app
+    command: uvicorn app.main:app --reload
