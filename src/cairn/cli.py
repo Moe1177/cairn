@@ -12,6 +12,7 @@ from cairn.authored_store import annotate_edge, set_summary
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import install_claude, is_installed, sync_claude
+from cairn.integrations.git_hooks import install_hooks, uninstall_hooks
 from cairn.integrations.harnesses import (
     HARNESSES,
     install_harness,
@@ -280,3 +281,15 @@ def set_summary_cmd(
         _report(_scan_and_write(path))
     except CairnError as exc:
         _fail(str(exc))
+
+
+@app.command()
+def hooks(action: str, path: PathArg = Path(".")) -> None:
+    """Git hooks that refresh the map after commits and merges: install | uninstall."""
+    if action not in ("install", "uninstall"):
+        _fail("use `cairn hooks install` or `cairn hooks uninstall`.")
+    try:
+        count = (install_hooks if action == "install" else uninstall_hooks)(path.resolve())
+    except CairnError as exc:
+        _fail(str(exc))
+    typer.echo(f"git hooks {action}ed in {count} repos")
