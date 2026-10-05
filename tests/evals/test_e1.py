@@ -22,6 +22,7 @@ REMOTE_TOKEN = "ghp_REMOTEFAKEfakeFAKEfake1234567890"
 REMOTES = {
     "mini-eats": {"eats": f"https://bot:{REMOTE_TOKEN}@github.com/acme/eats.git"},
     "polyglot": {},
+    "lookalikes": {},
 }
 SECRETS = ("sk_live_FAKE", "sk_test_FAKEreadme", "SuperSecretPw123", "ghp_FAKEfake", REMOTE_TOKEN)
 
@@ -51,6 +52,7 @@ def test_edge_detection_meets_calibration_gates(materialize) -> None:
     assert metrics.recall >= 0.85, metrics.describe()
     assert metrics.extracted_precision >= 0.95, metrics.describe()
     assert metrics.inferred_precision >= 0.80, metrics.describe()
+    assert metrics.tier_accuracy >= 0.90, metrics.describe()
 
 
 def test_resolution_accuracy(materialize) -> None:
@@ -117,3 +119,36 @@ def test_golden_outputs(materialize, rel: str) -> None:
         golden.write_text(actual, encoding="utf-8", newline="\n")
     assert actual.startswith(INDEX_TITLE) or actual.startswith("# ")
     assert golden.read_text(encoding="utf-8") == actual
+
+
+def test_lookalikes_have_no_confident_false_positives(materialize) -> None:
+    _, result = _scan(materialize, "lookalikes")
+    # A confident edge is wrong if it is unexpected OR expected only as `ambiguous`.
+    confident_ok = {
+        (*sorted((e["from"], e["to"])), e["type"])
+        for e in _expect("lookalikes")["edges"]
+        if e["confidence"] != "ambiguous"
+    }
+    confident = [e for e in result.workspace.edges if e.confidence.value != "ambiguous"]
+    wrong = [
+        e.key
+        for e in confident
+        if (*sorted((e.source, e.target)), e.type.value) not in confident_ok
+    ]
+    assert wrong == []
+
+
+def test_scan_never_opens_forbidden_files(materialize, monkeypatch) -> None:
+    from cairn.security.policy import is_forbidden
+
+    opened: list[Path] = []
+    real_open = Path.open
+
+    def spy(self: Path, *args, **kwargs):
+        opened.append(self)
+        return real_open(self, *args, **kwargs)
+
+    ws = materialize("mini-eats", remotes=REMOTES["mini-eats"]).resolve()
+    monkeypatch.setattr(Path, "open", spy)
+    write_outputs(ws, scan_workspace(ws))
+    assert opened and [p for p in opened if is_forbidden(p)] == []

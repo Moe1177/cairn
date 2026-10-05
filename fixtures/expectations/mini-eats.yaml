@@ -21,3 +21,11 @@ phrasings:
   - {query: "python scripts", repo: notes}
   - {query: "the next.js app for customers", repo: eats}
   - {query: "payouts dashboard", repo: eats-admin}
+  - {query: "eats admin", repo: eats-admin}
+  - {query: "customer app", repo: eats}
+  - {query: "react components", repo: shared-ui}
+  - {query: "study notes", repo: notes}
+  - {query: "home-cooked meals", repo: eats}
+  - {query: "menus and payouts", repo: eats-admin}
+  - {query: "shared-ui", repo: shared-ui}
+  - {query: "notes", repo: notes}

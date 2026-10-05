@@ -1,0 +1,26 @@
+edges:
+  - {from: linked-a, to: linked-b, type: shares_db, confidence: extracted}
+  - {from: shop-app, to: ui-kit, type: depends_on_package, confidence: ambiguous}
+  - {from: shop-app, to: ui-kit-fork, type: depends_on_package, confidence: ambiguous}
+  - {from: resume-app, to: shop-app, type: shares_db, confidence: ambiguous}
+  - {from: linked-a, to: local-only-x, type: shares_db, confidence: ambiguous}
+  - {from: linked-a, to: local-only-y, type: shares_db, confidence: ambiguous}
+  - {from: linked-b, to: local-only-x, type: shares_db, confidence: ambiguous}
+  - {from: linked-b, to: local-only-y, type: shares_db, confidence: ambiguous}
+  - {from: local-only-x, to: local-only-y, type: shares_db, confidence: ambiguous}
+phrasings:
+  - {query: "resume builder", repo: resume-app}
+  - {query: "the storefront", repo: shop-app}
+  - {query: "handmade shop", repo: shop-app}
+  - {query: "design system", repo: ui-kit}
+  - {query: "ui kit", repo: ui-kit}
+  - {query: "the fork", repo: ui-kit-fork}
+  - {query: "unreleased widgets", repo: ui-kit-fork}
+  - {query: "booking api", repo: linked-a}
+  - {query: "booking admin console", repo: linked-b}
+  - {query: "chat prototype", repo: local-only-x}
+  - {query: "notes prototype", repo: local-only-y}
+  - {query: "stripe resume", repo: resume-app}
+  - {query: "resume-app", repo: resume-app}
+  - {query: "shop-app", repo: shop-app}
+  - {query: "linked-b", repo: linked-b}

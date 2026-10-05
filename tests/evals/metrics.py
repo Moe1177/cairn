@@ -21,6 +21,7 @@ class EdgeMetrics:
     recall: float
     extracted_precision: float
     inferred_precision: float
+    tier_accuracy: float
     false_positives: tuple[tuple[str, str, str], ...]
     false_negatives: tuple[tuple[str, str, str], ...]
 
@@ -36,6 +37,8 @@ def edge_metrics(predicted: Sequence[EdgeTuple], expected: Sequence[EdgeTuple]) 
     want = {_key(s, t, ty) for s, t, ty, _ in expected}
     got = {_key(s, t, ty): conf for s, t, ty, conf in predicted}
     hits = set(got) & want
+    want_tier = {_key(s, t, ty): conf for s, t, ty, conf in expected}
+    exact = sum(got.get(k) == conf for k, conf in want_tier.items())
 
     def tier(confidence: str) -> float:
         keys = [k for k, c in got.items() if c == confidence]
@@ -46,6 +49,7 @@ def edge_metrics(predicted: Sequence[EdgeTuple], expected: Sequence[EdgeTuple]) 
         recall=len(hits) / len(want) if want else 1.0,
         extracted_precision=tier("extracted"),
         inferred_precision=tier("inferred"),
+        tier_accuracy=exact / len(want_tier) if want_tier else 1.0,
         false_positives=tuple(sorted(set(got) - want)),
         false_negatives=tuple(sorted(want - set(got))),
     )

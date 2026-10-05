@@ -21,3 +21,10 @@ phrasings:
   - {query: "ledger", repo: ledger}
   - {query: "payment processing", repo: payments}
   - {query: "orders api", repo: orders-svc}
+  - {query: "common", repo: common}
+  - {query: "orders-svc", repo: orders-svc}
+  - {query: "money", repo: money}
+  - {query: "web", repo: web}
+  - {query: "storefront", repo: web}
+  - {query: "currency math", repo: money}
+  - {query: "rust utilities", repo: ledger}

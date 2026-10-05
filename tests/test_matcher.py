@@ -149,7 +149,9 @@ def test_query_only_overlap_is_ambiguous() -> None:
     assert edge.confidence is Confidence.AMBIGUOUS
 
 
-def _e(src: str, tgt: str, type_: EdgeType, conf: Confidence, signals: tuple[str, ...] = ()) -> Edge:
+def _e(
+    src: str, tgt: str, type_: EdgeType, conf: Confidence, signals: tuple[str, ...] = ()
+) -> Edge:
     return Edge(source=src, target=tgt, type=type_, confidence=conf, score=0.5, signals=signals)
 
 
