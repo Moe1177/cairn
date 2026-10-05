@@ -13,5 +13,5 @@ def test_writes_all_outputs_and_prunes_stale_cards(tmp_path: Path) -> None:
     written = write_outputs(tmp_path, scan_workspace(tmp_path))
     assert workspace_file(tmp_path).is_file()
     assert sorted(p.name for p in cards_dir(tmp_path).glob("*.md")) == ["alpha.md", "beta.md"]
-    assert "- alpha: Alpha service" in index_file(tmp_path).read_text(encoding="utf-8")
+    assert "- alpha: no summary yet" in index_file(tmp_path).read_text(encoding="utf-8")
     assert index_file(tmp_path) in written

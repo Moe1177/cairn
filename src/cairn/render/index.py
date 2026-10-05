@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 from cairn.model.graph import Confidence, Repo, Workspace
 from cairn.model.overrides import Authored
+from cairn.security.text import clean_inline
 
 INDEX_TITLE = "# Workspace repos (cairn)"
 ONE_LINER_MAX = 60
@@ -14,18 +15,20 @@ _PREVIEW = 8
 
 
 def one_liner(repo: Repo, authored: Authored | None) -> str:
-    text = (authored.summary if authored and authored.summary else None) or repo.readme_excerpt
+    """The authored summary's first sentence. README text never enters INDEX (spec §20.1):
+    INDEX is always loaded into the agent's context, so repo-controlled prose stays out."""
+    text = authored.summary if authored and authored.summary else None
     if not text:
         return "no summary yet"
     first = re.split(r"(?<=[.!?])\s", " ".join(text.split()), maxsplit=1)[0].rstrip(".")
-    return first if len(first) <= ONE_LINER_MAX else first[: ONE_LINER_MAX - 1] + "…"
+    return clean_inline(first, ONE_LINER_MAX)
 
 
 def repo_line(repo: Repo, authored: Authored | None) -> str:
     aliases = [a for a in repo.aliases if a.lower() != repo.id.lower()][:2]
-    alias_part = f" ({', '.join(aliases)})" if aliases else ""
+    alias_part = f" ({', '.join(clean_inline(a, 64) for a in aliases)})" if aliases else ""
     stack = f" · {_primary_stack(repo.stack)}" if repo.stack else ""
-    return f"- {repo.id}{alias_part}: {one_liner(repo, authored)}{stack}"
+    return f"- {clean_inline(repo.id, 80)}{alias_part}: {one_liner(repo, authored)}{stack}"
 
 
 def render_index(

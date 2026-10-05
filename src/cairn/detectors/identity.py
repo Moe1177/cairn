@@ -14,6 +14,7 @@ from cairn.detectors.manifests import (
     project_name,
 )
 from cairn.security.redact import redact
+from cairn.security.text import valid_alias
 
 GENERIC_ALIASES = frozenset(
     {
@@ -76,7 +77,7 @@ def clean_aliases(
     seen = {repo_id.lower()}
     for raw in names:
         alias = raw.strip().lower()
-        if len(alias) < 2 or alias in generic or alias in seen:
+        if len(alias) < 2 or alias in generic or alias in seen or not valid_alias(alias):
             continue
         aliases.append(alias)
         seen.add(alias)

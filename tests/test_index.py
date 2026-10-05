@@ -26,7 +26,8 @@ def test_repo_line_format_and_budget() -> None:
 
 
 def test_one_liner_fallbacks_and_cap() -> None:
-    assert one_liner(_repo("a", readme_excerpt="Short readme. Second."), None) == "Short readme"
+    # spec 20.1: README text never enters the always-loaded INDEX
+    assert one_liner(_repo("a", readme_excerpt="Short readme. Second."), None) == "no summary yet"
     assert one_liner(_repo("a"), None) == "no summary yet"
     long = one_liner(_repo("a"), Authored(summary="x" * 200))
     assert len(long) == 60 and long.endswith("…")
