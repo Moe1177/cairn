@@ -19,6 +19,11 @@ from cairn.security.redact import REDACTED, make_snippet, redact
         ".npmrc",
         ".git-credentials",
         "credentials.json",
+        "secrets.yaml",
+        "secrets.toml",
+        "prod.tfvars",
+        ".dev.vars",
+        ".secrets",
     ],
 )
 def test_secret_files_are_forbidden(name: str) -> None:
@@ -27,7 +32,7 @@ def test_secret_files_are_forbidden(name: str) -> None:
 
 @pytest.mark.parametrize(
     "name",
-    [".env.example", ".env.sample", ".env.template", "package.json", "schema.sql", "README.md"],
+    [".env.example", ".env.sample", ".env.template", "package.json", "schema.sql", "README.md", "secrets.md"],
 )
 def test_normal_files_are_allowed(name: str) -> None:
     assert not is_forbidden(Path("repo") / name)
