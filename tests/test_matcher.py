@@ -206,3 +206,32 @@ def test_duplicate_package_owners_are_ambiguous() -> None:
     site = _repo("site", consumes=[(FactKind.PACKAGE, "npm:@acme/ui-kit")])
     edges = {(e.target, e.confidence) for e in match_edges([kit, fork, site])}
     assert edges == {("ui-kit", Confidence.AMBIGUOUS), ("ui-kit-fork", Confidence.AMBIGUOUS)}
+
+
+def test_disjoint_db_providers_cannot_share_tables() -> None:
+    p = FactKind.DB_PROVIDER
+    neon = _repo(
+        "shopapp", exposes=[(T, "stripe_webhook_events"), (T, "orders")], consumes=[(p, "neon")]
+    )
+    supa = _repo(
+        "resumeapp",
+        exposes=[(T, "stripe_webhook_events"), (T, "orders")],
+        consumes=[(p, "supabase")],
+    )
+    both = _repo(
+        "hybrid",
+        exposes=[(T, "stripe_webhook_events"), (T, "orders")],
+        consumes=[(p, "neon"), (p, "supabase")],
+    )
+    pairs = {frozenset((e.source, e.target)) for e in match_edges([neon, supa, both])}
+    assert frozenset(("shopapp", "resumeapp")) not in pairs
+    assert frozenset(("shopapp", "hybrid")) in pairs
+    assert frozenset(("resumeapp", "hybrid")) in pairs
+
+
+def test_unknown_provider_keeps_table_edges() -> None:
+    a = _repo(
+        "a", exposes=[(T, "invoices"), (T, "ledgers")], consumes=[(FactKind.DB_PROVIDER, "neon")]
+    )
+    b = _repo("b", consumes=[(T, "invoices"), (T, "ledgers")])
+    assert len(match_edges([a, b])) == 1

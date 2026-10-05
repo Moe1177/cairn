@@ -140,3 +140,11 @@ def test_comment_lines_are_not_sql(tmp_path: Path) -> None:
     repo = make_repo(tmp_path, "app", {"src/q.ts": code, "db/q.sql": sql})
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     assert _tables(result.consumes) == ["invoices", "receipts"]
+
+
+def test_db_provider_facts_from_client_dependencies(tmp_path: Path) -> None:
+    pkg = '{"dependencies": {"@neondatabase/serverless": "1", "@supabase/ssr": "1", "react": "19"}}'
+    repo = make_repo(tmp_path, "app", {"package.json": pkg, "requirements.txt": "supabase==2\n"})
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    providers = [f.value for f in result.consumes if f.kind is FactKind.DB_PROVIDER]
+    assert providers == ["neon", "supabase"]

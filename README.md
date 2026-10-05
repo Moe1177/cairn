@@ -36,7 +36,22 @@ trust it.
 
 ## Commands
 
-`cairn scan` · `cairn init` · `cairn status` · `cairn install claude` · `cairn uninstall claude`
+`cairn scan` · `cairn init` · `cairn status` · `cairn annotate-edge` · `cairn install claude` · `cairn uninstall claude`
+
+### Unconfirmed links
+
+Name-only matches (two repos that both create a `profiles` table, two packages
+published under the same name, a default local Supabase id) are tagged
+`ambiguous` and hidden from cards. Repos on different hosted databases (e.g.
+Neon vs Supabase) are never linked by table names at all. `cairn status` lists
+what's left; settle each one once:
+
+```bash
+cairn annotate-edge "shopapp->resumeapp:shares_db" --reject --why "different databases"
+cairn annotate-edge "web->api:shares_db" --confirm
+```
+
+Decisions are stored in `.cairn/authored/` and survive every re-scan.
 
 ## Safety
 

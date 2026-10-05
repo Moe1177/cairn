@@ -146,9 +146,12 @@ def _table_refs(repo: RepoFacts, stop: frozenset[str]) -> _TableRefs:
 
 def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
     tables = {r.id: _table_refs(r, stop) for r in repos}
+    providers = {r.id: {f.value for f in _facts(r, False, FactKind.DB_PROVIDER)} for r in repos}
     df = Counter(name for refs in tables.values() for name in refs.refs)
     edges = []
     for a, b in combinations([r.id for r in repos], 2):
+        if providers[a] and providers[b] and not providers[a] & providers[b]:
+            continue  # e.g. Neon vs Supabase: same table names cannot be the same database
         shared = sorted(set(tables[a].refs) & set(tables[b].refs))
         score = noisy_or(specificity(df[t]) for t in shared) if shared else 0.0
         owned = _owned_by_one_side(shared, tables[a], tables[b])

@@ -178,7 +178,9 @@ def annotate_edge_cmd(
     path: PathArg = Path("."),
     confirm: Annotated[bool, typer.Option("--confirm", help="Mark the link as real.")] = False,
     reject: Annotated[bool, typer.Option("--reject", help="Mark the link as wrong.")] = False,
-    why: Annotated[str | None, typer.Option("--why", help="One-line reason shown on cards.")] = None,
+    why: Annotated[
+        str | None, typer.Option("--why", help="One-line reason shown on cards.")
+    ] = None,
 ) -> None:
     """Confirm, reject, or explain a relationship, then re-scan."""
     if (confirm and reject) or not (confirm or reject or why):

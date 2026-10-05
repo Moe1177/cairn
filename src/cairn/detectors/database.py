@@ -3,8 +3,16 @@
 import re
 from pathlib import Path
 
-from cairn.detectors.base import DetectorContext, DetectorResult, merge_facts
-from cairn.detectors.manifests import dig, parse_toml
+from cairn.detectors.base import DetectorContext, DetectorResult, find_line, merge_facts
+from cairn.detectors.manifests import (
+    dig,
+    normalize_py,
+    npm_dependencies,
+    parse_json,
+    parse_toml,
+    pyproject_requirement_names,
+    requirements_names,
+)
 from cairn.model.graph import Fact, FactKind
 
 _IDENT = r'"?(?:[A-Za-z_]\w*"?\.)?"?([A-Za-z_]\w*)"?'
@@ -85,6 +93,7 @@ class DatabaseDetector:
             found_exposes, found_consumes = _scan(ctx, path, text)
             exposes += found_exposes
             consumes += found_consumes
+        consumes += _providers(ctx)
         return DetectorResult(exposes=merge_facts(exposes), consumes=merge_facts(consumes))
 
 
@@ -193,3 +202,65 @@ def _scan_supabase(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
             Fact(kind=FactKind.DB_PROJECT_REF, value=f"supabase:{linked}", evidence=(evidence,))
         )
     return facts
+
+
+# Distinctive hosted-database clients. Two repos on disjoint providers cannot share tables.
+_NPM_PROVIDERS = {
+    "@neondatabase/serverless": "neon",
+    "@supabase/supabase-js": "supabase",
+    "@supabase/ssr": "supabase",
+    "@planetscale/database": "planetscale",
+    "@libsql/client": "turso",
+    "mongodb": "mongodb",
+    "mongoose": "mongodb",
+    "firebase": "firebase",
+    "firebase-admin": "firebase",
+}
+_PY_PROVIDERS = {
+    "supabase": "supabase",
+    "pymongo": "mongodb",
+    "firebase-admin": "firebase",
+    "libsql-client": "turso",
+}
+
+
+def _providers(ctx: DetectorContext) -> list[Fact]:
+    facts: list[Fact] = []
+    for root in ctx.repo.app_roots:
+        facts += _npm_providers(ctx, root / "package.json")
+        facts += _py_providers(ctx, root / "pyproject.toml")
+        facts += _py_providers(ctx, root / "requirements.txt")
+    return facts
+
+
+def _provider_fact(ctx: DetectorContext, path: Path, text: str, value: str, needle: str) -> Fact:
+    line_no, line = find_line(text, needle)
+    evidence = (ctx.evidence(path, line_no, line),)
+    return Fact(kind=FactKind.DB_PROVIDER, value=value, evidence=evidence)
+
+
+def _npm_providers(ctx: DetectorContext, path: Path) -> list[Fact]:
+    text = ctx.read(path)
+    pkg = parse_json(text) if text else None
+    if not text or pkg is None:
+        return []
+    return [
+        _provider_fact(ctx, path, text, _NPM_PROVIDERS[dep], f'"{dep}"')
+        for dep in npm_dependencies(pkg)
+        if dep in _NPM_PROVIDERS
+    ]
+
+
+def _py_providers(ctx: DetectorContext, path: Path) -> list[Fact]:
+    text = ctx.read(path)
+    if not text:
+        return []
+    if path.suffix == ".toml":
+        names = pyproject_requirement_names(parse_toml(text))
+    else:
+        names = requirements_names(text)
+    return [
+        _provider_fact(ctx, path, text, _PY_PROVIDERS[normalize_py(raw)], raw)
+        for raw in names
+        if normalize_py(raw) in _PY_PROVIDERS
+    ]

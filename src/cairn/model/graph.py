@@ -26,6 +26,7 @@ class FactKind(StrEnum):
     PATH_REF = "path_ref"
     DOC_MENTION = "doc_mention"
     CLI = "cli"
+    DB_PROVIDER = "db_provider"
 
 
 class EdgeType(StrEnum):
