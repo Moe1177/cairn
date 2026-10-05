@@ -11,6 +11,7 @@ SUMMARY_MAX = 500
 _LIST_PREVIEW = 5
 _APP_ROOT_PREVIEW = 3
 _FIELD_MAX = 160
+_LINE_MAX = 400
 
 
 @dataclass(frozen=True)
@@ -128,7 +129,10 @@ def relate_line(repo_id: str, edge: Edge) -> str:
     other = edge.target if outgoing else edge.source
     arrow = "→" if outgoing or edge.type in SYMMETRIC_TYPES else "←"
     why = f' — "{edge.why}"' if edge.why else ""
-    return f"{arrow} {other}: {_describe(edge)}{why} ({_provenance(repo_id, edge)})"
+    # Signal values and evidence paths come from repo files: one clean line, whatever they hold.
+    return clean_inline(
+        f"{arrow} {other}: {_describe(edge)}{why} ({_provenance(repo_id, edge)})", _LINE_MAX
+    )
 
 
 def _signal_values(edge: Edge, prefix: str) -> list[str]:

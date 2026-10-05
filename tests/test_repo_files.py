@@ -102,3 +102,11 @@ def test_local_links_resolve() -> None:
             if target.startswith(("http://", "https://", "#", "mailto:")):
                 continue
             assert (ROOT / target.split("#", 1)[0]).exists(), f"{name}: {target}"
+
+
+def test_security_claims_match_the_code() -> None:
+    # final review I10: names do appear in INDEX; git's hooks and filters are what's disabled.
+    for name in ("SECURITY.md", "README.md", "CHANGELOG.md"):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert "filters" in text and "hooks" in text, name
+        assert "folder names) is flattened and capped, and kept out" not in text, name

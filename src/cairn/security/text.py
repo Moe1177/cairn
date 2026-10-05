@@ -14,9 +14,13 @@ _ALIAS = re.compile(r"[a-z0-9@][a-z0-9@/._-]{0,63}")
 
 def clean_inline(text: str, limit: int) -> str:
     """One safe line of at most `limit` characters."""
-    flat = " ".join(text.split())
-    flat = _CONTROL.sub("", _COMMENT.sub("", flat)).replace("`", "'")
-    flat = " ".join(flat.split())
+    flat = _CONTROL.sub("", " ".join(text.split()))  # line breaks first, then controls
+    while True:  # "<!<!---->--" must not collapse into a marker
+        stripped = _COMMENT.sub("", flat)
+        if stripped == flat:
+            break
+        flat = stripped
+    flat = " ".join(flat.replace("`", "'").split())
     return flat if len(flat) <= limit else flat[: limit - 1] + "…"
 
 

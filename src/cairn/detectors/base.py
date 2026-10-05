@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Protocol
 
 from cairn.config import CairnConfig
-from cairn.discover.files import DEFAULT_IGNORE_DIRS, iter_files, read_text
+from cairn.discover.files import DEFAULT_IGNORE_DIRS, crosses_link, iter_files, read_text
 from cairn.discover.repos import RepoLocation
 from cairn.model.graph import MAX_EVIDENCE, Command, Evidence, Fact, FactKind, LayoutEntry
 from cairn.security.redact import make_snippet
@@ -61,6 +61,11 @@ class DetectorContext:
         )
 
     def read(self, path: Path) -> str | None:
+        try:
+            if crosses_link(self.repo.root, path):
+                return None  # e.g. `supabase/.temp` -> a folder outside the repo
+        except ValueError:
+            pass  # not below this repo (a sibling path ref); read_text still refuses links
         return read_text(path, self.config.max_file_bytes)
 
 

@@ -38,8 +38,12 @@ First public release.
 - `cairn --version` prints the cairn, Python, platform, and mcp versions.
 
 ### Security
-- Text from scanned repos (package names, README text, folder names) is treated as data. It is
-  flattened, capped, kept out of always-loaded context, and can't break cairn's marked blocks.
+- Text from scanned repos is treated as data:
+  - README text stays out of always-loaded context;
+  - folder and package names are flattened, capped, and stripped of markers, so they can't break
+    cairn's marked blocks.
 - cairn never reads through symlinks or junctions inside a repo, never opens `.env` files or
   credential files, and redacts common secret formats from every snippet it stores.
-- Git calls disable `core.fsmonitor`. A map committed inside a repo is never served.
+- Git calls disable `core.fsmonitor`, hooks, and the repo's own filters, and take no optional
+  locks.
+- A map committed inside a repo is never served.

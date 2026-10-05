@@ -10,8 +10,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_EVIDENCE = 3
 # A repo id is one safe file-name segment (cards are written as `<id>.md`).
-_CONTROL = re.compile(r"[\x00-\x1f]")
-_REPO_ID = re.compile(r"[^/\\:\x00-\x1f]+")
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+_DRIVE = re.compile(r"[A-Za-z]:")
+_REPO_ID = re.compile(r"[^/\\:\x00-\x1f\x7f-\x9f\u2028\u2029]{1,128}")
 
 
 class Frozen(BaseModel):
@@ -120,11 +121,16 @@ class Repo(Frozen):
     @classmethod
     def _inside_workspace(cls, value: str | tuple[str, ...]) -> str | tuple[str, ...]:
         for path in (value,) if isinstance(value, str) else value:
-            parts = path.replace("\\", "/").split("/")
-            absolute = path.startswith(("/", "\\")) or ":" in parts[0]
-            if absolute or ".." in parts or any(_CONTROL.search(p) for p in parts):
+            if unsafe_path(path):
                 raise ValueError(f"repo path must stay inside the workspace: {path!r}")
         return value
+
+
+def unsafe_path(path: str) -> bool:
+    """Absolute, escaping (`..`), or containing control/line-separator characters."""
+    parts = path.replace("\\", "/").split("/")
+    absolute = path.startswith(("/", "\\")) or _DRIVE.match(path) is not None
+    return absolute or ".." in parts or _CONTROL.search(path) is not None
 
 
 class Edge(Frozen):

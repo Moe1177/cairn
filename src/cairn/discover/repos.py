@@ -1,5 +1,6 @@
 """Find git repositories under a workspace folder."""
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -104,14 +105,21 @@ def _real(path: Path) -> Path:
         return path
 
 
+_UNSAFE_ID = re.compile(r"[\\:\x00-\x1f\x7f-\x9f\u2028\u2029]")
+
+
 def _assign_ids(ws_root: Path, roots: list[Path]) -> list[str]:
-    counts = Counter(path.name.lower() for path in roots)  # Foo/foo collide on Windows/macOS
+    """Folder names, made safe as file names (macOS stores Finder's "a/b" as "a:b")."""
+    names = [_safe_id(path.name) for path in roots]
+    counts = Counter(name.lower() for name in names)  # Foo/foo collide on Windows/macOS
     return [
-        path.name
-        if counts[path.name.lower()] == 1
-        else path.relative_to(ws_root).as_posix().replace("/", "--")
-        for path in roots
+        name if counts[name.lower()] == 1 else _safe_id(path.relative_to(ws_root).as_posix())
+        for name, path in zip(names, roots, strict=True)
     ]
+
+
+def _safe_id(name: str) -> str:
+    return _UNSAFE_ID.sub("-", name.replace("/", "--"))[:128] or "repo"
 
 
 def _has_manifest(directory: Path) -> bool:

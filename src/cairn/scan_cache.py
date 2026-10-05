@@ -9,7 +9,7 @@ from pydantic import ValidationError
 import cairn
 from cairn.config import CairnConfig
 from cairn.detectors.base import DetectorResult
-from cairn.discover.git import GIT, git_env
+from cairn.discover.git import git_command, git_env
 from cairn.discover.proc import run_bytes
 from cairn.model.graph import Command, DetectorError, Fact, Frozen, LayoutEntry
 from cairn.paths import repo_cache_dir
@@ -63,7 +63,7 @@ def _changed_paths(raw: bytes) -> list[str]:
 def worktree_fingerprint(root: Path, timeout: float = 10.0) -> str | None:
     """Hash of `git status` plus each listed file's mtime/size; None when git can't answer."""
     # Raw bytes and -z: no C-quoting of non-ASCII names, no console-codepage decoding.
-    command = [*GIT, "-c", "core.quotePath=false", "-C", str(root), *_STATUS]
+    command = [*git_command(root), "-c", "core.quotePath=false", *_STATUS]
     done = run_bytes(command, timeout=timeout, env=git_env())
     if done is None or done[0] != 0:
         return None

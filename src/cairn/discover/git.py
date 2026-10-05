@@ -1,5 +1,6 @@
 """Read git metadata without ever failing a scan."""
 
+import functools
 import os
 import re
 from dataclasses import dataclass
@@ -8,9 +9,17 @@ from urllib.parse import urlsplit
 
 from cairn.discover.proc import run_text
 
-# A repo's own config can name programs git runs during `status` (core.fsmonitor); a copied
-# or downloaded repo must not get to run code when cairn reads it.
-GIT = ("git", "-c", "core.fsmonitor=false")
+# A repo's own config can name programs git runs while cairn reads it: core.fsmonitor, hooks
+# (post-index-change when `status` refreshes the index) and clean/process filters. A copied or
+# downloaded repo must not get to run code, so every call turns those off (spec §20.1).
+GIT = (
+    "git",
+    "--no-optional-locks",
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    f"core.hooksPath={os.devnull}",
+)
 _HOST = re.compile(r"[A-Za-z0-9.\-]+(?::\d+)?")
 _SCP_LIKE = re.compile(r"^[\w.-]+@([\w.-]+):(.+)$")
 _SHA = re.compile(r"[0-9a-fA-F]{4,64}")
@@ -72,19 +81,79 @@ def _strip_userinfo(url: str) -> str:
     if not sep:
         return url
     for at in reversed([i for i, ch in enumerate(rest) if ch == "@"]):
+        userinfo = rest[:at]
+        # userinfo has no "/" before a ":" (a password may hold "/"; a path "@v2" isn't one)
+        if "/" in userinfo.split(":", 1)[0]:
+            continue
         if _HOST.fullmatch(rest[at + 1 :].split("/", 1)[0]):
             return f"{scheme}://{rest[at + 1 :]}"
     return url
 
 
+def git_command(root: Path) -> list[str]:
+    """`git` for read-only calls in `root`, with the repo's own filter drivers neutralised."""
+    return [*GIT, *_filter_overrides(root), "-C", str(root)]
+
+
+def _filter_overrides(root: Path) -> list[str]:
+    """Empty clean/smudge/process commands for each filter the repo's own config defines.
+
+    Reading config runs nothing. Only the repo's (local) config is untrusted; filters the user
+    set up globally, such as git-lfs, keep working.
+    """
+    config = root / ".git" / "config"
+    try:
+        stamp = config.stat().st_mtime_ns
+    except OSError:
+        return []
+    return list(_cached_overrides(str(root), stamp))
+
+
+@functools.lru_cache(maxsize=1024)
+def _cached_overrides(root: str, _stamp: int) -> tuple[str, ...]:
+    listing = run_text(
+        [
+            *GIT,
+            "-C",
+            root,
+            "config",
+            "--local",
+            "--includes",
+            "--name-only",
+            "--get-regexp",
+            r"^filter\.",
+        ],
+        timeout=5.0,
+        env=git_env(),
+    )
+    names = {
+        key[len("filter.") : key.rindex(".")]
+        for key in (listing.stdout.split() if listing else [])
+        if key.count(".") >= 2
+    }
+    return tuple(
+        arg
+        for name in sorted(names)
+        for part in ("clean", "smudge", "process")
+        for arg in ("-c", f"filter.{name}.{part}=")
+    )
+
+
 def _git(root: Path, args: list[str], timeout: float) -> str | None:
-    result = run_text([*GIT, "-C", str(root), *args], timeout=timeout, env=git_env())
+    result = run_text([*git_command(root), *args], timeout=timeout, env=git_env())
     return result.stdout.strip() if result and result.returncode == 0 else None
 
 
 def git_text(root: Path, args: list[str], timeout: float = 5.0) -> str | None:
     """Stripped stdout of a read-only git command, or None if it failed."""
     return _git(root, args, timeout)
+
+
+def git_settings(root: Path, args: list[str], timeout: float = 5.0) -> str | None:
+    """`git config` / `rev-parse` as the user would see them (no cairn overrides). These commands
+    never touch the work tree, so they run no hooks, filters or fsmonitor."""
+    result = run_text(["git", "-C", str(root), *args], timeout=timeout, env=git_env())
+    return result.stdout.strip() if result and result.returncode == 0 else None
 
 
 def summary_is_stale(root: Path, since: str, threshold: int, timeout: float = 10.0) -> bool:

@@ -138,11 +138,12 @@ cairn treats every scanned repo as untrusted input. It:
 - **never** modifies your repos, apart from the opt-in hooks and Cursor's `--per-repo` rule;
 - **never** follows symlinks or junctions out of a repo;
 - **never** opens `.env` files, private keys, or credential files;
-- **never** runs code from a repo, and turns off git's `core.fsmonitor` when it calls git.
+- **never** runs code from a repo; its git calls turn off fsmonitor, hooks, and the repo's own
+  filters.
 
 Every stored snippet is redacted for common secret formats, and git remotes are stored without
-credentials. Text from a repo is flattened and capped, and can't break out of cairn's marked
-blocks. cairn makes **no network calls and collects no telemetry**; `cairn bench` is the only
+credentials. README text stays out of always-loaded context. The names that do appear there are
+flattened to one line and capped, and can't break out of cairn's marked blocks. cairn makes **no network calls and collects no telemetry**; `cairn bench` is the only
 feature that runs another program that does (the `claude` CLI).
 
 See [SECURITY.md](SECURITY.md) for the full threat model and how to report a vulnerability.

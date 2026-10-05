@@ -54,8 +54,9 @@ def unregister_workspace(ws_root: Path) -> None:
     entry = ws_root.resolve().as_posix()
     with file_lock(registry_file().with_suffix(".lock")):
         current = list_workspaces()
-        if entry in current:
-            _save(tuple(w for w in current if w != entry))
+        kept = tuple(w for w in current if not _same_folder(entry, w))
+        if kept != current:
+            _save(kept)
 
 
 def _save(workspaces: tuple[str, ...]) -> None:

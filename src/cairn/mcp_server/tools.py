@@ -15,6 +15,7 @@ from cairn.paths import cards_dir
 from cairn.render.card import relate_line
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
+from cairn.security.text import clean_inline
 from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
@@ -152,7 +153,8 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
                 ev = fact.evidence[0] if fact.evidence else None
                 where = f" ({ev.file}:{ev.line})" if ev else ""
                 label = fact.kind.value.replace("_", " ")
-                lines.append(f"- {repo.id} {direction} {label} `{fact.value}`{where}")
+                line = f"- {repo.id} {direction} {label} '{fact.value}'{where}"
+                lines.append(clean_inline(line, 400))
     return "\n".join(_cap(lines)) if lines else f"Nothing in the map matches '{query}'."
 
 
@@ -176,7 +178,10 @@ def query_text(ws_root: Path, repo: str, question: str) -> str:
         return message
     found = _fresh(ws_root, found).repo(found.id) or found
     layout = (
-        "\n".join(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}" for e in found.layout)
+        "\n".join(
+            clean_inline(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}", 200)
+            for e in found.layout
+        )
         or "- (no layout recorded)"
     )
     return (

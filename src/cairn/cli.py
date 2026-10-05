@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
+from pydantic import ValidationError
 
 from cairn.authored_store import annotate_edge, set_summary
 from cairn.emit import write_outputs
@@ -138,7 +139,9 @@ def _summary_line(result: ScanResult) -> str:
 def _report(result: ScanResult, *, verbose: bool = False) -> None:
     if not result.workspace.repos:
         root = result.workspace.workspace_root
-        typer.echo(f"No git repos found under {root}; nothing written.")
+        existing = cairn_dir(Path(root)).exists()
+        tail = "the map is now empty." if existing else "nothing written."
+        typer.echo(f"No git repos found under {root}; {tail}")
         return
     typer.echo(_summary_line(result))
     for warning in result.warnings:
@@ -161,7 +164,7 @@ def scan(
     """Map every git repo under PATH into .cairn/."""
     try:
         result = _scan_and_write(path, use_cache=not full)
-    except (CairnError, OSError) as exc:
+    except (CairnError, OSError, ValidationError) as exc:
         _fail(str(exc))
     _report(result, verbose=verbose)
 

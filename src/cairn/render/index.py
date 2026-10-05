@@ -93,7 +93,8 @@ def _hub(members: list[str], workspace: Workspace) -> str:
 
 
 def _preview(ids: list[str]) -> str:
-    return ", ".join(ids[:_PREVIEW]) + (", …" if len(ids) > _PREVIEW else "")
+    shown = ", ".join(clean_inline(i, 80) for i in ids[:_PREVIEW])
+    return shown + (", …" if len(ids) > _PREVIEW else "")
 
 
 def _group_lines(workspace: Workspace) -> list[str]:
@@ -104,7 +105,8 @@ def _group_lines(workspace: Workspace) -> list[str]:
             singles += members
             continue
         lines.append(
-            f"- group {_hub(members, workspace)} ({len(members)} repos): {_preview(members)}"
+            f"- group {clean_inline(_hub(members, workspace), 80)} ({len(members)} repos): "
+            f"{_preview(members)}"
         )
     if singles:
         lines.append(f"- ungrouped ({len(singles)} repos): {_preview(sorted(singles))}")

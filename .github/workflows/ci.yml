@@ -46,8 +46,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: uv lock --resolution lowest-direct
-      - run: uv sync --all-groups
-      - run: uv run pytest -q
+      - run: uv sync --frozen --all-groups
+      - name: Show the versions under test
+        run: |
+          uv run --no-sync python -c "import importlib.metadata as m; print({p: m.version(p) for p in ('typer', 'click', 'pydantic', 'pyyaml', 'pathspec', 'mcp')})"
+      - run: uv run --no-sync pytest -q
 
   package:
     # What users install: build, check metadata, install the wheel into a clean venv, run it.

@@ -33,6 +33,8 @@ DEFAULT_IGNORE_DIRS = frozenset(
 )
 _BINARY_SNIFF_BYTES = 8192
 _GITIGNORE_MAX = 1_000_000
+_PATTERN_MAX_LEN = 256
+_PATTERN_MAX_STARS = 4
 # Windows reparse tags for symlinks and junctions. Other reparse points (OneDrive
 # placeholders, dedup) are ordinary files and must still be read.
 _LINK_TAGS = frozenset({0xA000000C, 0xA0000003})
@@ -146,7 +148,14 @@ def _gitignore_spec(root: Path) -> pathspec.PathSpec | None:
             lines = handle.read(_GITIGNORE_MAX).decode("utf-8", errors="replace").splitlines()
     except OSError:
         return None
-    return pathspec.GitIgnoreSpec.from_lines(lines)
+    return pathspec.GitIgnoreSpec.from_lines([line for line in lines if _sane_pattern(line)])
+
+
+def _sane_pattern(line: str) -> bool:
+    """Real ignore rules are short with few wildcards; `*a*a*a*...` makes matching exponential."""
+    return (
+        len(line) <= _PATTERN_MAX_LEN and line.replace("**", "*").count("*") <= _PATTERN_MAX_STARS
+    )
 
 
 def _ignore_error(_error: OSError) -> None:

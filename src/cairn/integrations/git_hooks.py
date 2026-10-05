@@ -13,7 +13,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from cairn.discover.git import git_text
+from cairn.discover.files import crosses_link
+from cairn.discover.git import git_settings
 from cairn.errors import CairnError
 from cairn.integrations.config_files import read_raw
 from cairn.integrations.server_command import server_command
@@ -42,12 +43,12 @@ def hook_body(ws_root: Path) -> str:
 
 def _hooks_dir(repo_root: Path) -> Path | str:
     """The repo's hooks folder, or why cairn won't write there."""
-    if git_text(repo_root, ["config", "--get", "core.hooksPath"]):
+    if git_settings(repo_root, ["config", "--get", "core.hooksPath"]):
         return (
             "core.hooksPath is set (husky, lefthook, ...); add "
             "`cairn refresh --quiet` to that hook manager instead"
         )
-    found = git_text(repo_root, ["rev-parse", "--git-path", "hooks"])
+    found = git_settings(repo_root, ["rev-parse", "--git-path", "hooks"])
     if not found:
         return "not a git repository git can read"
     path = Path(found)
@@ -104,7 +105,7 @@ def _plan(
         complete = True
         for name in HOOKS:
             path = hooks / name
-            if path.is_symlink():
+            if path.is_symlink() or _through_link(ws_root / repo.path, path):
                 skipped.append((repo.id, f"{name} is a symlink (likely a tracked file)"))
                 complete = False
                 continue
@@ -121,6 +122,13 @@ def _plan(
         if (installing and complete) or (not installing and repo_writes):
             changed.append(repo.id)
     return writes, HookReport(tuple(changed), tuple(skipped))
+
+
+def _through_link(repo_root: Path, path: Path) -> bool:
+    try:
+        return crosses_link(repo_root, path)
+    except ValueError:
+        return False  # hooks shared from outside the repo (worktrees): not repo-controlled
 
 
 def _apply(writes: list[tuple[Path, str | None]]) -> None:

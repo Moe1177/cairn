@@ -20,15 +20,20 @@ their contents as **untrusted input**. These guarantees are tested:
 - **No secrets from files.** cairn never opens `.env` files (only `.env.example`-style
   templates), private keys, or credential files (`.npmrc`, `.pgpass`, kubeconfig, Terraform state,
   `*secret*.yaml`, and others).
-- **No reading through links.** cairn never follows a symlink or junction out of a repo.
+- **No reading through links.** cairn never reads or writes through a symlink or junction
+  anywhere inside a repo.
 - **Redacted snippets.** Every stored snippet is redacted for common secret formats: tokens,
   connection strings, keyword assignments, bearer headers, and SQL seed values.
-- **No injected instructions.** Repo-provided text (package names, README text, folder names) is
-  flattened and capped, and kept out of always-loaded agent context such as `CLAUDE.md` and
-  `INDEX.md`. It can't break out of cairn's marked blocks.
-- **No code execution.** cairn never runs code from a repo. Git calls disable `core.fsmonitor`,
-  cards never suggest shell commands for oddly named folders, and a `.cairn/` map committed inside
-  a repo is never served by the MCP server.
+- **No injected instructions.** README text never enters always-loaded agent context
+  (`CLAUDE.md`, `INDEX.md`). The names that do appear there (folder names, package names) are
+  flattened to one line, capped, and stripped of comment markers and backticks. Package names
+  must also look like package names. None of this text can break out of cairn's marked blocks.
+- **No code execution.** cairn never runs code from a repo:
+  - Every git call disables the repo-configurable features that run programs: `core.fsmonitor`,
+    hooks, and the clean/smudge/process filters defined in the repo's own config.
+  - Git calls also take no optional locks.
+  - Cards never suggest shell commands for oddly named folders.
+  - A `.cairn/` map committed inside a repo is never served by the MCP server.
 - **No writes to your repos**, except the opt-in git hooks (`cairn hooks install`) and Cursor's
   `--per-repo` rule. These are added in marked blocks, never through links, and removed cleanly.
 - **No network calls or telemetry.** Benchmarks (`cairn bench`) are the only feature that

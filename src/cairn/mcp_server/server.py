@@ -5,6 +5,7 @@ from pathlib import Path
 
 from mcp.server import MCPServer
 
+from cairn import __version__
 from cairn.errors import CairnError
 from cairn.integrations.content import pointer_text
 from cairn.integrations.registry import list_workspaces
@@ -47,7 +48,7 @@ def _no_workspace_server(start: Path) -> MCPServer:
         f"No cairn workspace found at or above {start.as_posix()}. Run `cairn init` in the folder "
         "that contains your repos, then restart this session."
     )
-    server = MCPServer("cairn", instructions=message)
+    server = MCPServer("cairn", instructions=message, version=__version__)
 
     def resolve_repo(name_or_alias: str) -> str:
         return message
@@ -75,7 +76,9 @@ def _no_workspace_server(start: Path) -> MCPServer:
 def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServer:
     if ws_root is None:
         return _no_workspace_server(start or Path.cwd())
-    server = MCPServer("cairn", instructions=pointer_text([ws_root.as_posix()]))
+    server = MCPServer(
+        "cairn", instructions=pointer_text([ws_root.as_posix()]), version=__version__
+    )
 
     @server.tool()
     def resolve_repo(name_or_alias: str) -> str:
