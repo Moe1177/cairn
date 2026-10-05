@@ -70,3 +70,35 @@ def test_community_files_exist(name: str) -> None:
 def test_gitignore_covers_common_junk() -> None:
     lines = set((ROOT / ".gitignore").read_text(encoding="utf-8").splitlines())
     assert {".DS_Store", "*.egg-info/", "build/", ".idea/", ".env"} <= lines
+
+
+DOCS = ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", "SECURITY.md"]
+
+
+def test_readme_documents_every_command() -> None:
+    from typer.main import get_command
+
+    from cairn.cli import app
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for name in get_command(app).commands:  # type: ignore[attr-defined]
+        assert f"cairn {name}" in readme, name
+    for heading in ("## Uninstall", "## Troubleshooting", "## Safety", "**Exit codes:**"):
+        assert heading in readme
+    assert "no network calls and collects no telemetry" in readme
+
+
+def test_docs_have_no_personal_project_names() -> None:
+    published = sorted((ROOT / "bench" / "published").glob("*.md"))
+    for path in [ROOT / d for d in DOCS] + published:
+        text = path.read_text(encoding="utf-8")
+        assert "shopapp" not in text and "resumeapp" not in text, path.name
+
+
+def test_local_links_resolve() -> None:
+    for name in DOCS:
+        text = (ROOT / name).read_text(encoding="utf-8")
+        for target in re.findall(r"\]\(([^)\s]+)\)", text):
+            if target.startswith(("http://", "https://", "#", "mailto:")):
+                continue
+            assert (ROOT / target.split("#", 1)[0]).exists(), f"{name}: {target}"
