@@ -41,8 +41,35 @@ app = typer.Typer(
 PathArg = Annotated[Path, typer.Argument(help="Workspace root (default: current directory).")]
 
 
+def _version(value: bool) -> None:
+    if not value:
+        return
+    import platform
+    from importlib.metadata import PackageNotFoundError, version
+
+    import cairn
+
+    try:
+        mcp_version = version("mcp")
+    except PackageNotFoundError:
+        mcp_version = "not installed"
+    typer.echo(f"cairn {cairn.__version__}")
+    typer.echo(f"Python {platform.python_version()} on {platform.platform()}, mcp {mcp_version}")
+    raise typer.Exit()
+
+
 @app.callback()
-def _main() -> None:
+def _main(
+    _version_flag: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version,
+            is_eager=True,
+            help="Show cairn, Python, platform and mcp versions, then exit.",
+        ),
+    ] = False,
+) -> None:
     """cairn: a workspace map for coding agents."""
     # Legacy consoles (e.g. Windows cp1252) cannot encode every character in
     # paths or messages; print a replacement character instead of crashing.
