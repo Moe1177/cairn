@@ -164,6 +164,38 @@ def _provider_edges(
     return [link.edge(source, target) for (source, target), link in sorted(found.items())]
 
 
+def env_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Spec §21.3: repos reading the same specific env var. Always ambiguous on its own; it
+    only ever gets promoted by corroboration from a real link between the same pair."""
+    names = {
+        r.id: {f.value: f.evidence for f in r.contracts.consumes if f.kind is FactKind.ENV_VAR_NAME}
+        for r in repos
+    }
+    df: dict[str, int] = defaultdict(int)
+    for found in names.values():
+        for name in found:
+            df[name] += 1
+    too_common = len(repos) >= 4
+    edges: list[Edge] = []
+    ordered = sorted(repos, key=lambda r: r.id)
+    for i, a in enumerate(ordered):
+        for b in ordered[i + 1 :]:
+            shared = sorted(
+                n
+                for n in names[a.id].keys() & names[b.id].keys()
+                if not (too_common and df[n] * 2 > len(repos))
+            )
+            if not shared:
+                continue
+            evidence = [ev for n in shared[:3] for ev in (*names[a.id][n][:1], *names[b.id][n][:1])]
+            link = _Link(EdgeType.SHARES_ENV)
+            for name in shared:
+                link.add(Confidence.AMBIGUOUS, f"env:{name}", ())
+            link.evidence = evidence
+            edges.append(link.edge(a.id, b.id))
+    return edges
+
+
 class _Link:
     def __init__(self, edge_type: EdgeType) -> None:
         self.type = edge_type

@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST, db_confidence, noisy_or, specificity
-from cairn.match.services import compose_edges, grpc_edges, http_edges, pubsub_edges
+from cairn.match.services import (
+    compose_edges,
+    env_edges,
+    grpc_edges,
+    http_edges,
+    pubsub_edges,
+)
 from cairn.model.graph import (
     MAX_EVIDENCE,
     SYMMETRIC_TYPES,
@@ -52,6 +58,7 @@ def match_edges(
             *compose_edges(ordered),
             *grpc_edges(ordered),
             *pubsub_edges(ordered),
+            *env_edges(ordered),
         ]
     )
     return merged  # corroboration runs after overrides (see match.overrides)
@@ -76,14 +83,21 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
 
 
 def _corroborated(edge: Edge, same_pair: list[Edge]) -> Edge:
-    if edge.type is not EdgeType.SHARES_DB:
+    if edge.type not in (EdgeType.SHARES_DB, EdgeType.SHARES_ENV):
         return edge
-    # Only independent, non-ambiguous evidence corroborates (spec §16.2, review fix).
+    # Only independent, non-ambiguous evidence corroborates (spec §16.2, review fix); a shared
+    # env var never vouches for anything else (spec §21.3).
     others = [
         o
         for o in same_pair
-        if o.type is not EdgeType.SHARES_DB and o.confidence.rank >= Confidence.INFERRED.rank
+        if o.type not in (edge.type, EdgeType.SHARES_ENV)
+        and o.confidence.rank >= Confidence.INFERRED.rank
     ]
+    if edge.type is EdgeType.SHARES_ENV:
+        if edge.confidence is not Confidence.AMBIGUOUS or not others:
+            return edge
+        signals = (*edge.signals, f"corroborated:{others[0].type.value}")
+        return edge.model_copy(update={"confidence": Confidence.INFERRED, "signals": signals})
     strong = [o for o in others if o.confidence is Confidence.EXTRACTED]
     if edge.confidence is Confidence.AMBIGUOUS and others:
         upgraded, by = Confidence.INFERRED, others[0]

@@ -73,6 +73,7 @@ def check_faithfulness(ws_root: Path, workspace: Workspace) -> list[str]:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
         if ev.line > len(lines):
             problems.append(f"line out of range: {ev.repo}/{ev.file}:{ev.line}")
-        elif make_snippet(lines[ev.line - 1]) != ev.snippet:
+        elif ev.snippet and make_snippet(lines[ev.line - 1]) != ev.snippet:
+            # An empty snippet is deliberately withheld (SQL seed rows, env templates).
             problems.append(f"snippet mismatch: {ev.repo}/{ev.file}:{ev.line}")
     return problems
