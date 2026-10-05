@@ -2,11 +2,16 @@
 
 import os
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from cairn.discover.proc import run_text
+
+# A repo's own config can name programs git runs during `status` (core.fsmonitor); a copied
+# or downloaded repo must not get to run code when cairn reads it.
+GIT = ("git", "-c", "core.fsmonitor=false")
+_HOST = re.compile(r"[A-Za-z0-9.\-]+(?::\d+)?")
 _SCP_LIKE = re.compile(r"^[\w.-]+@([\w.-]+):(.+)$")
 _SHA = re.compile(r"[0-9a-fA-F]{4,64}")
 # Git exports these to hooks; inherited by a hook-started refresh they would point
@@ -44,34 +49,37 @@ def git_info(root: Path, timeout: float = 5.0) -> GitInfo:
 
 
 def normalize_remote(url: str) -> str | None:
-    url = url.strip()
+    """`host/path` with credentials removed; None for anything unparseable (never raises)."""
+    url = _strip_userinfo(url.strip())
     scp = _SCP_LIKE.match(url)
     if scp and "://" not in url:
         host, path = scp.groups()
     else:
-        parsed = urlsplit(url)
-        host, path = parsed.hostname or "", parsed.path
+        try:
+            parsed = urlsplit(url)
+            host, path = parsed.hostname or "", parsed.path
+        except ValueError:
+            return None
     if not host:
         return None
     path = path.strip("/").removesuffix(".git")
     return f"{host}/{path}" if path else host
 
 
+def _strip_userinfo(url: str) -> str:
+    """Drop everything up to the `@` that precedes the host, even when a password holds "/"."""
+    scheme, sep, rest = url.partition("://")
+    if not sep:
+        return url
+    for at in reversed([i for i, ch in enumerate(rest) if ch == "@"]):
+        if _HOST.fullmatch(rest[at + 1 :].split("/", 1)[0]):
+            return f"{scheme}://{rest[at + 1 :]}"
+    return url
+
+
 def _git(root: Path, args: list[str], timeout: float) -> str | None:
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(root), *args],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            check=False,
-            env=git_env(),
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return (result.stdout or "").strip() if result.returncode == 0 else None
+    result = run_text([*GIT, "-C", str(root), *args], timeout=timeout, env=git_env())
+    return result.stdout.strip() if result and result.returncode == 0 else None
 
 
 def git_text(root: Path, args: list[str], timeout: float = 5.0) -> str | None:

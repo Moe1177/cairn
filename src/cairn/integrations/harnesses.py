@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from cairn.discover.files import crosses_link
+from cairn.discover.proc import run_text
 from cairn.errors import CairnError
 from cairn.integrations import config_files as cf
 from cairn.integrations.claude import install_claude, is_installed, uninstall_claude
@@ -75,11 +76,8 @@ def _claude_cli(args: list[str]) -> tuple[int, str] | None:
     exe = shutil.which("claude")
     if exe is None:
         return None
-    try:
-        done = subprocess.run([exe, *args], capture_output=True, text=True, timeout=60, check=False)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return done.returncode, (done.stdout or "") + (done.stderr or "")
+    done = run_text([exe, *args], timeout=60)
+    return None if done is None else (done.returncode, done.stdout + done.stderr)
 
 
 def _refresh_pointers() -> None:

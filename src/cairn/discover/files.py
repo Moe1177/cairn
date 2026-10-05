@@ -32,6 +32,7 @@ DEFAULT_IGNORE_DIRS = frozenset(
     }
 )
 _BINARY_SNIFF_BYTES = 8192
+_GITIGNORE_MAX = 1_000_000
 # Windows reparse tags for symlinks and junctions. Other reparse points (OneDrive
 # placeholders, dedup) are ordinary files and must still be read.
 _LINK_TAGS = frozenset({0xA000000C, 0xA0000003})
@@ -141,7 +142,8 @@ def _gitignore_spec(root: Path) -> pathspec.PathSpec | None:
     if not safe_is_file(gitignore):
         return None
     try:
-        lines = gitignore.read_text(encoding="utf-8", errors="replace").splitlines()
+        with gitignore.open("rb") as handle:  # capped: a hostile repo can't make us read GBs
+            lines = handle.read(_GITIGNORE_MAX).decode("utf-8", errors="replace").splitlines()
     except OSError:
         return None
     return pathspec.GitIgnoreSpec.from_lines(lines)

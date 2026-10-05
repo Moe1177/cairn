@@ -2,7 +2,6 @@
 
 import hashlib
 import os
-import subprocess
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -10,7 +9,8 @@ from pydantic import ValidationError
 import cairn
 from cairn.config import CairnConfig
 from cairn.detectors.base import DetectorResult
-from cairn.discover.git import git_env
+from cairn.discover.git import GIT, git_env
+from cairn.discover.proc import run_bytes
 from cairn.model.graph import Command, DetectorError, Fact, Frozen, LayoutEntry
 from cairn.paths import repo_cache_dir
 from cairn.store.atomic import atomic_write_text
@@ -63,17 +63,13 @@ def _changed_paths(raw: bytes) -> list[str]:
 def worktree_fingerprint(root: Path, timeout: float = 10.0) -> str | None:
     """Hash of `git status` plus each listed file's mtime/size; None when git can't answer."""
     # Raw bytes and -z: no C-quoting of non-ASCII names, no console-codepage decoding.
-    command = ["git", "-c", "core.quotePath=false", "-C", str(root), *_STATUS]
-    try:
-        done = subprocess.run(
-            command, capture_output=True, timeout=timeout, check=False, env=git_env()
-        )
-    except (OSError, subprocess.TimeoutExpired):
+    command = [*GIT, "-c", "core.quotePath=false", "-C", str(root), *_STATUS]
+    done = run_bytes(command, timeout=timeout, env=git_env())
+    if done is None or done[0] != 0:
         return None
-    if done.returncode != 0:
-        return None
-    digest = hashlib.sha1(done.stdout)
-    for rel in _changed_paths(done.stdout):
+    stdout = done[1]
+    digest = hashlib.sha1(stdout)
+    for rel in _changed_paths(stdout):
         try:
             stat = (root / rel).stat()
             entry = f"\n{rel}:{stat.st_mtime_ns}:{stat.st_size}"
