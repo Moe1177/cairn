@@ -243,7 +243,9 @@ how to report a vulnerability.
 |---|---|
 | `cairn init` | Scan, then offer to add the index to Claude Code |
 | `cairn scan [--full] [--verbose]` | Map every repo under the folder into `.cairn/` |
-| `cairn refresh` | Re-read only repos whose HEAD or working tree changed |
+| `cairn refresh [--deep]` | Re-read only repos whose HEAD or working tree changed (`--deep`: also rebuild stale deep indexes) |
+| `cairn deep build REPO…\|--all\|--stale [-w PATH]` | Build graphify code indexes so `query` answers with file:line (optional extra) |
+| `cairn deep status` / `cairn deep clear [REPO…]` | List deep indexes (fresh or stale) / delete them |
 | `cairn status` | What cairn knows, unconfirmed links, missing or stale summaries |
 | `cairn annotate-edge KEY --confirm\|--reject [--why TEXT]` | Settle a relationship |
 | `cairn set-summary REPO TEXT [--alias NAME]` | Save a summary (`-` reads stdin) |

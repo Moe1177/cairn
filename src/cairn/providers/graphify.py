@@ -15,14 +15,13 @@ from pathlib import Path
 
 from cairn.discover.git import git_info
 from cairn.discover.proc import run_text
-from cairn.paths import cairn_dir
 from cairn.providers.base import BuildResult, DeepStatus
-from cairn.providers.graph import load_graph
+from cairn.providers.graph import hubs, load_graph
+from cairn.providers.meta import META_FILE, deep_dir, read_deep_meta
 from cairn.scan_cache import worktree_fingerprint
 from cairn.store.atomic import atomic_write_text
 
 INSTALL_HINT = "install it with `pip install 'cairnmap[graphify]'` (or `uv tool install graphifyy`)"
-_META = "cairn-deep.json"
 _VERSION = re.compile(r"\d+\.\d+\.\d+")
 # Only what a program needs to run. Everything else (API keys, tokens, *_BASE_URL) stays out.
 _ENV_ALLOWLIST = (
@@ -43,10 +42,6 @@ _ENV_ALLOWLIST = (
     "LC_ALL",
     "LC_CTYPE",
 )
-
-
-def deep_dir(ws_root: Path, repo_id: str) -> Path:
-    return cairn_dir(ws_root) / "deep" / repo_id
 
 
 class GraphifyProvider:
@@ -93,27 +88,27 @@ class GraphifyProvider:
             "fingerprint": worktree_fingerprint(repo_root),
             "built_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "nodes": len(graph.nodes),
+            "hubs": hubs(graph, 5),
         }
-        atomic_write_text(out / _META, json.dumps(meta, indent=2) + "\n")
+        atomic_write_text(out / META_FILE, json.dumps(meta, indent=2) + "\n")
         return BuildResult(True, f"{repo_id}: {len(graph.nodes)} symbols indexed")
 
     def status(self, ws_root: Path, repo_id: str, repo_root: Path) -> DeepStatus:
-        meta = _read_meta(deep_dir(ws_root, repo_id) / _META)
+        meta = read_deep_meta(ws_root, repo_id)
         if meta is None or not self.graph_path(ws_root, repo_id).is_file():
             return DeepStatus(provider=self.id)
-        head = git_info(repo_root).head_sha
-        stale = head != meta.get("head_sha") or worktree_fingerprint(repo_root) != meta.get(
-            "fingerprint"
+        stale = (
+            git_info(repo_root).head_sha != meta.head_sha
+            or worktree_fingerprint(repo_root) != meta.fingerprint
         )
-        nodes = meta.get("nodes")
         return DeepStatus(
             provider=self.id,
             present=True,
             stale=stale,
-            built_sha=_text(meta.get("head_sha")),
-            built_at=_text(meta.get("built_at")),
-            version=_text(meta.get("version")),
-            nodes=nodes if isinstance(nodes, int) else 0,
+            built_sha=meta.head_sha,
+            built_at=meta.built_at,
+            version=meta.version,
+            nodes=meta.nodes,
         )
 
     def _env(self) -> dict[str, str]:
@@ -129,15 +124,3 @@ def _find_executable() -> str | None:
     if beside.is_file():
         return str(beside)
     return shutil.which("graphify")
-
-
-def _read_meta(path: Path) -> dict | None:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _text(value: object) -> str | None:
-    return value[:64] if isinstance(value, str) else None
