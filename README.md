@@ -114,9 +114,12 @@ cairn bench bench/suites/shopverse --conditions A,D --tasks gift-message --runs 
 
 Answers are graded deterministically: localization and impact tasks by recall of the files
 that must change (pass at 80%), orientation tasks by required keywords. The report records
-success rate, fresh and cache-read tokens, cost, and turns for each condition, and per-task
-results. It's written to `bench/results/<timestamp>.md` and `.json` (git-ignored; curated
-runs go in `bench/published/`).
+success rate, fresh and cache-read tokens, cost, turns, and errored runs for each condition,
+and per-task results; the JSON also records the cairn and Claude Code versions and the exact
+model ids. Every finished run is appended to `bench/results/<timestamp>.jsonl` right away, so
+an interrupted run keeps what it measured; `<timestamp>.md` and `.json` are written at the end
+(git-ignored; curated runs go in `bench/published/`). The agent gets read-only tools only
+(Read, Grep, Glob, and cairn's MCP tools in condition E).
 
 ## Safety
 

@@ -34,7 +34,7 @@ def test_parse_result_reads_usage() -> None:
 def test_command_is_isolated_and_read_only(tmp_path: Path) -> None:
     cmd = ClaudeRunner(model="haiku").command("q?", tmp_path / "ws", None)
     joined = " ".join(cmd)
-    assert cmd[:3] == ["claude", "-p", "q?"]
+    assert Path(cmd[0]).stem.lower() == "claude" and cmd[1:3] == ["-p", "q?"]
     for flag in (
         "--output-format json",
         "--setting-sources project,local",

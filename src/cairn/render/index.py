@@ -29,15 +29,22 @@ def repo_line(repo: Repo, authored: Authored | None) -> str:
 
 
 def render_index(
-    workspace: Workspace, authored: Mapping[str, Authored], *, threshold: int = 50
+    workspace: Workspace,
+    authored: Mapping[str, Authored],
+    *,
+    threshold: int = 50,
+    with_cards: bool = True,
 ) -> str:
-    lines = [
-        INDEX_TITLE,
-        f"Workspace root: `{workspace.workspace_root}`. Each repo's card is at "
-        ".cairn/cards/<repo>.md (relative to the root).",
-        "Before exploring a repo outside your working directory, read its card first.",
-        "",
-    ]
+    if with_cards:
+        lines = [
+            INDEX_TITLE,
+            f"Workspace root: `{workspace.workspace_root}`. Each repo's card is at "
+            ".cairn/cards/<repo>.md (relative to the root).",
+            "Before exploring a repo outside your working directory, read its card first.",
+            "",
+        ]
+    else:  # benchmark condition C: the index alone
+        lines = [INDEX_TITLE, f"Workspace root: `{workspace.workspace_root}`.", ""]
     if len(workspace.repos) <= threshold:
         lines += [repo_line(r, authored.get(r.id)) for r in workspace.repos]
     else:

@@ -1,7 +1,7 @@
 """Set up one isolated workspace copy per benchmark condition (spec §11 E2).
 
 A: cold (no map, no CLAUDE.md)      B: hand-written RELATED_REPOS-style doc as CLAUDE.md
-C: cairn INDEX only (cards removed)  D: INDEX + cards          E: D + the cairn MCP server
+C: cairn INDEX only (no cards/graph)  D: INDEX + cards          E: D + the cairn MCP server
 """
 
 import json
@@ -14,7 +14,8 @@ from cairn.bench.workspace import materialize
 from cairn.emit import write_outputs
 from cairn.integrations.claude import install_claude
 from cairn.integrations.server_command import server_command
-from cairn.paths import cairn_dir, cards_dir
+from cairn.paths import cairn_dir, index_file
+from cairn.render.index import render_index
 from cairn.scan import scan_workspace
 from cairn.store.atomic import atomic_write_text
 
@@ -35,10 +36,21 @@ def prepare(condition: str, suite: Suite, suite_dir: Path, run_dir: Path) -> Pre
             doc = (suite_dir / suite.related_repos_doc).read_text(encoding="utf-8")
             atomic_write_text(ws / "CLAUDE.md", doc)
         return Prepared(ws, None)
-    write_outputs(ws, scan_workspace(ws))
-    install_claude(ws)
+    result = scan_workspace(ws)
+    write_outputs(ws, result)
     if condition == "C":
-        shutil.rmtree(cards_dir(ws))
+        # INDEX only: no card pointer in the text, and no cards or graph JSON to read instead.
+        text = render_index(
+            result.workspace,
+            result.authored,
+            threshold=result.config.index_threshold,
+            with_cards=False,
+        )
+        atomic_write_text(index_file(ws), text)
+        install_claude(ws)
+        shutil.rmtree(cairn_dir(ws))
+        return Prepared(ws, None)
+    install_claude(ws)
     if condition != "E":
         return Prepared(ws, None)
     config = run_dir / "mcp.json"

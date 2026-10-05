@@ -33,9 +33,12 @@ def test_run_bench_with_fake_runner(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert len(records) == 2 and all(r.grade.success for r in records)
     assert [r.result.cost_usd for r in records] == [0.05, 0.01]  # D has the CLAUDE.md index
     md = (tmp_path / "out" / "20261005-120000.md").read_text(encoding="utf-8")
-    assert "| A |" in md and "| D |" in md and md == render_markdown(records)
+    assert (
+        "| A |" in md and "| D |" in md and render_markdown(records).split("Conditions:")[1] in md
+    )
     data = json.loads((tmp_path / "out" / "20261005-120000.json").read_text(encoding="utf-8"))
-    assert data[0]["condition"] == "A" and data[0]["result"]["num_turns"] == 2
+    first = data["records"][0]
+    assert first["condition"] == "A" and first["result"]["num_turns"] == 2
 
 
 def test_bench_cli_rejects_unknown_condition_and_task(tmp_path: Path) -> None:

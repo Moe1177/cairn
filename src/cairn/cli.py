@@ -91,7 +91,7 @@ def _summary_line(result: ScanResult) -> str:
     suffix = f" ({detail})" if detail else ""
     return (
         f"Mapped {len(workspace.repos)} repos and {len(workspace.edges)} relationships{suffix} "
-        f"-> .cairn/INDEX.md · {len(result.cached)} from cache"
+        f"-> .cairn/INDEX.md; {len(result.cached)} from cache"
     )
 
 
@@ -346,19 +346,22 @@ def bench(
     if shutil.which("claude") is None:
         _fail("the `claude` CLI is not on PATH; install Claude Code to run benchmarks.")
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    runner = ClaudeRunner(model=model)
+    meta = {"model": model, "claude_version": runner.version()}
     with _isolated_cairn_homes():
         records = run_bench(
             suite_dir.resolve(),
             conditions=chosen,
             runs=runs,
             task_ids=task_ids,
-            runner=ClaudeRunner(model=model),
+            runner=runner,
             out_dir=out,
             now=stamp,
+            meta=meta,
         )
     from cairn.bench.report import render_markdown
 
-    typer.echo(render_markdown(records))
+    typer.echo(render_markdown(records, meta=meta))
     typer.echo(f"Reports: {out / (stamp + '.md')} and {out / (stamp + '.json')}")
 
 
