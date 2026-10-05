@@ -9,6 +9,7 @@ from cairn.security.text import clean_inline
 
 SUMMARY_MAX = 500
 _LIST_PREVIEW = 5
+_ROUTE_PREVIEW = 3
 _APP_ROOT_PREVIEW = 3
 _FIELD_MAX = 160
 _LINE_MAX = 400
@@ -140,9 +141,9 @@ def _signal_values(edge: Edge, prefix: str) -> list[str]:
     return [s.split(":", 1)[1] for s in edge.signals if s.startswith(prefix)]
 
 
-def _join(values: list[str]) -> str:
-    shown = ", ".join(values[:_LIST_PREVIEW])
-    return shown + (f" +{len(values) - _LIST_PREVIEW} more" if len(values) > _LIST_PREVIEW else "")
+def _join(values: list[str], preview: int = _LIST_PREVIEW) -> str:
+    shown = ", ".join(values[:preview])
+    return shown + (f" +{len(values) - preview} more" if len(values) > preview else "")
 
 
 def _describe(edge: Edge) -> str:
@@ -160,6 +161,16 @@ def _describe(edge: Edge) -> str:
         return "uses package " + _join(_signal_values(edge, "package:"))
     if edge.type is EdgeType.PATH_REF:
         return "references path " + _join(_signal_values(edge, "path_ref:"))
+    if edge.type is EdgeType.CALLS_HTTP:
+        return "calls " + _join(_signal_values(edge, "http_route:"), _ROUTE_PREVIEW)
+    if edge.type is EdgeType.GRPC:
+        return "gRPC " + _join(_signal_values(edge, "grpc:"))
+    if edge.type is EdgeType.PUBSUB:
+        return "publishes " + _join(_signal_values(edge, "topic:"))
+    if edge.type is EdgeType.COMPOSE_LINK:
+        return "compose: depends on"
+    if edge.type is EdgeType.SHARES_ENV:
+        return "shares env " + _join(_signal_values(edge, "env:"))
     if edge.type is EdgeType.MENTIONS:
         return "docs mention"
     if edge.type is EdgeType.MANUAL:

@@ -10,7 +10,7 @@ from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
 from cairn.load import load_authored
-from cairn.model.graph import Confidence, Package, Repo, Workspace
+from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.paths import cards_dir
 from cairn.render.card import relate_line
 from cairn.resolve import resolve_repo
@@ -167,6 +167,8 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
         sides = (("exposes", repo.contracts.exposes), ("consumes", repo.contracts.consumes))
         for direction, facts in sides:
             for fact in facts:
+                if fact.kind is FactKind.COMPOSE_SERVICE:
+                    continue  # internal service-to-repo wiring; the edges show the result
                 if needle not in fact.value.lower() or (kind and fact.kind.value != kind):
                     continue
                 ev = fact.evidence[0] if fact.evidence else None
