@@ -12,6 +12,7 @@ from cairn.load import load_authored
 from cairn.model.graph import SYMMETRIC_TYPES, Edge, EdgeType
 from cairn.model.overrides import Authored
 from cairn.paths import authored_dir
+from cairn.resolve import resolve_repo
 from cairn.store.atomic import atomic_write_text
 from cairn.store.workspace_store import load_workspace
 
@@ -102,3 +103,33 @@ def _drop_variants(ws_root: Path, authored: Mapping[str, Authored], stale: set[s
         )
         save_authored(ws_root, repo_id, cleaned)
     return Authored(edge_whys=carried)
+
+
+SUMMARY_LIMIT = 500
+
+
+def set_summary(
+    ws_root: Path, repo_id: str, summary: str, *, aliases: Iterable[str] = ()
+) -> Path:
+    """Store a harness/human-written summary (spec §9.2), stamped with the repo's current HEAD."""
+    text = " ".join(summary.split())
+    if not text:
+        raise CairnInputError("summary", "must not be empty")
+    if len(text) > SUMMARY_LIMIT:
+        raise CairnInputError("summary", f"is {len(text)} characters; keep it under {SUMMARY_LIMIT}")
+    workspace = load_workspace(ws_root)
+    if workspace is None:
+        raise CairnError("No map found. Run `cairn scan` first.")
+    repo = workspace.repo(repo_id)
+    if repo is None:
+        matches = resolve_repo(workspace, load_authored(ws_root), repo_id, limit=3)
+        hint = ", ".join(m.repo_id for m in matches) or "none"
+        raise CairnError(f"No repo '{repo_id}'. Did you mean: {hint}?")
+    current = load_authored(ws_root).get(repo_id, Authored())
+    extra = (a.strip().lower() for a in aliases if a.strip())
+    update = {
+        "summary": text,
+        "summary_sha": repo.head_sha,
+        "aliases": tuple(dict.fromkeys((*current.aliases, *extra))),
+    }
+    return save_authored(ws_root, repo_id, current.model_copy(update=update))

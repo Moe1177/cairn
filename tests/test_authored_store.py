@@ -83,3 +83,30 @@ def test_old_explanation_is_carried_to_the_canonical_key(tmp_path: Path) -> None
     authored = load_authored(ws)
     assert authored["a"].edge_whys == {"a->b:shares_db": "same Postgres"}
     assert "b->a:shares_db" not in authored["b"].edge_whys
+
+
+def test_set_summary_keeps_reviews_and_merges_aliases(tmp_path: Path) -> None:
+    from cairn.authored_store import set_summary
+
+    ws = _ws(tmp_path)
+    write(ws, ".cairn/authored/a.yaml", "aliases: [billing]\nedge_reviews:\n  a->b:shares_db: rejected\n")
+    set_summary(ws, "a", "  Billing   service for invoices. ", aliases=("Ledger", "billing"))
+    authored = load_authored(ws)["a"]
+    assert authored.summary == "Billing service for invoices."
+    assert authored.aliases == ("billing", "ledger")
+    assert authored.edge_reviews == {"a->b:shares_db": "rejected"}
+
+
+def test_set_summary_rejects_unknown_repo_and_bad_text(tmp_path: Path) -> None:
+    # Review Focus 4
+    from cairn.authored_store import set_summary
+
+    ws = _ws(tmp_path)
+    with pytest.raises(CairnError) as info:
+        set_summary(ws, "aa", "x y")
+    assert "Did you mean" in str(info.value)
+    with pytest.raises(CairnInputError):
+        set_summary(ws, "a", "   ")
+    with pytest.raises(CairnInputError):
+        set_summary(ws, "a", "x" * 501)
+    assert not (ws / ".cairn" / "authored").exists()

@@ -134,3 +134,15 @@ def test_serve_outside_a_workspace_fails_clearly(tmp_path: Path, monkeypatch) ->
     monkeypatch.chdir(tmp_path)
     result = runner.invoke(app, ["serve"])
     assert result.exit_code == 1 and "No cairn workspace found" in result.output
+
+
+def test_set_summary_cli_updates_index(tmp_path: Path) -> None:
+    ws = _ws(tmp_path)
+    runner.invoke(app, ["scan", str(ws)])
+    result = runner.invoke(
+        app, ["set-summary", "alpha", "-", str(ws), "--alias", "core"], input="Core shared library.\n"
+    )
+    assert result.exit_code == 0, result.output
+    assert "- alpha (@acme/alpha, core): Core shared library" in index_file(ws).read_text(
+        encoding="utf-8"
+    )

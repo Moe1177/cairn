@@ -7,7 +7,7 @@ from typing import Annotated, NoReturn
 
 import typer
 
-from cairn.authored_store import annotate_edge
+from cairn.authored_store import annotate_edge, set_summary
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import install_claude, is_installed, sync_claude, uninstall_claude
@@ -211,3 +211,22 @@ def serve(
             "folder that contains your repos, or pass --workspace."
         )
     build_server(root).run()
+
+
+@app.command("set-summary")
+def set_summary_cmd(
+    repo: str,
+    summary: str,
+    path: PathArg = Path("."),
+    alias: Annotated[
+        list[str] | None, typer.Option("--alias", help="Another name people use (repeatable).")
+    ] = None,
+) -> None:
+    """Save a one-or-two sentence summary for a repo (use - to read stdin), then re-scan."""
+    text = sys.stdin.read() if summary == "-" else summary
+    try:
+        written = set_summary(path.resolve(), repo, text, aliases=alias or ())
+        typer.echo(f"Saved to {written}")
+        _report(_scan_and_write(path))
+    except CairnError as exc:
+        _fail(str(exc))
