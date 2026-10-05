@@ -23,11 +23,15 @@ class DetectorContext:
         return path.relative_to(self.repo.root).as_posix()
 
     def evidence(self, path: Path, line_no: int, line: str) -> Evidence:
-        return Evidence(repo=self.repo.id, file=self.rel(path), line=line_no, snippet=make_snippet(line))
+        return Evidence(
+            repo=self.repo.id, file=self.rel(path), line=line_no, snippet=make_snippet(line)
+        )
 
     def files(self, match: Callable[[str], bool]) -> Iterator[Path]:
         ignore = DEFAULT_IGNORE_DIRS | frozenset(self.config.ignore_dirs)
-        return iter_files(self.repo.root, ignore_dirs=ignore, max_bytes=self.config.max_file_bytes, match=match)
+        return iter_files(
+            self.repo.root, ignore_dirs=ignore, max_bytes=self.config.max_file_bytes, match=match
+        )
 
     def read(self, path: Path) -> str | None:
         return read_text(path, self.config.max_file_bytes)

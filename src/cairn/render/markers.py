@@ -19,8 +19,8 @@ def upsert_block(original: str, body: str) -> str:
         first, *rest = _BLOCK.finditer(original)
         result = original
         for match in reversed(rest):
-            result = result[: match.start()] + result[match.end():]
-        return result[: first.start()] + block + result[first.end():]
+            result = result[: match.start()] + result[match.end() :]
+        return result[: first.start()] + block + result[first.end() :]
     if not original:
         return block + newline
     separator = "" if original.endswith(newline) else newline

@@ -11,11 +11,37 @@ from cairn.render.index import one_liner
 
 STOPWORDS = frozenset(
     {
-        "the", "a", "an", "my", "our", "repo", "repository", "project", "thing", "stuff",
-        "service", "app", "code", "codebase", "one", "that", "this", "for", "of", "in", "to", "with",
+        "the",
+        "a",
+        "an",
+        "my",
+        "our",
+        "repo",
+        "repository",
+        "project",
+        "thing",
+        "stuff",
+        "service",
+        "app",
+        "code",
+        "codebase",
+        "one",
+        "that",
+        "this",
+        "for",
+        "of",
+        "in",
+        "to",
+        "with",
     }
 )
-_SYNONYMS = {"golang": "go", "next": "nextjs", "ts": "typescript", "js": "javascript", "py": "python"}
+_SYNONYMS = {
+    "golang": "go",
+    "next": "nextjs",
+    "ts": "typescript",
+    "js": "javascript",
+    "py": "python",
+}
 _TOKEN = re.compile(r"[a-z0-9@]+")
 _FUZZY_MIN = 0.75
 _NON_EXACT_CAP = 0.99
@@ -41,13 +67,17 @@ def resolve_repo(
         notes = authored.get(repo.id)
         score = _score(raw, words, repo, notes)
         if score > 0:
-            scored.append(Match(repo.id, round(min(score, 1.0), 4), repo.path, one_liner(repo, notes)))
+            scored.append(
+                Match(repo.id, round(min(score, 1.0), 4), repo.path, one_liner(repo, notes))
+            )
     scored.sort(key=lambda m: (-m.score, m.repo_id))
     return tuple(scored[:limit])
 
 
 def _stem(token: str) -> str:
-    return token[:-1] if len(token) > 3 and token.endswith("s") and not token.endswith("ss") else token
+    return (
+        token[:-1] if len(token) > 3 and token.endswith("s") and not token.endswith("ss") else token
+    )
 
 
 def _tokens(text: str) -> list[str]:
@@ -60,7 +90,9 @@ def _score(raw: str, words: list[str], repo: Repo, authored: Authored | None) ->
         return 1.0
     query = set(words)
     name_tokens = {t for n in names for t in _tokens(n)}
-    summary = (authored.summary if authored and authored.summary else None) or repo.readme_excerpt or ""
+    summary = (
+        (authored.summary if authored and authored.summary else None) or repo.readme_excerpt or ""
+    )
     name_overlap = len(query & name_tokens) / len(query)
     summary_overlap = len(query & set(_tokens(summary))) / len(query)
     stack_hit = 1.0 if query & {_stem(s) for s in repo.stack} else 0.0

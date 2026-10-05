@@ -55,6 +55,8 @@ def test_load_corrupt_raises_actionable_error(tmp_path: Path) -> None:
 def test_load_future_schema_raises(tmp_path: Path) -> None:
     path = workspace_file(tmp_path)
     path.parent.mkdir(parents=True)
-    path.write_text('{"schema_version": 2, "workspace_root": "/ws", "generated_at": "t"}', encoding="utf-8")
+    path.write_text(
+        '{"schema_version": 2, "workspace_root": "/ws", "generated_at": "t"}', encoding="utf-8"
+    )
     with pytest.raises(WorkspaceStoreError):
         load_workspace(tmp_path)

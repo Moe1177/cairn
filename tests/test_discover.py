@@ -50,7 +50,10 @@ def test_app_roots(tmp_path: Path) -> None:
 
 
 def test_normalize_remote_strips_credentials_and_suffix() -> None:
-    assert normalize_remote("https://bot:ghp_FAKE1234567890abcdef@github.com/acme/eats.git") == "github.com/acme/eats"
+    assert (
+        normalize_remote("https://bot:ghp_FAKE1234567890abcdef@github.com/acme/eats.git")
+        == "github.com/acme/eats"
+    )
     assert normalize_remote("git@github.com:acme/eats-admin.git") == "github.com/acme/eats-admin"
     assert normalize_remote("ssh://git@gitlab.com/acme/api") == "gitlab.com/acme/api"
     assert normalize_remote("/local/path/repo") is None
@@ -58,8 +61,19 @@ def test_normalize_remote_strips_credentials_and_suffix() -> None:
 
 def _git(cwd: Path, *args: str) -> None:
     subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", *args],
-        cwd=cwd, check=True, capture_output=True,
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            *args,
+        ],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
     )
 
 
@@ -70,7 +84,13 @@ def test_git_info_reads_real_repo(tmp_path: Path) -> None:
     (repo / "a.txt").write_text("a", encoding="utf-8")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "init")
-    _git(repo, "remote", "add", "origin", "https://bot:ghp_SECRETsecret1234567890@github.com/acme/r.git")
+    _git(
+        repo,
+        "remote",
+        "add",
+        "origin",
+        "https://bot:ghp_SECRETsecret1234567890@github.com/acme/r.git",
+    )
     info = git_info(repo)
     assert info.head_sha and len(info.head_sha) >= 7
     assert info.remote == "github.com/acme/r"

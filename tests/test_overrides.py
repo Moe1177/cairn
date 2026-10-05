@@ -11,7 +11,9 @@ def _edge(src: str, tgt: str, type_: EdgeType, conf: Confidence = Confidence.INF
 
 def test_remove_edges_both_directions_for_symmetric() -> None:
     edges = [_edge("a", "b", EdgeType.SHARES_DB), _edge("a", "c", EdgeType.MENTIONS)]
-    relations = Relations.model_validate({"remove_edges": [{"from": "b", "to": "a", "type": "shares_db"}]})
+    relations = Relations.model_validate(
+        {"remove_edges": [{"from": "b", "to": "a", "type": "shares_db"}]}
+    )
     result = apply_overrides(edges, relations, {}, KNOWN)
     assert [e.key for e in result.edges] == ["a->c:mentions"]
 
@@ -41,7 +43,10 @@ def test_reviews_and_whys() -> None:
 def test_manual_edges_and_warnings() -> None:
     relations = Relations.model_validate(
         {
-            "edges": [{"from": "a", "to": "b", "note": "use the API"}, {"from": "a", "to": "ghost"}],
+            "edges": [
+                {"from": "a", "to": "b", "note": "use the API"},
+                {"from": "a", "to": "ghost"},
+            ],
             "aliases": {"phantom": ["p"]},
             "notes": {"nobody": "x"},
         }

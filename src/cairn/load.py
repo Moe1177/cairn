@@ -26,7 +26,9 @@ def load_authored(ws_root: Path) -> dict[str, Authored]:
     directory = authored_dir(ws_root)
     if not directory.is_dir():
         return {}
-    return {path.stem: _load_yaml_model(path, Authored) for path in sorted(directory.glob("*.yaml"))}
+    return {
+        path.stem: _load_yaml_model(path, Authored) for path in sorted(directory.glob("*.yaml"))
+    }
 
 
 def _load_yaml_model(path: Path, model: type[M]) -> M:

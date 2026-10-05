@@ -9,14 +9,21 @@ NEXT_PKG = json.dumps(
     {
         "name": "my-app",
         "scripts": {"dev": "next dev", "build": "next build", "test": "vitest", "format": "x"},
-        "dependencies": {"next": "15", "react": "19", "drizzle-orm": "0.36", "@neondatabase/serverless": "0.10"},
+        "dependencies": {
+            "next": "15",
+            "react": "19",
+            "drizzle-orm": "0.36",
+            "@neondatabase/serverless": "0.10",
+        },
         "devDependencies": {"typescript": "5"},
     }
 )
 
 
 def test_nested_next_app(tmp_path: Path) -> None:
-    repo = make_repo(tmp_path, "shopapp", {"my-app/package.json": NEXT_PKG, "my-app/pnpm-lock.yaml": ""})
+    repo = make_repo(
+        tmp_path, "shopapp", {"my-app/package.json": NEXT_PKG, "my-app/pnpm-lock.yaml": ""}
+    )
     for d in ("app", "lib", "db", "components", "zz-custom"):
         (repo / "my-app" / d).mkdir()
     result = ProfileDetector().run(ctx_for(tmp_path, repo, app_roots=[repo / "my-app"]))
@@ -34,7 +41,8 @@ def test_nested_next_app(tmp_path: Path) -> None:
 
 def test_python_fastapi_with_tests_dir(tmp_path: Path) -> None:
     repo = make_repo(
-        tmp_path, "orders-svc",
+        tmp_path,
+        "orders-svc",
         {"pyproject.toml": '[project]\nname = "orders-svc"\ndependencies = ["FastAPI>=0.110"]\n'},
     )
     (repo / "tests").mkdir()
@@ -44,11 +52,15 @@ def test_python_fastapi_with_tests_dir(tmp_path: Path) -> None:
 
 
 def test_go_rust_java(tmp_path: Path) -> None:
-    go = make_repo(tmp_path, "payments", {"go.mod": "module x\nrequire github.com/gin-gonic/gin v1.9.0\n"})
+    go = make_repo(
+        tmp_path, "payments", {"go.mod": "module x\nrequire github.com/gin-gonic/gin v1.9.0\n"}
+    )
     rs = make_repo(tmp_path, "ledger", {"Cargo.toml": '[package]\nname = "ledger"\n'})
     jv = make_repo(tmp_path, "billing", {"pom.xml": "<project/>"})
     assert ProfileDetector().run(ctx_for(tmp_path, go)).stack == ("go", "gin")
-    assert ProfileDetector().run(ctx_for(tmp_path, rs)).commands[0] == Command(name="test", run="cargo test")
+    assert ProfileDetector().run(ctx_for(tmp_path, rs)).commands[0] == Command(
+        name="test", run="cargo test"
+    )
     assert ProfileDetector().run(ctx_for(tmp_path, jv)).stack == ("java",)
 
 

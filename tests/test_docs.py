@@ -11,7 +11,11 @@ def _targets(result) -> list[str]:
 
 
 def test_mentions_sibling_by_id(tmp_path: Path) -> None:
-    repo = make_repo(tmp_path, "shopapp", {"CLAUDE.md": "# shopapp\n\nThe owner dashboard is the shop-admin repo.\n"})
+    repo = make_repo(
+        tmp_path,
+        "shopapp",
+        {"CLAUDE.md": "# shopapp\n\nThe owner dashboard is the shop-admin repo.\n"},
+    )
     result = DocsDetector().run(ctx_for(tmp_path, repo, alias_table=TABLE))
     assert _targets(result) == ["shop-admin"]
     assert result.consumes[0].evidence[0].line == 3
@@ -19,7 +23,9 @@ def test_mentions_sibling_by_id(tmp_path: Path) -> None:
 
 def test_prefix_id_inside_longer_id_is_not_a_mention(tmp_path: Path) -> None:
     # Review Focus 2
-    repo = make_repo(tmp_path, "shop-admin", {"README.md": "# shop-admin\n\nThe shop-admin dashboard.\n"})
+    repo = make_repo(
+        tmp_path, "shop-admin", {"README.md": "# shop-admin\n\nThe shop-admin dashboard.\n"}
+    )
     assert _targets(DocsDetector().run(ctx_for(tmp_path, repo, alias_table=TABLE))) == []
 
 

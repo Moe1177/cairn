@@ -10,8 +10,21 @@ from cairn.security.policy import is_forbidden
 
 DEFAULT_IGNORE_DIRS = frozenset(
     {
-        ".git", ".cairn", "node_modules", ".venv", "venv", "dist", "build", ".next",
-        "target", "vendor", "graphify-out", "__pycache__", ".turbo", ".cache", "coverage",
+        ".git",
+        ".cairn",
+        "node_modules",
+        ".venv",
+        "venv",
+        "dist",
+        "build",
+        ".next",
+        "target",
+        "vendor",
+        "graphify-out",
+        "__pycache__",
+        ".turbo",
+        ".cache",
+        "coverage",
     }
 )
 _BINARY_SNIFF_BYTES = 8192

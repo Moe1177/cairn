@@ -17,7 +17,8 @@ def write_outputs(ws_root: Path, result: ScanResult) -> tuple[Path, ...]:
     keep: set[str] = set()
     for repo in workspace.repos:
         card = render_card(
-            repo, workspace,
+            repo,
+            workspace,
             authored=result.authored.get(repo.id),
             note=result.relations.notes.get(repo.id),
             budget=result.config.card_budget,
@@ -30,6 +31,9 @@ def write_outputs(ws_root: Path, result: ScanResult) -> tuple[Path, ...]:
         if stale.name not in keep:
             stale.unlink()
     index_path = index_file(ws_root)
-    atomic_write_text(index_path, render_index(workspace, result.authored, threshold=result.config.index_threshold))
+    atomic_write_text(
+        index_path,
+        render_index(workspace, result.authored, threshold=result.config.index_threshold),
+    )
     written.append(index_path)
     return tuple(written)

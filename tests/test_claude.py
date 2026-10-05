@@ -3,7 +3,13 @@ from pathlib import Path
 import pytest
 
 from cairn.errors import CairnError, CairnInputError
-from cairn.integrations.claude import claude_md, install_claude, is_installed, sync_claude, uninstall_claude
+from cairn.integrations.claude import (
+    claude_md,
+    install_claude,
+    is_installed,
+    sync_claude,
+    uninstall_claude,
+)
 from cairn.integrations.registry import list_workspaces, registry_file
 from cairn.paths import backups_dir, index_file
 from cairn.render.markers import START
@@ -39,7 +45,11 @@ def test_existing_content_survives_reinstall_and_uninstall(tmp_path: Path) -> No
     write(ws, ".cairn/INDEX.md", "# Workspace repos (cairn)\n- a: changed\n")
     install_claude(ws)
     content = claude_md(ws).read_bytes()
-    assert content.startswith(original) and content.count(START.encode()) == 1 and b"changed" in content
+    assert (
+        content.startswith(original)
+        and content.count(START.encode()) == 1
+        and b"changed" in content
+    )
     assert (backups_dir(ws) / "CLAUDE.md.orig").read_bytes() == original
     assert uninstall_claude(ws) is True
     assert claude_md(ws).read_bytes() == original

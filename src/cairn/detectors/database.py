@@ -18,13 +18,46 @@ SUPABASE_REF = re.compile(
 PRISMA_MODEL = re.compile(r"^\s*model\s+(\w+)\s*\{(.*?)^\s*\}", re.M | re.S)
 PRISMA_MAP = re.compile(r'@@map\(\s*"([^"]+)"\s*\)')
 CODE_SUFFIXES = frozenset(
-    {".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rb", ".java", ".kt", ".rs", ".php", ".cs"}
+    {
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".cjs",
+        ".py",
+        ".go",
+        ".rb",
+        ".java",
+        ".kt",
+        ".rs",
+        ".php",
+        ".cs",
+    }
 )
 SQL_NOT_TABLES = frozenset(
     {
-        "select", "where", "set", "values", "lateral", "unnest", "only", "information_schema",
-        "pg_catalog", "dual", "generate_series", "json_each", "jsonb_each",
-        "json_array_elements", "jsonb_array_elements", "the", "a", "an", "and", "or", "sub",
+        "select",
+        "where",
+        "set",
+        "values",
+        "lateral",
+        "unnest",
+        "only",
+        "information_schema",
+        "pg_catalog",
+        "dual",
+        "generate_series",
+        "json_each",
+        "jsonb_each",
+        "json_array_elements",
+        "jsonb_array_elements",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "sub",
     }
 )
 
@@ -64,7 +97,9 @@ def _scan(ctx: DetectorContext, path: Path, text: str) -> Found:
 
 
 def _table(ctx: DetectorContext, path: Path, line_no: int, line: str, name: str) -> Fact:
-    return Fact(kind=FactKind.DB_TABLE, value=name.lower(), evidence=(ctx.evidence(path, line_no, line),))
+    return Fact(
+        kind=FactKind.DB_TABLE, value=name.lower(), evidence=(ctx.evidence(path, line_no, line),)
+    )
 
 
 def _is_table(name: str) -> bool:
@@ -92,7 +127,9 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     consumes: list[Fact] = []
     for line_no, line in enumerate(text.splitlines(), start=1):
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
-        refs = [m.group(1) for m in SQL_REF.finditer(line)] + [m.group(1) for m in SUPABASE_REF.finditer(line)]
+        refs = [m.group(1) for m in SQL_REF.finditer(line)] + [
+            m.group(1) for m in SUPABASE_REF.finditer(line)
+        ]
         consumes += [_table(ctx, path, line_no, line, name) for name in refs if _is_table(name)]
     return exposes, consumes
 
@@ -114,4 +151,6 @@ def _scan_supabase(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
         return []
     line_no = next((i for i, line in enumerate(text.splitlines(), 1) if "project_id" in line), 1)
     evidence = ctx.evidence(path, line_no, text.splitlines()[line_no - 1])
-    return [Fact(kind=FactKind.DB_PROJECT_REF, value=f"supabase:{project_id}", evidence=(evidence,))]
+    return [
+        Fact(kind=FactKind.DB_PROJECT_REF, value=f"supabase:{project_id}", evidence=(evidence,))
+    ]

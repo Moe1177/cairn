@@ -7,8 +7,14 @@ from pathlib import Path
 from cairn.discover.files import DEFAULT_IGNORE_DIRS
 
 MANIFEST_NAMES = (
-    "package.json", "pyproject.toml", "go.mod", "Cargo.toml", "pom.xml",
-    "build.gradle", "setup.py", "requirements.txt",
+    "package.json",
+    "pyproject.toml",
+    "go.mod",
+    "Cargo.toml",
+    "pom.xml",
+    "build.gradle",
+    "setup.py",
+    "requirements.txt",
 )
 _APP_ROOT_SEARCH_DEPTH = 2
 
@@ -47,7 +53,8 @@ def _children(directory: Path, ignore_dirs: frozenset[str]) -> list[Path]:
     except OSError:
         return []
     return [
-        p for p in entries
+        p
+        for p in entries
         if p.is_dir() and not p.name.startswith(".") and p.name not in ignore_dirs
     ]
 
@@ -68,7 +75,9 @@ def _find_repo_roots(root: Path, ignore_dirs: frozenset[str], max_depth: int) ->
 def _assign_ids(ws_root: Path, roots: list[Path]) -> list[str]:
     counts = Counter(path.name for path in roots)
     return [
-        path.name if counts[path.name] == 1 else path.relative_to(ws_root).as_posix().replace("/", "--")
+        path.name
+        if counts[path.name] == 1
+        else path.relative_to(ws_root).as_posix().replace("/", "--")
         for path in roots
     ]
 

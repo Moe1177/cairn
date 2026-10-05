@@ -41,8 +41,12 @@ def test_edge_detection_meets_calibration_gates(materialize) -> None:
     predicted, expected = [], []
     for name in REMOTES:
         _, result = _scan(materialize, name)
-        predicted += [(e.source, e.target, e.type.value, e.confidence.value) for e in result.workspace.edges]
-        expected += [(e["from"], e["to"], e["type"], e["confidence"]) for e in _expect(name)["edges"]]
+        predicted += [
+            (e.source, e.target, e.type.value, e.confidence.value) for e in result.workspace.edges
+        ]
+        expected += [
+            (e["from"], e["to"], e["type"], e["confidence"]) for e in _expect(name)["edges"]
+        ]
     metrics = edge_metrics(predicted, expected)
     assert metrics.recall >= 0.85, metrics.describe()
     assert metrics.extracted_precision >= 0.95, metrics.describe()
@@ -76,10 +80,14 @@ def test_cards_and_index_respect_budgets(materialize) -> None:
     for name in REMOTES:
         ws, result = _scan(materialize, name)
         for card in (ws / ".cairn" / "cards").glob("*.md"):
-            assert estimate_tokens(card.read_text(encoding="utf-8")) <= result.config.card_budget, card.name
+            assert estimate_tokens(card.read_text(encoding="utf-8")) <= result.config.card_budget, (
+                card.name
+            )
         index_lines = (ws / ".cairn" / "INDEX.md").read_text(encoding="utf-8").splitlines()
         repo_lines = [line for line in index_lines if line.startswith("- ")]
-        assert repo_lines and sum(estimate_tokens(line) for line in repo_lines) / len(repo_lines) <= 30
+        assert (
+            repo_lines and sum(estimate_tokens(line) for line in repo_lines) / len(repo_lines) <= 30
+        )
 
 
 def test_no_secret_ever_leaves_the_repo(materialize, tmp_path: Path, monkeypatch) -> None:

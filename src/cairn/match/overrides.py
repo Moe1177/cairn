@@ -68,13 +68,23 @@ def _manual_edges(
             continue
         key = f"{rule.source}->{rule.target}:{rule.type.value}"
         edges.append(
-            Edge(source=rule.source, target=rule.target, type=rule.type, confidence=Confidence.EXTRACTED,
-                 score=1.0, signals=("manual",), note=rule.note, why=whys.get(key))
+            Edge(
+                source=rule.source,
+                target=rule.target,
+                type=rule.type,
+                confidence=Confidence.EXTRACTED,
+                score=1.0,
+                signals=("manual",),
+                note=rule.note,
+                why=whys.get(key),
+            )
         )
     return edges, warnings
 
 
-def _unknown_keys(section: str, mapping: Mapping[str, object], known_ids: frozenset[str]) -> list[str]:
+def _unknown_keys(
+    section: str, mapping: Mapping[str, object], known_ids: frozenset[str]
+) -> list[str]:
     return [
         f"relations.yaml: {section} references unknown repo '{repo_id}'"
         for repo_id in sorted(mapping)

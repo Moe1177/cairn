@@ -14,15 +14,23 @@ NOW = datetime(2026, 10, 5, tzinfo=UTC)
 
 
 def _workspace(tmp_path: Path) -> Path:
-    make_repo(tmp_path, "eats", {
-        "package.json": '{"name": "eats-web"}',
-        "db/migrations/0.sql": "CREATE TABLE cook_profiles (id int);\nCREATE TABLE listings (id int);\n",
-        "CLAUDE.md": "Owner tools live in the eats-admin repo.\n",
-    })
-    make_repo(tmp_path, "eats-admin", {
-        "package.json": '{"name": "eats-admin"}',
-        "lib/q.ts": "sql`SELECT * FROM cook_profiles JOIN listings ON true`\n",
-    })
+    make_repo(
+        tmp_path,
+        "eats",
+        {
+            "package.json": '{"name": "eats-web"}',
+            "db/migrations/0.sql": "CREATE TABLE cook_profiles (id int);\nCREATE TABLE listings (id int);\n",
+            "CLAUDE.md": "Owner tools live in the eats-admin repo.\n",
+        },
+    )
+    make_repo(
+        tmp_path,
+        "eats-admin",
+        {
+            "package.json": '{"name": "eats-admin"}',
+            "lib/q.ts": "sql`SELECT * FROM cook_profiles JOIN listings ON true`\n",
+        },
+    )
     return tmp_path
 
 
@@ -45,7 +53,9 @@ def test_detector_crash_is_recorded_not_fatal(tmp_path: Path, monkeypatch) -> No
         def run(self, ctx: DetectorContext) -> DetectorResult:
             raise RuntimeError("kaboom ghp_FAKEfakeFAKEfakeFAKEfake1234567890")
 
-    monkeypatch.setattr(scan_module, "RELATION_DETECTORS", (Boom(), *scan_module.RELATION_DETECTORS))
+    monkeypatch.setattr(
+        scan_module, "RELATION_DETECTORS", (Boom(), *scan_module.RELATION_DETECTORS)
+    )
     ws = scan_workspace(_workspace(tmp_path), now=NOW).workspace
     errors = ws.repo("eats").detector_errors
     assert errors[0].detector == "boom"

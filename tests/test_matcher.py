@@ -13,7 +13,8 @@ def _fact(kind: FactKind, value: str, repo: str) -> Fact:
 
 def _repo(repo_id: str, exposes=(), consumes=(), path: str | None = None) -> RepoFacts:
     return RepoFacts(
-        id=repo_id, path=path or repo_id,
+        id=repo_id,
+        path=path or repo_id,
         contracts=Contracts(
             exposes=tuple(_fact(k, v, repo_id) for k, v in exposes),
             consumes=tuple(_fact(k, v, repo_id) for k, v in consumes),
@@ -35,9 +36,15 @@ def test_scoring_functions() -> None:
 
 def test_package_edge() -> None:
     ui = _repo("shared-ui", exposes=[(FactKind.PACKAGE, "npm:@eats/ui")])
-    app = _repo("eats", consumes=[(FactKind.PACKAGE, "npm:@eats/ui"), (FactKind.PACKAGE, "npm:react")])
+    app = _repo(
+        "eats", consumes=[(FactKind.PACKAGE, "npm:@eats/ui"), (FactKind.PACKAGE, "npm:react")]
+    )
     (edge,) = match_edges([app, ui])
-    assert (edge.source, edge.target, edge.type) == ("eats", "shared-ui", EdgeType.DEPENDS_ON_PACKAGE)
+    assert (edge.source, edge.target, edge.type) == (
+        "eats",
+        "shared-ui",
+        EdgeType.DEPENDS_ON_PACKAGE,
+    )
     assert edge.confidence is Confidence.EXTRACTED and edge.signals == ("package:npm:@eats/ui",)
 
 
@@ -65,7 +72,11 @@ def test_widely_shared_table_is_ambiguous() -> None:
 def test_project_ref_path_and_mention_edges() -> None:
     a = _repo(
         "a",
-        consumes=[(FactKind.DB_PROJECT_REF, "supabase:x"), (FactKind.PATH_REF, "b/src"), (FactKind.DOC_MENTION, "b")],
+        consumes=[
+            (FactKind.DB_PROJECT_REF, "supabase:x"),
+            (FactKind.PATH_REF, "b/src"),
+            (FactKind.DOC_MENTION, "b"),
+        ],
     )
     b = _repo("b", consumes=[(FactKind.DB_PROJECT_REF, "supabase:x")])
     types = {(e.source, e.target, e.type, e.confidence) for e in match_edges([a, b])}
@@ -85,15 +96,32 @@ def test_path_ref_matches_longest_repo_prefix() -> None:
 
 
 def test_merge_symmetric_edges_across_directions() -> None:
-    e1 = Edge(source="a", target="b", type=EdgeType.SHARES_DB, confidence=Confidence.INFERRED, score=0.6,
-              signals=("db_table:x",), evidence=(_ev("a"),))
-    e2 = Edge(source="b", target="a", type=EdgeType.SHARES_DB, confidence=Confidence.EXTRACTED, score=1.0,
-              signals=("db_project_ref:p",), evidence=(_ev("b"),))
+    e1 = Edge(
+        source="a",
+        target="b",
+        type=EdgeType.SHARES_DB,
+        confidence=Confidence.INFERRED,
+        score=0.6,
+        signals=("db_table:x",),
+        evidence=(_ev("a"),),
+    )
+    e2 = Edge(
+        source="b",
+        target="a",
+        type=EdgeType.SHARES_DB,
+        confidence=Confidence.EXTRACTED,
+        score=1.0,
+        signals=("db_project_ref:p",),
+        evidence=(_ev("b"),),
+    )
     (merged,) = merge_edges([e1, e2])
     assert merged.confidence is Confidence.EXTRACTED and merged.score == 1.0
     assert merged.signals == ("db_table:x", "db_project_ref:p")
 
 
 def test_results_are_deterministic() -> None:
-    repos = [_repo("b", exposes=[(T, "t1"), (T, "t2")]), _repo("a", consumes=[(T, "t1"), (T, "t2")])]
+    repos = [
+        _repo("b", exposes=[(T, "t1"), (T, "t2")]),
+        _repo("a", consumes=[(T, "t1"), (T, "t2")]),
+    ]
     assert match_edges(repos) == match_edges(list(reversed(repos)))

@@ -7,7 +7,9 @@ from cairn.detectors.base import DetectorContext, DetectorResult
 from cairn.model.graph import MAX_EVIDENCE, Evidence, Fact, FactKind
 from cairn.security.policy import is_forbidden
 
-DOC_NAMES = frozenset({"readme.md", "readme.rst", "readme.txt", "readme", "claude.md", "agents.md", "gemini.md"})
+DOC_NAMES = frozenset(
+    {"readme.md", "readme.rst", "readme.txt", "readme", "claude.md", "agents.md", "gemini.md"}
+)
 _PLAIN_WORD = re.compile(r"^[a-z]+$")
 _CONTEXT = r"(?:repo|repository|service|project|package|app|codebase)"
 _MIN_ALIAS_LEN = 3
@@ -60,5 +62,9 @@ def _doc_files(ctx: DetectorContext) -> list[Path]:
             entries = sorted(directory.iterdir())
         except OSError:
             continue
-        files += [p for p in entries if p.is_file() and p.name.lower() in DOC_NAMES and not is_forbidden(p)]
+        files += [
+            p
+            for p in entries
+            if p.is_file() and p.name.lower() in DOC_NAMES and not is_forbidden(p)
+        ]
     return files

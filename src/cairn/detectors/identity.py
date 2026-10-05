@@ -5,13 +5,43 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from cairn.detectors.base import DetectorContext, DetectorResult
-from cairn.detectors.manifests import dig, load_json, load_toml, normalize_py, parse_go_mod, project_name
+from cairn.detectors.manifests import (
+    dig,
+    load_json,
+    load_toml,
+    normalize_py,
+    parse_go_mod,
+    project_name,
+)
 
 GENERIC_ALIASES = frozenset(
     {
-        "my-app", "app", "web", "frontend", "backend", "server", "client", "api", "project",
-        "test", "tests", "demo", "main", "src", "core", "lib", "service", "website", "site",
-        "package", "root", "monorepo", "template", "starter", "example", "untitled",
+        "my-app",
+        "app",
+        "web",
+        "frontend",
+        "backend",
+        "server",
+        "client",
+        "api",
+        "project",
+        "test",
+        "tests",
+        "demo",
+        "main",
+        "src",
+        "core",
+        "lib",
+        "service",
+        "website",
+        "site",
+        "package",
+        "root",
+        "monorepo",
+        "template",
+        "starter",
+        "example",
+        "untitled",
     }
 )
 README_NAMES = ("README.md", "readme.md", "Readme.md", "README.rst", "README.txt", "README")

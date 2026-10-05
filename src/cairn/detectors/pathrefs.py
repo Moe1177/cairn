@@ -45,6 +45,10 @@ class PathRefsDetector:
 
 def _resolve(path: Path, ref: str, ws_root: Path, repo_root: Path) -> str | None:
     target = (path.parent / ref.replace("\\", "/")).resolve()
-    if not target.is_relative_to(ws_root) or target.is_relative_to(repo_root) or not target.exists():
+    if (
+        not target.is_relative_to(ws_root)
+        or target.is_relative_to(repo_root)
+        or not target.exists()
+    ):
         return None
     return target.relative_to(ws_root).as_posix()

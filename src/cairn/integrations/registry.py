@@ -27,7 +27,7 @@ def list_workspaces() -> tuple[str, ...]:
         raise CairnInputError(str(path), f"invalid JSON: {exc}") from exc
     workspaces = data.get("workspaces") if isinstance(data, dict) else None
     if not isinstance(workspaces, list) or not all(isinstance(w, str) for w in workspaces):
-        raise CairnInputError(str(path), "expected {\"workspaces\": [<path>, ...]}")
+        raise CairnInputError(str(path), 'expected {"workspaces": [<path>, ...]}')
     return tuple(workspaces)
 
 
@@ -46,4 +46,6 @@ def unregister_workspace(ws_root: Path) -> None:
 
 
 def _save(workspaces: tuple[str, ...]) -> None:
-    atomic_write_text(registry_file(), json.dumps({"workspaces": sorted(workspaces)}, indent=2) + "\n")
+    atomic_write_text(
+        registry_file(), json.dumps({"workspaces": sorted(workspaces)}, indent=2) + "\n"
+    )

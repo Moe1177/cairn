@@ -18,7 +18,9 @@ def _cairn_home(tmp_path: Path, monkeypatch) -> None:
 def _ws(tmp_path: Path) -> Path:
     ws = tmp_path / "ws"
     make_repo(ws, "alpha", {"package.json": '{"name": "@acme/alpha"}'})
-    make_repo(ws, "beta", {"package.json": '{"name": "beta", "dependencies": {"@acme/alpha": "1"}}'})
+    make_repo(
+        ws, "beta", {"package.json": '{"name": "beta", "dependencies": {"@acme/alpha": "1"}}'}
+    )
     return ws
 
 

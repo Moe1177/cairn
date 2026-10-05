@@ -3,16 +3,24 @@ from cairn.model.overrides import Authored
 from cairn.resolve import resolve_repo
 
 WS = Workspace(
-    workspace_root="/ws", generated_at="t",
+    workspace_root="/ws",
+    generated_at="t",
     repos=(
         Repo(id="eats", path="eats", aliases=("eats",), stack=("typescript", "nextjs")),
-        Repo(id="eats-admin", path="eats-admin", aliases=("eats-admin", "admin"), stack=("typescript", "nextjs")),
+        Repo(
+            id="eats-admin",
+            path="eats-admin",
+            aliases=("eats-admin", "admin"),
+            stack=("typescript", "nextjs"),
+        ),
         Repo(id="payments", path="payments", aliases=("payments",), stack=("go",)),
     ),
 )
 AUTHORED = {
     "eats": Authored(summary="Consumer marketplace app for home-cooked meals."),
-    "eats-admin": Authored(summary="Restaurant-owner dashboard: menus and payouts.", aliases=("owner portal",)),
+    "eats-admin": Authored(
+        summary="Restaurant-owner dashboard: menus and payouts.", aliases=("owner portal",)
+    ),
 }
 
 

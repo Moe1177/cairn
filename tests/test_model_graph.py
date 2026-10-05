@@ -20,7 +20,9 @@ def _workspace() -> Workspace:
     admin = Repo(
         id="admin",
         path="admin",
-        contracts=Contracts(consumes=(Fact(kind=FactKind.DB_TABLE, value="orders", evidence=(ev,)),)),
+        contracts=Contracts(
+            consumes=(Fact(kind=FactKind.DB_TABLE, value="orders", evidence=(ev,)),)
+        ),
     )
     app = Repo(id="app", path="app")
     edge = Edge(
@@ -33,7 +35,10 @@ def _workspace() -> Workspace:
         evidence=(ev,),
     )
     return Workspace(
-        workspace_root="/ws", generated_at="2026-10-05T00:00:00+00:00", repos=(admin, app), edges=(edge,)
+        workspace_root="/ws",
+        generated_at="2026-10-05T00:00:00+00:00",
+        repos=(admin, app),
+        edges=(edge,),
     )
 
 

@@ -28,7 +28,9 @@ def repo_line(repo: Repo, authored: Authored | None) -> str:
     return f"- {repo.id}{alias_part}: {one_liner(repo, authored)}{stack}"
 
 
-def render_index(workspace: Workspace, authored: Mapping[str, Authored], *, threshold: int = 50) -> str:
+def render_index(
+    workspace: Workspace, authored: Mapping[str, Authored], *, threshold: int = 50
+) -> str:
     lines = [
         INDEX_TITLE,
         f"Workspace root: `{workspace.workspace_root}`. Each repo's card is at "
@@ -57,7 +59,11 @@ def _components(workspace: Workspace) -> list[list[str]]:
         return x
 
     for edge in workspace.edges:
-        if edge.confidence.rank >= Confidence.INFERRED.rank and edge.source in parent and edge.target in parent:
+        if (
+            edge.confidence.rank >= Confidence.INFERRED.rank
+            and edge.source in parent
+            and edge.target in parent
+        ):
             parent[find(edge.source)] = find(edge.target)
     groups: dict[str, list[str]] = {}
     for repo_id in sorted(parent):
@@ -87,7 +93,9 @@ def _group_lines(workspace: Workspace) -> list[str]:
         if len(members) == 1:
             singles += members
             continue
-        lines.append(f"- group {_hub(members, workspace)} ({len(members)} repos): {_preview(members)}")
+        lines.append(
+            f"- group {_hub(members, workspace)} ({len(members)} repos): {_preview(members)}"
+        )
     if singles:
         lines.append(f"- ungrouped ({len(singles)} repos): {_preview(sorted(singles))}")
     return [*lines, "", "Full list: open .cairn/cards/ (one <repo>.md per repo)."]

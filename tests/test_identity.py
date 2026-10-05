@@ -25,7 +25,10 @@ def test_python_go_and_cargo_names(tmp_path: Path) -> None:
     go = make_repo(tmp_path, "payments", {"go.mod": "module github.com/acme/payments\n"})
     rs = make_repo(tmp_path, "ledger", {"Cargo.toml": '[package]\nname = "ledger-core"\n'})
     assert IdentityDetector().run(ctx_for(tmp_path, py)).aliases == ("common", "shopverse-common")
-    assert IdentityDetector().run(ctx_for(tmp_path, go)).aliases == ("payments", "github.com/acme/payments")
+    assert IdentityDetector().run(ctx_for(tmp_path, go)).aliases == (
+        "payments",
+        "github.com/acme/payments",
+    )
     assert IdentityDetector().run(ctx_for(tmp_path, rs)).aliases == ("ledger", "ledger-core")
 
 
@@ -56,7 +59,10 @@ def test_first_paragraph_caps_length() -> None:
 
 def test_manifest_helpers() -> None:
     assert pep508_name("Requests[socks]>=2.0; python_version>'3'") == "Requests"
-    assert requirements_names("# c\n-r base.txt\nfastapi==0.110\n\nuvicorn\n") == ("fastapi", "uvicorn")
+    assert requirements_names("# c\n-r base.txt\nfastapi==0.110\n\nuvicorn\n") == (
+        "fastapi",
+        "uvicorn",
+    )
     module, requires = parse_go_mod(
         "module github.com/acme/payments\n\nrequire github.com/acme/money v0.1.0\n"
         "require (\n\tgithub.com/gin-gonic/gin v1.9.0 // indirect\n)\n"
@@ -71,7 +77,10 @@ def test_merge_and_combine_helpers() -> None:
     merged = merge_facts(facts)
     assert len(merged) == 1 and len(merged[0].evidence) == 3
     combined = combine_results(
-        [DetectorResult(aliases=("a",), readme_excerpt=None), DetectorResult(aliases=("a", "b"), readme_excerpt="x")]
+        [
+            DetectorResult(aliases=("a",), readme_excerpt=None),
+            DetectorResult(aliases=("a", "b"), readme_excerpt="x"),
+        ]
     )
     assert combined.aliases == ("a", "b") and combined.readme_excerpt == "x"
     assert find_line("one\ntwo\n", "two") == (2, "two")

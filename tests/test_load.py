@@ -74,7 +74,9 @@ def test_relations_parse_from_to_aliases(tmp_path: Path) -> None:
 
 def test_authored_files_keyed_by_stem(tmp_path: Path) -> None:
     _write(authored_dir(tmp_path) / "admin.yaml", "summary: Owner portal\nsummary_sha: 1234567\n")
-    _write(authored_dir(tmp_path) / "app.yaml", "edge_reviews:\n  'app->admin:mentions': rejected\n")
+    _write(
+        authored_dir(tmp_path) / "app.yaml", "edge_reviews:\n  'app->admin:mentions': rejected\n"
+    )
     authored = load_authored(tmp_path)
     assert authored["admin"].summary == "Owner portal"
     assert authored["admin"].summary_sha == "1234567"

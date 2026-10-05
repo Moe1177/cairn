@@ -10,5 +10,8 @@ from cairn.detectors.profile import ProfileDetector
 
 IDENTITY_DETECTORS: tuple[Detector, ...] = (IdentityDetector(), ProfileDetector())
 RELATION_DETECTORS: tuple[Detector, ...] = (
-    PackagesDetector(), DatabaseDetector(), PathRefsDetector(), DocsDetector(),
+    PackagesDetector(),
+    DatabaseDetector(),
+    PathRefsDetector(),
+    DocsDetector(),
 )

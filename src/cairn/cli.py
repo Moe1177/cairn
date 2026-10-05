@@ -14,7 +14,9 @@ from cairn.model.graph import Confidence
 from cairn.scan import ScanResult, scan_workspace
 from cairn.store.workspace_store import load_workspace
 
-app = typer.Typer(no_args_is_help=True, add_completion=False, help="cairn: a workspace map for coding agents.")
+app = typer.Typer(
+    no_args_is_help=True, add_completion=False, help="cairn: a workspace map for coding agents."
+)
 SUPPORTED_HARNESSES = ("claude",)
 PathArg = Annotated[Path, typer.Argument(help="Workspace root (default: current directory).")]
 
@@ -67,7 +69,10 @@ def scan(path: PathArg = Path(".")) -> None:
 @app.command()
 def init(
     path: PathArg = Path("."),
-    yes: Annotated[bool, typer.Option("--yes", "-y", help="Install the Claude Code integration without asking.")] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Install the Claude Code integration without asking."),
+    ] = False,
     no_install: Annotated[bool, typer.Option("--no-install", help="Only scan.")] = False,
 ) -> None:
     """Scan PATH and offer to load the index into Claude Code."""
@@ -77,7 +82,9 @@ def init(
         if no_install:
             typer.echo("Run `cairn install claude` to load the index into Claude Code.")
             return
-        prompt = "Add the repo index to CLAUDE.md in this folder so Claude Code loads it automatically?"
+        prompt = (
+            "Add the repo index to CLAUDE.md in this folder so Claude Code loads it automatically?"
+        )
         if yes or typer.confirm(prompt, default=True):
             typer.echo(f"Claude Code: index added to {install_claude(path.resolve())}")
         else:
@@ -105,7 +112,9 @@ def uninstall(harness: str, path: PathArg = Path(".")) -> None:
         removed = uninstall_claude(path.resolve())
     except CairnError as exc:
         _fail(str(exc))
-    typer.echo("Claude Code: cairn block removed." if removed else "Claude Code: cairn was not installed.")
+    typer.echo(
+        "Claude Code: cairn block removed." if removed else "Claude Code: cairn was not installed."
+    )
 
 
 @app.command()
@@ -121,7 +130,9 @@ def status(path: PathArg = Path(".")) -> None:
         _fail("No map found. Run `cairn scan` first.")
     counts = Counter(e.confidence.value for e in workspace.edges)
     missing = [r.id for r in workspace.repos if not (r.id in authored and authored[r.id].summary)]
-    errors = [f"{r.id}: {e.detector}: {e.message}" for r in workspace.repos for e in r.detector_errors]
+    errors = [
+        f"{r.id}: {e.detector}: {e.message}" for r in workspace.repos for e in r.detector_errors
+    ]
     lines = [
         f"Workspace: {workspace.workspace_root}",
         f"Generated: {workspace.generated_at}",

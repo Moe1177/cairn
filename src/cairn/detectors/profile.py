@@ -4,32 +4,74 @@ from pathlib import Path
 
 from cairn.detectors.base import DetectorContext, DetectorResult
 from cairn.detectors.manifests import (
-    dig, load_json, load_toml, normalize_py, npm_dependencies, parse_go_mod, python_requirement_names,
+    dig,
+    load_json,
+    load_toml,
+    normalize_py,
+    npm_dependencies,
+    parse_go_mod,
+    python_requirement_names,
 )
 from cairn.discover.files import DEFAULT_IGNORE_DIRS
 from cairn.model.graph import Command, LayoutEntry
 
 _JS_STACK = (
-    ("next", "nextjs"), ("react", "react"), ("vue", "vue"), ("svelte", "svelte"),
-    ("express", "express"), ("@nestjs/core", "nestjs"), ("drizzle-orm", "drizzle"),
-    ("prisma", "prisma"), ("@prisma/client", "prisma"), ("@neondatabase/serverless", "neon"),
-    ("@supabase/supabase-js", "supabase"), ("stripe", "stripe"),
+    ("next", "nextjs"),
+    ("react", "react"),
+    ("vue", "vue"),
+    ("svelte", "svelte"),
+    ("express", "express"),
+    ("@nestjs/core", "nestjs"),
+    ("drizzle-orm", "drizzle"),
+    ("prisma", "prisma"),
+    ("@prisma/client", "prisma"),
+    ("@neondatabase/serverless", "neon"),
+    ("@supabase/supabase-js", "supabase"),
+    ("stripe", "stripe"),
 )
-_PY_STACK = (("fastapi", "fastapi"), ("django", "django"), ("flask", "flask"), ("sqlalchemy", "sqlalchemy"))
+_PY_STACK = (
+    ("fastapi", "fastapi"),
+    ("django", "django"),
+    ("flask", "flask"),
+    ("sqlalchemy", "sqlalchemy"),
+)
 _GO_STACK = (
-    ("github.com/gin-gonic/gin", "gin"), ("github.com/labstack/echo", "echo"),
+    ("github.com/gin-gonic/gin", "gin"),
+    ("github.com/labstack/echo", "echo"),
     ("github.com/gofiber/fiber", "fiber"),
 )
 _SCRIPTS = ("dev", "start", "build", "test", "lint")
-_LOCKFILES = (("pnpm-lock.yaml", "pnpm"), ("yarn.lock", "yarn"), ("bun.lockb", "bun"), ("bun.lock", "bun"))
+_LOCKFILES = (
+    ("pnpm-lock.yaml", "pnpm"),
+    ("yarn.lock", "yarn"),
+    ("bun.lockb", "bun"),
+    ("bun.lock", "bun"),
+)
 MAX_LAYOUT = 12
 LAYOUT_PURPOSES = {
-    "app": "routes/pages", "pages": "routes/pages", "src": "source", "lib": "library code",
-    "components": "UI components", "db": "database", "migrations": "DB migrations", "api": "API",
-    "tests": "tests", "test": "tests", "__tests__": "tests", "e2e": "e2e tests", "docs": "docs",
-    "scripts": "scripts", "public": "static assets", "cmd": "entrypoints",
-    "internal": "internal packages", "pkg": "packages", "prisma": "Prisma schema",
-    "supabase": "Supabase config", "hooks": "hooks", "styles": "styles", "config": "config",
+    "app": "routes/pages",
+    "pages": "routes/pages",
+    "src": "source",
+    "lib": "library code",
+    "components": "UI components",
+    "db": "database",
+    "migrations": "DB migrations",
+    "api": "API",
+    "tests": "tests",
+    "test": "tests",
+    "__tests__": "tests",
+    "e2e": "e2e tests",
+    "docs": "docs",
+    "scripts": "scripts",
+    "public": "static assets",
+    "cmd": "entrypoints",
+    "internal": "internal packages",
+    "pkg": "packages",
+    "prisma": "Prisma schema",
+    "supabase": "Supabase config",
+    "hooks": "hooks",
+    "styles": "styles",
+    "config": "config",
 }
 
 Probe = tuple[list[str], list[Command]]
@@ -48,7 +90,9 @@ class ProfileDetector:
                 stack += found_stack
                 commands += [_scoped(ctx, root, c, multi) for c in found_cmds]
         return DetectorResult(
-            stack=tuple(dict.fromkeys(stack)), commands=_first_by_name(commands), layout=_layout(ctx)
+            stack=tuple(dict.fromkeys(stack)),
+            commands=_first_by_name(commands),
+            layout=_layout(ctx),
         )
 
 
@@ -64,10 +108,20 @@ def _node(ctx: DetectorContext, root: Path) -> Probe:
     if pkg is None:
         return [], []
     deps = set(npm_dependencies(pkg))
-    language = "typescript" if "typescript" in deps or (root / "tsconfig.json").is_file() else "javascript"
+    language = (
+        "typescript" if "typescript" in deps or (root / "tsconfig.json").is_file() else "javascript"
+    )
     stack = [language, *(label for dep, label in _JS_STACK if dep in deps)]
-    runner = next((pm for lock, pm in _LOCKFILES if (root / lock).is_file() or (ctx.repo.root / lock).is_file()), "npm")
-    scripts = pkg.get("scripts") if isinstance(pkg.get("scripts"), dict) else {}
+    runner = next(
+        (
+            pm
+            for lock, pm in _LOCKFILES
+            if (root / lock).is_file() or (ctx.repo.root / lock).is_file()
+        ),
+        "npm",
+    )
+    raw_scripts = pkg.get("scripts")
+    scripts = raw_scripts if isinstance(raw_scripts, dict) else {}
     return stack, [Command(name=s, run=f"{runner} run {s}") for s in _SCRIPTS if s in scripts]
 
 
@@ -78,7 +132,11 @@ def _python(ctx: DetectorContext, root: Path) -> Probe:
         return [], []
     names = {normalize_py(n) for n in python_requirement_names(pyproject, requirements)}
     stack = ["python", *(label for dep, label in _PY_STACK if dep in names)]
-    has_tests = "pytest" in names or (root / "tests").is_dir() or dig(pyproject, "tool", "pytest") is not None
+    has_tests = (
+        "pytest" in names
+        or (root / "tests").is_dir()
+        or dig(pyproject, "tool", "pytest") is not None
+    )
     return stack, [Command(name="test", run="pytest")] if has_tests else []
 
 
@@ -87,14 +145,23 @@ def _go(ctx: DetectorContext, root: Path) -> Probe:
     if not text:
         return [], []
     _, requires = parse_go_mod(text)
-    stack = ["go", *(label for prefix, label in _GO_STACK if any(r.startswith(prefix) for r in requires))]
-    return stack, [Command(name="test", run="go test ./..."), Command(name="build", run="go build ./...")]
+    stack = [
+        "go",
+        *(label for prefix, label in _GO_STACK if any(r.startswith(prefix) for r in requires)),
+    ]
+    return stack, [
+        Command(name="test", run="go test ./..."),
+        Command(name="build", run="go build ./..."),
+    ]
 
 
 def _rust(ctx: DetectorContext, root: Path) -> Probe:
     if not (root / "Cargo.toml").is_file():
         return [], []
-    return ["rust"], [Command(name="test", run="cargo test"), Command(name="build", run="cargo build")]
+    return ["rust"], [
+        Command(name="test", run="cargo test"),
+        Command(name="build", run="cargo build"),
+    ]
 
 
 def _java(ctx: DetectorContext, root: Path) -> Probe:
@@ -119,7 +186,9 @@ def _layout(ctx: DetectorContext) -> tuple[LayoutEntry, ...]:
     ignore = DEFAULT_IGNORE_DIRS | frozenset(ctx.config.ignore_dirs)
     try:
         children = sorted(
-            p for p in primary.iterdir() if p.is_dir() and not p.name.startswith(".") and p.name not in ignore
+            p
+            for p in primary.iterdir()
+            if p.is_dir() and not p.name.startswith(".") and p.name not in ignore
         )
     except OSError:
         return ()

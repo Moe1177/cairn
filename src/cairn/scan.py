@@ -46,14 +46,18 @@ def scan_workspace(ws_root: Path, *, now: datetime | None = None) -> ScanResult:
         ignore_repos=frozenset(relations.ignore_repos),
     )
     gits = {loc.id: git_info(loc.root) for loc in locations}
-    identity = {loc.id: _run_all(IDENTITY_DETECTORS, DetectorContext(root, loc, config)) for loc in locations}
+    identity = {
+        loc.id: _run_all(IDENTITY_DETECTORS, DetectorContext(root, loc, config))
+        for loc in locations
+    }
     aliases = {
         loc.id: _aliases_for(loc, identity[loc.id][0], gits[loc.id], relations, authored, config)
         for loc in locations
     }
     table = build_alias_table(aliases)
     relation = {
-        loc.id: _run_all(RELATION_DETECTORS, DetectorContext(root, loc, config, table)) for loc in locations
+        loc.id: _run_all(RELATION_DETECTORS, DetectorContext(root, loc, config, table))
+        for loc in locations
     }
     repos = tuple(
         _build_repo(root, loc, identity[loc.id], relation[loc.id], gits[loc.id], aliases[loc.id])
@@ -96,21 +100,33 @@ def _run_all(detectors: Sequence[Detector], ctx: DetectorContext) -> Run:
 
 
 def _aliases_for(
-    loc: RepoLocation, identity: DetectorResult, git: GitInfo,
-    relations: Relations, authored: Mapping[str, Authored], config: CairnConfig,
+    loc: RepoLocation,
+    identity: DetectorResult,
+    git: GitInfo,
+    relations: Relations,
+    authored: Mapping[str, Authored],
+    config: CairnConfig,
 ) -> tuple[str, ...]:
     detected = [*identity.aliases]
     if git.remote:
         detected.append(git.remote.rsplit("/", 1)[-1])
     cleaned = clean_aliases(detected, loc.id, frozenset(config.stop_aliases))
-    user = [*relations.aliases.get(loc.id, ()), *(authored[loc.id].aliases if loc.id in authored else ())]
+    user = [
+        *relations.aliases.get(loc.id, ()),
+        *(authored[loc.id].aliases if loc.id in authored else ()),
+    ]
     seen = {a.lower() for a in cleaned}
     extra = [u.strip().lower() for u in user if u.strip() and u.strip().lower() not in seen]
     return tuple(dict.fromkeys((*cleaned, *extra)))
 
 
 def _build_repo(
-    ws_root: Path, loc: RepoLocation, identity: Run, relation: Run, git: GitInfo, aliases: tuple[str, ...]
+    ws_root: Path,
+    loc: RepoLocation,
+    identity: Run,
+    relation: Run,
+    git: GitInfo,
+    aliases: tuple[str, ...],
 ) -> Repo:
     first, first_errors = identity
     second, second_errors = relation

@@ -6,9 +6,20 @@ from cairn.model.graph import Confidence
 
 DEFAULT_TABLE_STOPLIST = frozenset(
     {
-        "users", "user", "accounts", "account", "sessions", "session", "migrations",
-        "schema_migrations", "_prisma_migrations", "settings", "logs", "events",
-        "verification_tokens", "verification",
+        "users",
+        "user",
+        "accounts",
+        "account",
+        "sessions",
+        "session",
+        "migrations",
+        "schema_migrations",
+        "_prisma_migrations",
+        "settings",
+        "logs",
+        "events",
+        "verification_tokens",
+        "verification",
     }
 )
 SIGNAL_STRENGTH = 0.6

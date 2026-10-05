@@ -17,8 +17,12 @@ class _Section:
 
 
 def render_card(
-    repo: Repo, workspace: Workspace, *, authored: Authored | None = None,
-    note: str | None = None, budget: int = 800,
+    repo: Repo,
+    workspace: Workspace,
+    *,
+    authored: Authored | None = None,
+    note: str | None = None,
+    budget: int = 800,
 ) -> str:
     text = _header(repo, authored)
     for section in _sections(repo, workspace, note):
@@ -55,11 +59,19 @@ def _meta(repo: Repo) -> str:
 
 def _sections(repo: Repo, workspace: Workspace, note: str | None) -> list[_Section]:
     candidates = (
-        _Section("Warnings", tuple(f"⚠ {e.detector} detector failed: {e.message}" for e in repo.detector_errors)),
+        _Section(
+            "Warnings",
+            tuple(f"⚠ {e.detector} detector failed: {e.message}" for e in repo.detector_errors),
+        ),
         _Section("Relates", _relates(repo, workspace)),
         _Section("Run", tuple(f"{c.name} `{c.run}`" for c in repo.commands)),
-        _Section("Layout", tuple(f"{e.path} → {e.purpose}" if e.purpose else e.path for e in repo.layout)),
-        _Section("Exposes", tuple(f"{f.kind.value.replace('_', ' ')} {f.value}" for f in repo.contracts.exposes)),
+        _Section(
+            "Layout", tuple(f"{e.path} → {e.purpose}" if e.purpose else e.path for e in repo.layout)
+        ),
+        _Section(
+            "Exposes",
+            tuple(f"{f.kind.value.replace('_', ' ')} {f.value}" for f in repo.contracts.exposes),
+        ),
         _Section("Notes", (note,) if note else ()),
     )
     return [s for s in candidates if s.items]

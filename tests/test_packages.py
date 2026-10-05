@@ -10,7 +10,10 @@ def _values(facts) -> list[str]:
 
 
 def test_npm_exposes_and_consumes_with_evidence(tmp_path: Path) -> None:
-    pkg = json.dumps({"name": "@eats/ui", "dependencies": {"react": "19"}, "devDependencies": {"vitest": "2"}}, indent=2)
+    pkg = json.dumps(
+        {"name": "@eats/ui", "dependencies": {"react": "19"}, "devDependencies": {"vitest": "2"}},
+        indent=2,
+    )
     repo = make_repo(tmp_path, "shared-ui", {"package.json": pkg})
     result = PackagesDetector().run(ctx_for(tmp_path, repo))
     assert _values(result.exposes) == ["npm:@eats/ui"]
@@ -21,7 +24,8 @@ def test_npm_exposes_and_consumes_with_evidence(tmp_path: Path) -> None:
 
 def test_python_names_are_normalized(tmp_path: Path) -> None:
     repo = make_repo(
-        tmp_path, "orders-svc",
+        tmp_path,
+        "orders-svc",
         {
             "pyproject.toml": '[project]\nname = "Orders_Svc"\ndependencies = ["Shopverse_Common>=0.1"]\n',
             "requirements.txt": "uvicorn==0.30\n",
@@ -33,8 +37,16 @@ def test_python_names_are_normalized(tmp_path: Path) -> None:
 
 
 def test_go_and_cargo(tmp_path: Path) -> None:
-    go = make_repo(tmp_path, "payments", {"go.mod": "module github.com/acme/payments\nrequire github.com/acme/money v0.1.0\n"})
-    rs = make_repo(tmp_path, "ledger", {"Cargo.toml": '[package]\nname = "ledger"\n[dependencies]\nserde = "1"\n'})
+    go = make_repo(
+        tmp_path,
+        "payments",
+        {"go.mod": "module github.com/acme/payments\nrequire github.com/acme/money v0.1.0\n"},
+    )
+    rs = make_repo(
+        tmp_path,
+        "ledger",
+        {"Cargo.toml": '[package]\nname = "ledger"\n[dependencies]\nserde = "1"\n'},
+    )
     go_result = PackagesDetector().run(ctx_for(tmp_path, go))
     assert _values(go_result.exposes) == ["go:github.com/acme/payments"]
     assert _values(go_result.consumes) == ["go:github.com/acme/money"]
@@ -44,6 +56,10 @@ def test_go_and_cargo(tmp_path: Path) -> None:
 
 
 def test_malformed_manifests_do_not_crash(tmp_path: Path) -> None:
-    repo = make_repo(tmp_path, "broken", {"package.json": "{not json", "pyproject.toml": "[[[", "Cargo.toml": "x = "})
+    repo = make_repo(
+        tmp_path,
+        "broken",
+        {"package.json": "{not json", "pyproject.toml": "[[[", "Cargo.toml": "x = "},
+    )
     result = PackagesDetector().run(ctx_for(tmp_path, repo))
     assert result.exposes == () and result.consumes == ()

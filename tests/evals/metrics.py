@@ -53,7 +53,12 @@ def edge_metrics(predicted: Sequence[EdgeTuple], expected: Sequence[EdgeTuple]) 
 
 def check_faithfulness(ws_root: Path, workspace: Workspace) -> list[str]:
     roots = {r.id: ws_root / r.path for r in workspace.repos}
-    evidence = [ev for r in workspace.repos for f in (*r.contracts.exposes, *r.contracts.consumes) for ev in f.evidence]
+    evidence = [
+        ev
+        for r in workspace.repos
+        for f in (*r.contracts.exposes, *r.contracts.consumes)
+        for ev in f.evidence
+    ]
     evidence += [ev for e in workspace.edges for ev in e.evidence]
     problems = []
     for ev in evidence:

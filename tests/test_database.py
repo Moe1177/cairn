@@ -25,11 +25,12 @@ def test_sql_migrations_expose_tables(tmp_path: Path) -> None:
 
 def test_orm_declarations_expose_tables(tmp_path: Path) -> None:
     repo = make_repo(
-        tmp_path, "web",
+        tmp_path,
+        "web",
         {
             "db/schema.ts": 'export const dishes = pgTable("dishes", { id: serial("id") });\n',
             "prisma/schema.prisma": (
-                "model Payment {\n  id Int @id\n  @@map(\"payments_ledger\")\n}\n"
+                'model Payment {\n  id Int @id\n  @@map("payments_ledger")\n}\n'
                 "model Customer {\n  id Int @id\n}\n"
             ),
         },
@@ -44,9 +45,19 @@ def test_code_references_consume_tables(tmp_path: Path) -> None:
         'db.exec("UPDATE orders SET status = $1");\n'
         "const { data } = await supabase.from('dishes').select('*');\n"
     )
-    repo = make_repo(tmp_path, "admin", {"lib/q.ts": code, "store.go": 'db.Exec("INSERT INTO payments_ledger VALUES ($1)")\n'})
+    repo = make_repo(
+        tmp_path,
+        "admin",
+        {"lib/q.ts": code, "store.go": 'db.Exec("INSERT INTO payments_ledger VALUES ($1)")\n'},
+    )
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
-    assert _tables(result.consumes) == ["cook_profiles", "dishes", "listings", "orders", "payments_ledger"]
+    assert _tables(result.consumes) == [
+        "cook_profiles",
+        "dishes",
+        "listings",
+        "orders",
+        "payments_ledger",
+    ]
 
 
 def test_javascript_lookalikes_are_not_tables(tmp_path: Path) -> None:
@@ -65,7 +76,14 @@ def test_javascript_lookalikes_are_not_tables(tmp_path: Path) -> None:
 
 
 def test_supabase_project_ref(tmp_path: Path) -> None:
-    repo = make_repo(tmp_path, "app", {"supabase/config.toml": 'project_id = "abcd1234"\n', "config.toml": 'project_id = "nope"\n'})
+    repo = make_repo(
+        tmp_path,
+        "app",
+        {
+            "supabase/config.toml": 'project_id = "abcd1234"\n',
+            "config.toml": 'project_id = "nope"\n',
+        },
+    )
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     refs = [f.value for f in result.consumes if f.kind is FactKind.DB_PROJECT_REF]
     assert refs == ["supabase:abcd1234"]

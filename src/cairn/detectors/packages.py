@@ -4,8 +4,15 @@ from pathlib import Path
 
 from cairn.detectors.base import DetectorContext, DetectorResult, find_line, merge_facts
 from cairn.detectors.manifests import (
-    dig, normalize_py, npm_dependencies, parse_go_mod, parse_json, parse_toml,
-    project_name, pyproject_requirement_names, requirements_names,
+    dig,
+    normalize_py,
+    npm_dependencies,
+    parse_go_mod,
+    parse_json,
+    parse_toml,
+    project_name,
+    pyproject_requirement_names,
+    requirements_names,
 )
 from cairn.model.graph import Fact, FactKind
 
