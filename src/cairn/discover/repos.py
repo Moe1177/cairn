@@ -37,7 +37,7 @@ def discover_repos(
     ignore_repos: frozenset[str] = frozenset(),
 ) -> tuple[RepoLocation, ...]:
     root = ws_root.resolve()
-    repo_roots = sorted(_find_repo_roots(root, ignore_dirs, max_depth))
+    repo_roots = _dedupe_links(_find_repo_roots(root, ignore_dirs, max_depth))
     ids = _assign_ids(root, repo_roots)
     locations = (
         RepoLocation(id=repo_id, root=path, app_roots=_app_roots(path, ignore_dirs))
@@ -72,11 +72,26 @@ def _find_repo_roots(root: Path, ignore_dirs: frozenset[str], max_depth: int) ->
     return found
 
 
+def _dedupe_links(paths: list[Path]) -> list[Path]:
+    """One entry per real repo: a symlink/junction to a repo yields the real folder (spec §16.4)."""
+    unique: dict[Path, Path] = {}
+    for path in sorted(paths, key=lambda p: (_real(p) != p, len(p.parts), str(p))):
+        unique.setdefault(_real(path), path)
+    return sorted(unique.values())
+
+
+def _real(path: Path) -> Path:
+    try:
+        return path.resolve()
+    except OSError:
+        return path
+
+
 def _assign_ids(ws_root: Path, roots: list[Path]) -> list[str]:
-    counts = Counter(path.name for path in roots)
+    counts = Counter(path.name.lower() for path in roots)  # Foo/foo collide on Windows/macOS
     return [
         path.name
-        if counts[path.name] == 1
+        if counts[path.name.lower()] == 1
         else path.relative_to(ws_root).as_posix().replace("/", "--")
         for path in roots
     ]

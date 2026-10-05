@@ -129,3 +129,33 @@ def test_unreadable_directories_do_not_crash_discovery(tmp_path: Path, monkeypat
     locs = {loc.id: loc for loc in discover_repos(tmp_path)}
     assert sorted(locs) == ["good", "nomanifest"]
     assert [p.name for p in locs["nomanifest"].app_roots] == ["app"]
+
+
+def _link_dir(link: Path, target: Path) -> bool:
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return True
+    except OSError:
+        try:
+            import _winapi  # type: ignore[import-not-found]
+
+            _winapi.CreateJunction(str(target), str(link))
+            return True
+        except (ImportError, OSError):
+            return False
+
+
+def test_linked_repo_is_not_duplicated(tmp_path: Path) -> None:
+    # Review Focus 5
+    import pytest
+
+    make_repo(tmp_path, "realrepo")
+    if not _link_dir(tmp_path / "current", tmp_path / "realrepo"):
+        pytest.skip("this OS refused to create a directory link")
+    assert _ids(tmp_path) == ["realrepo"]
+
+
+def test_case_only_collisions_are_disambiguated(tmp_path: Path) -> None:
+    make_repo(tmp_path, "a/Foo")
+    make_repo(tmp_path, "b/foo")
+    assert _ids(tmp_path) == ["a--Foo", "b--foo"]
