@@ -2,10 +2,11 @@
 
 from pathlib import Path
 
-from cairn.paths import cards_dir, index_file
+from cairn.paths import cards_dir, index_file, logs_dir
 from cairn.render.card import render_card
 from cairn.render.index import render_index
 from cairn.scan import ScanResult
+from cairn.scan_log import render_log
 from cairn.store.atomic import atomic_write_text
 from cairn.store.workspace_store import save_workspace
 
@@ -36,4 +37,7 @@ def write_outputs(ws_root: Path, result: ScanResult) -> tuple[Path, ...]:
         render_index(workspace, result.authored, threshold=result.config.index_threshold),
     )
     written.append(index_path)
+    log_path = logs_dir(ws_root) / "last-scan.log"
+    atomic_write_text(log_path, render_log(result))
+    written.append(log_path)
     return tuple(written)

@@ -21,6 +21,7 @@ from cairn.integrations.harnesses import (
 from cairn.load import load_authored
 from cairn.model.graph import Confidence
 from cairn.scan import ScanResult, scan_workspace
+from cairn.scan_log import render_log
 from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
@@ -68,10 +69,10 @@ def _run_for(names: tuple[str, ...], action: Callable[[str], tuple[str, ...]]) -
         raise typer.Exit(1)
 
 
-def _scan_and_write(path: Path) -> ScanResult:
+def _scan_and_write(path: Path, *, use_cache: bool = True) -> ScanResult:
     root = path.resolve()
     with workspace_lock(root):
-        result = scan_workspace(root)
+        result = scan_workspace(root, use_cache=use_cache)
         write_outputs(root, result)
         sync_claude(root)
         return result
@@ -82,23 +83,52 @@ def _summary_line(result: ScanResult) -> str:
     counts = Counter(e.confidence.value for e in workspace.edges)
     detail = ", ".join(f"{counts[c.value]} {c.value}" for c in Confidence if counts[c.value])
     suffix = f" ({detail})" if detail else ""
-    return f"Mapped {len(workspace.repos)} repos and {len(workspace.edges)} relationships{suffix} -> .cairn/INDEX.md"
+    return (
+        f"Mapped {len(workspace.repos)} repos and {len(workspace.edges)} relationships{suffix} "
+        f"-> .cairn/INDEX.md · {len(result.cached)} from cache"
+    )
 
 
-def _report(result: ScanResult) -> None:
+def _report(result: ScanResult, *, verbose: bool = False) -> None:
     typer.echo(_summary_line(result))
     for warning in result.warnings:
         typer.echo(f"warning: {warning}", err=True)
+    if verbose:
+        typer.echo(render_log(result), err=True)
+
+
+Verbose = Annotated[bool, typer.Option("--verbose", help="Print the scan log to stderr.")]
 
 
 @app.command()
-def scan(path: PathArg = Path(".")) -> None:
+def scan(
+    path: PathArg = Path("."),
+    full: Annotated[
+        bool, typer.Option("--full", help="Ignore the cache; re-read every repo.")
+    ] = False,
+    verbose: Verbose = False,
+) -> None:
     """Map every git repo under PATH into .cairn/."""
+    try:
+        result = _scan_and_write(path, use_cache=not full)
+    except CairnError as exc:
+        _fail(str(exc))
+    _report(result, verbose=verbose)
+
+
+@app.command()
+def refresh(
+    path: PathArg = Path("."),
+    quiet: Annotated[bool, typer.Option("--quiet", help="Print nothing unless it fails.")] = False,
+    verbose: Verbose = False,
+) -> None:
+    """Update the map, re-reading only repos that changed since the last scan."""
     try:
         result = _scan_and_write(path)
     except CairnError as exc:
         _fail(str(exc))
-    _report(result)
+    if not quiet:
+        _report(result, verbose=verbose)
 
 
 @app.command()
