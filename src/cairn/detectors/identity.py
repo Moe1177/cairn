@@ -118,7 +118,7 @@ def _manifest_names(ctx: DetectorContext, root: Path) -> list[str]:
     go_text = ctx.read(root / "go.mod")
     module = parse_go_mod(go_text)[0] if go_text else None
     if module:
-        names += [module, module.rsplit("/", 1)[-1]]
+        names.append(_go_alias(module))
     cargo_name = dig(load_toml(root / "Cargo.toml", max_bytes), "package", "name")
     if isinstance(cargo_name, str):
         names.append(cargo_name)
@@ -133,3 +133,11 @@ def _readme_excerpt(ctx: DetectorContext) -> str | None:
             if excerpt:
                 return excerpt
     return None
+
+
+def _go_alias(module: str) -> str:
+    """Last meaningful module segment: github.com/me/gosvc/v2 -> gosvc (spec §16.4)."""
+    parts = [p for p in module.split("/") if p]
+    if len(parts) > 1 and re.fullmatch(r"v\d+", parts[-1]):
+        parts = parts[:-1]
+    return parts[-1]

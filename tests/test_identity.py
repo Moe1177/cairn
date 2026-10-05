@@ -25,10 +25,7 @@ def test_python_go_and_cargo_names(tmp_path: Path) -> None:
     go = make_repo(tmp_path, "payments", {"go.mod": "module github.com/acme/payments\n"})
     rs = make_repo(tmp_path, "ledger", {"Cargo.toml": '[package]\nname = "ledger-core"\n'})
     assert IdentityDetector().run(ctx_for(tmp_path, py)).aliases == ("common", "shopverse-common")
-    assert IdentityDetector().run(ctx_for(tmp_path, go)).aliases == (
-        "payments",
-        "github.com/acme/payments",
-    )
+    assert IdentityDetector().run(ctx_for(tmp_path, go)).aliases == ("payments",)
     assert IdentityDetector().run(ctx_for(tmp_path, rs)).aliases == ("ledger", "ledger-core")
 
 
@@ -119,3 +116,8 @@ def test_readme_excerpt_is_redacted() -> None:
     text = "Payments app; staging key sk_test_abcdefghijklmnop1234 lives in the vault.\n"
     excerpt = first_paragraph(text)
     assert excerpt is not None and "sk_test_" not in excerpt and "[REDACTED]" in excerpt
+
+
+def test_go_major_version_suffix_is_skipped(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path, "svc", {"go.mod": "module github.com/me/gosvc/v2\n"})
+    assert IdentityDetector().run(ctx_for(tmp_path, repo)).aliases == ("svc", "gosvc")
