@@ -53,9 +53,7 @@ EDGE = Edge(
     confidence=Confidence.EXTRACTED,
     score=0.84,
     signals=("db_table:cook_profiles", "db_table:listings"),
-    evidence=(
-        Evidence(repo="shop-admin", file="lib/q.ts", line=12, snippet="FROM cook_profiles"),
-    ),
+    evidence=(Evidence(repo="shop-admin", file="lib/q.ts", line=12, snippet="FROM cook_profiles"),),
     why="Admin reads the same tables.",
 )
 

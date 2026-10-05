@@ -88,11 +88,18 @@ def test_readme_documents_every_command() -> None:
     assert "no network calls and collects no telemetry" in readme
 
 
-def test_docs_have_no_personal_project_names() -> None:
-    published = sorted((ROOT / "bench" / "published").glob("*.md"))
-    for path in [ROOT / d for d in DOCS] + published:
-        text = path.read_text(encoding="utf-8")
-        assert "shopapp" not in text and "resumeapp" not in text, path.name
+def test_docs_have_no_private_names() -> None:
+    # Names that must never be published live in a git-ignored local file (one per line), so
+    # this test itself doesn't publish them. Without the file there is nothing to check.
+    names_file = ROOT / ".superpowers" / "private-names.txt"
+    if not names_file.is_file():
+        pytest.skip("no local private-names list")
+    names = [n.strip().lower() for n in names_file.read_text("utf-8").splitlines() if n.strip()]
+    tracked = [ROOT / d for d in DOCS] + sorted((ROOT / "bench" / "published").glob("*.md"))
+    tracked += sorted((ROOT / "tests").rglob("*.py")) + sorted((ROOT / "src").rglob("*.py"))
+    for path in tracked:
+        text = path.read_text(encoding="utf-8").lower()
+        assert not any(name in text for name in names), path.name
 
 
 def test_local_links_resolve() -> None:

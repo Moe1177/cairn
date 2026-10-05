@@ -16,11 +16,11 @@ def test_repo_line_format_and_budget() -> None:
     )
     line = repo_line(
         repo,
-        Authored(summary="Restaurant-owner dashboard for shopapp: menus, orders, payouts. More."),
+        Authored(summary="Restaurant-owner dashboard for store: menus, orders, payouts. More."),
     )
     assert (
         line
-        == "- shop-admin (admin, owner portal): Restaurant-owner dashboard for shopapp: menus, orders, payouts · nextjs"
+        == "- shop-admin (admin, owner portal): Restaurant-owner dashboard for store: menus, orders, payouts · nextjs"
     )
     assert estimate_tokens(line) <= 30
 
