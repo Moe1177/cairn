@@ -1,8 +1,13 @@
 """cairn command-line interface."""
 
+import os
+import shutil
 import sys
+import tempfile
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -281,6 +286,80 @@ def set_summary_cmd(
         _report(_scan_and_write(path))
     except CairnError as exc:
         _fail(str(exc))
+
+
+def _comma_list(value: str) -> tuple[str, ...]:
+    return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+@contextmanager
+def _isolated_cairn_homes() -> Iterator[None]:
+    """Benchmarks never read or write the user's real cairn/harness homes."""
+    names = ("CAIRN_HOME", "CAIRN_USER_HOME")
+    saved = {name: os.environ.get(name) for name in names}
+    with tempfile.TemporaryDirectory(prefix="cairn-bench-home-") as tmp:
+        for name in names:
+            os.environ[name] = str(Path(tmp) / name.lower())
+        try:
+            yield
+        finally:
+            for name, value in saved.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+
+
+@app.command()
+def bench(
+    suite_dir: Annotated[Path, typer.Argument(help="Benchmark suite folder (has suite.yaml).")],
+    conditions: Annotated[
+        str, typer.Option("--conditions", help="Comma list of A,B,C,D,E.")
+    ] = "A,B,C,D,E",
+    runs: Annotated[int, typer.Option("--runs", min=1, help="Runs per condition × task.")] = 1,
+    tasks: Annotated[
+        str | None, typer.Option("--tasks", help="Comma list of task ids (default: all).")
+    ] = None,
+    model: Annotated[str, typer.Option("--model", help="Claude model for the agent.")] = "haiku",
+    out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
+        "bench/results"
+    ),
+) -> None:
+    """Measure what cairn saves: run a suite headlessly in Claude Code under each condition."""
+    from cairn.bench.conditions import CONDITIONS
+    from cairn.bench.run import run_bench
+    from cairn.bench.runner import ClaudeRunner
+    from cairn.bench.suite import load_suite
+
+    chosen = _comma_list(conditions)
+    unknown = [c for c in chosen if c not in CONDITIONS]
+    if unknown or not chosen:
+        _fail(f"unknown condition {', '.join(unknown) or '(none)'} (choose from A,B,C,D,E).")
+    try:
+        suite = load_suite(suite_dir)
+    except CairnError as exc:
+        _fail(str(exc))
+    task_ids = _comma_list(tasks) if tasks else None
+    missing = [t for t in task_ids or () if t not in {task.id for task in suite.tasks}]
+    if missing:
+        _fail(f"unknown task {', '.join(missing)} in suite {suite.name}.")
+    if shutil.which("claude") is None:
+        _fail("the `claude` CLI is not on PATH; install Claude Code to run benchmarks.")
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    with _isolated_cairn_homes():
+        records = run_bench(
+            suite_dir.resolve(),
+            conditions=chosen,
+            runs=runs,
+            task_ids=task_ids,
+            runner=ClaudeRunner(model=model),
+            out_dir=out,
+            now=stamp,
+        )
+    from cairn.bench.report import render_markdown
+
+    typer.echo(render_markdown(records))
+    typer.echo(f"Reports: {out / (stamp + '.md')} and {out / (stamp + '.json')}")
 
 
 @app.command()
