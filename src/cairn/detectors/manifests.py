@@ -11,7 +11,7 @@ from cairn.discover.files import read_text
 _PEP508_NAME = re.compile(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
 _GO_MODULE = re.compile(r"^module\s+(\S+)", re.M)
 _GO_REQUIRE_LINE = re.compile(r"^require\s+(\S+)\s+\S+", re.M)
-_GO_REQUIRE_BLOCK = re.compile(r"^require\s*\((.*?)^\)", re.M | re.S)
+_GO_REQUIRE_OPEN = re.compile(r"require\s*\(\s*$")
 _NPM_DEP_SECTIONS = ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")
 
 
@@ -109,9 +109,16 @@ def npm_dependencies(pkg: dict[str, Any]) -> tuple[str, ...]:
 def parse_go_mod(text: str) -> tuple[str | None, tuple[str, ...]]:
     module_match = _GO_MODULE.search(text)
     requires = [r for r in _GO_REQUIRE_LINE.findall(text) if r != "("]
-    for block in _GO_REQUIRE_BLOCK.findall(text):
-        for line in block.splitlines():
-            parts = line.split("//", 1)[0].split()
-            if len(parts) >= 2:
-                requires.append(parts[0])
+    in_block = False  # line-based, not a lazy multi-line regex: linear on hostile input
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not in_block:
+            in_block = _GO_REQUIRE_OPEN.match(line) is not None
+            continue
+        if stripped.startswith(")"):
+            in_block = False
+            continue
+        parts = stripped.split("//", 1)[0].split()
+        if len(parts) >= 2:
+            requires.append(parts[0])
     return (module_match.group(1) if module_match else None), tuple(dict.fromkeys(requires))
