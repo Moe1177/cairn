@@ -187,7 +187,8 @@ cairn deep clear trips-svc             # delete it
   API key reaches it. It writes only to `.cairn/deep/<repo>/`, never into the repo.
 - cairn answers queries itself from the saved graph, offline, so serving needs no graphify.
 - Building is never automatic (the first build of a large repo can take minutes). When an index
-  falls behind the repo, `query` says so and the card's **Deeper** section flags it.
+  falls behind the repo (a new commit or an uncommitted edit), `query` and `cairn deep status`
+  say so; the card's **Deeper** section flags new commits.
 
 ## Benchmarks
 

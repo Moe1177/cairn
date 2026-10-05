@@ -19,6 +19,13 @@ from pathlib import Path
 args = sys.argv[1:]
 if args[:1] == ["--version"]:
     print("graphify 0.9.77"); raise SystemExit(0)
+if os.environ.get("FAKE_FAIL"):
+    print("boom", file=sys.stderr)
+    print("[graphify extract] next: run `graphify cluster-only`", file=sys.stderr)
+    raise SystemExit(2)
+if os.environ.get("FAKE_CHILD"):
+    import subprocess
+    subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
 if os.environ.get("FAKE_SLEEP"):
     import time; time.sleep(float(os.environ["FAKE_SLEEP"]))
 out = Path(args[args.index("--out") + 1]) / "graphify-out"
@@ -26,6 +33,8 @@ out.mkdir(parents=True, exist_ok=True)
 (out / "record.json").write_text(json.dumps({"argv": args, "env": sorted(os.environ)}))
 nodes = [{"id": "a", "label": "login()", "source_file": "auth.py", "source_location": "L1"}]
 (out / "graph.json").write_text(json.dumps({"nodes": nodes, "links": []}))
+if os.environ.get("FAKE_TOUCH"):
+    Path(os.environ["FAKE_TOUCH"]).write_text("def login():\n    return 'edited'\n")
 """
 
 

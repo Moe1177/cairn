@@ -8,6 +8,7 @@ shown, and sizes are capped.
 import json
 import re
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from pathlib import Path, PurePosixPath
 
 from cairn.security.text import clean_inline
@@ -19,6 +20,8 @@ _MAX_QUERY_TOKENS = 64
 _LABEL_MAX = 120
 _MIN_SCORE = 0.5
 _TOKEN = re.compile(r"[a-z0-9]+")
+# Identifier words: `getUserById` -> get, user, by, id; `HTTPServer` -> http, server.
+_WORD = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+")
 _LINE = re.compile(r"L(\d{1,9})")
 _STOPWORDS = frozenset(
     {
@@ -70,6 +73,7 @@ class Node:
     line: int | None
     callable: bool
     is_file: bool
+    joined: str = ""  # the label's letters and digits, lowercased
 
 
 @dataclass(frozen=True)
@@ -124,8 +128,9 @@ def rank(graph: Graph, question: str, limit: int) -> list[Hit]:
     if not words:
         return []
     scored: list[tuple[float, int, str, str]] = []
+    memo: dict[str, dict[str, float]] = {}
     for node in graph.nodes.values():
-        score = _score(node, words)
+        score = _score(node, words, memo)
         if score >= _MIN_SCORE:
             scored.append((-score, -graph.degree(node.id), node.label, node.id))
     scored.sort()
@@ -153,7 +158,8 @@ def _node(raw: object) -> Node | None:
     return Node(
         id=raw["id"],
         label=label,
-        tokens=frozenset(_TOKEN.findall(label.lower())),
+        tokens=frozenset(w.lower() for w in _WORD.findall(label)),
+        joined="".join(_TOKEN.findall(label.lower())),
         file=file,
         line=int(match.group(1)) if match else None,
         callable=bool(raw.get("_callable")) or label.endswith(")"),
@@ -183,27 +189,53 @@ def _query_tokens(question: str) -> frozenset[str]:
     return frozenset(found)
 
 
-def _score(node: Node, words: frozenset[str]) -> float:
+def _score(node: Node, words: frozenset[str], memo: dict[str, dict[str, float]]) -> float:
+    """Plan Task 1: the whole label (1.0), else exact (1.0), shared-stem (0.75) and fuzzy
+    (0.6) word matches, weighted by how much of the label and of the question they cover."""
     if not node.tokens:
         return 0.0
-    shared = node.tokens & words
-    if not shared:
-        partial = sum(
-            1
-            for t in node.tokens
-            if len(t) >= 4
-            and any(len(w) >= 4 and (t.startswith(w) or w.startswith(t)) for w in words)
-        )
-        if not partial:
-            return 0.0
-        score = 0.55 * partial / len(node.tokens)
+    if node.joined and node.joined in words:
+        score = 1.0
     else:
-        score = 0.7 * len(shared) / len(node.tokens) + 0.3 * len(shared) / len(words)
+        per_token = [_matches(token, words, memo) for token in node.tokens]
+        matched = sum(max(m.values(), default=0.0) for m in per_token)
+        if not matched:
+            return 0.0
+        covered = len({w for m in per_token for w in m})
+        score = 0.7 * matched / len(node.tokens) + 0.3 * covered / len(words)
     if node.callable:
         score += 0.05
     if node.is_file:
         score -= 0.1
     return score
+
+
+def _matches(
+    token: str, words: frozenset[str], memo: dict[str, dict[str, float]]
+) -> dict[str, float]:
+    """The question words this label word answers, with how well; cached per rank() call."""
+    found = memo.get(token)
+    if found is None:
+        found = {w: weight for w in words if (weight := _similarity(token, w))}
+        memo[token] = found
+    return found
+
+
+def _similarity(token: str, word: str) -> float:
+    if token == word:
+        return 1.0
+    short, long = sorted((len(token), len(word)))
+    if short < 4:
+        return 0.0
+    prefix = 0
+    for a, b in zip(token, word, strict=False):
+        if a != b:
+            break
+        prefix += 1
+    if prefix >= max(4, 0.75 * short):
+        return 0.75
+    fuzzy = short >= 5 and 2 * short / (short + long) >= 0.8
+    return 0.6 if fuzzy and SequenceMatcher(None, token, word).ratio() >= 0.8 else 0.0
 
 
 def _hit(graph: Graph, node: Node) -> Hit:

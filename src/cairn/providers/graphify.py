@@ -14,15 +14,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from cairn.discover.git import git_info
-from cairn.discover.proc import run_text
+from cairn.discover.proc import Completed, run_text, run_text_tree
+from cairn.providers import graph as graph_module
 from cairn.providers.base import BuildResult, DeepStatus
-from cairn.providers.graph import hubs, load_graph
+from cairn.providers.graph import hubs
 from cairn.providers.meta import META_FILE, deep_dir, read_deep_meta
 from cairn.scan_cache import worktree_fingerprint
 from cairn.store.atomic import atomic_write_text
 
 INSTALL_HINT = "install it with `pip install 'cairnmap[graphify]'` (or `uv tool install graphifyy`)"
 _VERSION = re.compile(r"\d+\.\d+\.\d+")
+# cmd.exe re-parses a .cmd/.bat shim's arguments; these would split or run commands.
+_CMD_META = re.compile(r'[&|<>^%!"\r\n]')
 # Only what a program needs to run. Everything else (API keys, tokens, *_BASE_URL) stays out.
 _ENV_ALLOWLIST = (
     "PATH",
@@ -70,22 +73,43 @@ class GraphifyProvider:
         if not self.available() or self.executable is None:
             return BuildResult(False, f"graphify isn't installed: {INSTALL_HINT}")
         out = deep_dir(ws_root, repo_id)
-        out.mkdir(parents=True, exist_ok=True)
         command = [self.executable, "extract", str(repo_root), "--code-only", "--out", str(out)]
-        done = run_text(command, cwd=out, timeout=timeout, env=self._env())
+        if _is_batch_shim(self.executable) and any(_CMD_META.search(a) for a in command[1:]):
+            return BuildResult(
+                False,
+                f"graphify is a .cmd/.bat shim and the path for {repo_id} has characters cmd.exe "
+                "would run as commands; install graphify as an .exe (`uv tool install graphifyy`)",
+            )
+        out.mkdir(parents=True, exist_ok=True)
+        # Recorded before the build: an edit made while graphify runs must leave the index stale.
+        head_sha = git_info(repo_root).head_sha
+        fingerprint = worktree_fingerprint(repo_root)
+        done = run_text_tree(command, cwd=out, timeout=timeout, env=self._env())
         if done is None:
             return BuildResult(
                 False, f"graphify timed out after {timeout:.0f}s (or couldn't start)"
             )
-        graph = load_graph(self.graph_path(ws_root, repo_id))
-        if done.returncode != 0 or graph is None:
-            detail = (done.stderr or done.stdout).strip().splitlines()[-1:] or ["no graph written"]
-            return BuildResult(False, f"graphify failed for {repo_id}: {detail[0][:300]}")
+        if done.returncode != 0:
+            return BuildResult(False, f"graphify failed for {repo_id}: {_last_error(done)}")
+        path = self.graph_path(ws_root, repo_id)
+        cap = graph_module.MAX_GRAPH_BYTES
+        if path.is_file() and path.stat().st_size > cap:
+            size = path.stat().st_size / 1_048_576
+            return BuildResult(
+                False,
+                f"{repo_id} is too large to index: its graph is {size:.0f} MB, over cairn's "
+                f"{cap / 1_048_576:.0f} MB limit",
+            )
+        graph = graph_module.load_graph(path, max_bytes=cap)
+        if graph is None:
+            return BuildResult(
+                False, f"graphify finished but wrote no readable graph for {repo_id}"
+            )
         meta = {
             "provider": self.id,
             "version": self.version(),
-            "head_sha": git_info(repo_root).head_sha,
-            "fingerprint": worktree_fingerprint(repo_root),
+            "head_sha": head_sha,
+            "fingerprint": fingerprint,
             "built_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "nodes": len(graph.nodes),
             "hubs": hubs(graph, 5),
@@ -124,3 +148,18 @@ def _find_executable() -> str | None:
     if beside.is_file():
         return str(beside)
     return shutil.which("graphify")
+
+
+def _is_batch_shim(executable: str) -> bool:
+    return sys.platform == "win32" and Path(executable).suffix.lower() in (".cmd", ".bat")
+
+
+def _last_error(done: Completed) -> str:
+    """graphify's last meaningful line, minus its "next: run graphify ..." hints: those suggest
+    commands that run outside cairn's code-only, scrubbed setup."""
+    lines = [
+        line.strip()
+        for line in (done.stderr or done.stdout).splitlines()
+        if line.strip() and "next:" not in line
+    ]
+    return lines[-1][:300] if lines else f"exit code {done.returncode}"
