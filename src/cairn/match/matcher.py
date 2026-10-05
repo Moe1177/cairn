@@ -48,7 +48,7 @@ def match_edges(
             *_mention_edges(ordered),
         ]
     )
-    return corroborate(merged)
+    return merged  # corroboration runs after overrides (see match.overrides)
 
 
 def merge_edges(edges: Iterable[Edge]) -> tuple[Edge, ...]:
@@ -72,7 +72,12 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
 def _corroborated(edge: Edge, same_pair: list[Edge]) -> Edge:
     if edge.type is not EdgeType.SHARES_DB:
         return edge
-    others = [o for o in same_pair if o.type is not EdgeType.SHARES_DB]
+    # Only independent, non-ambiguous evidence corroborates (spec §16.2, review fix).
+    others = [
+        o
+        for o in same_pair
+        if o.type is not EdgeType.SHARES_DB and o.confidence.rank >= Confidence.INFERRED.rank
+    ]
     strong = [o for o in others if o.confidence is Confidence.EXTRACTED]
     if edge.confidence is Confidence.AMBIGUOUS and others:
         upgraded, by = Confidence.INFERRED, others[0]
@@ -147,14 +152,17 @@ def _table_refs(repo: RepoFacts, stop: frozenset[str]) -> _TableRefs:
 def _db_edges(repos: list[RepoFacts], stop: frozenset[str]) -> list[Edge]:
     tables = {r.id: _table_refs(r, stop) for r in repos}
     providers = {r.id: {f.value for f in _facts(r, False, FactKind.DB_PROVIDER)} for r in repos}
+    linked = _linked_refs(repos)
     df = Counter(name for refs in tables.values() for name in refs.refs)
     edges = []
     for a, b in combinations([r.id for r in repos], 2):
-        if providers[a] and providers[b] and not providers[a] & providers[b]:
-            continue  # e.g. Neon vs Supabase: same table names cannot be the same database
+        if _disjoint(linked[a], linked[b]):
+            continue  # linked to different Supabase projects: provably different databases
         shared = sorted(set(tables[a].refs) & set(tables[b].refs))
         score = noisy_or(specificity(df[t]) for t in shared) if shared else 0.0
         owned = _owned_by_one_side(shared, tables[a], tables[b])
+        if owned == 0 and _disjoint(providers[a], providers[b]):
+            continue  # name-only overlap across different DB providers (e.g. Neon vs Supabase)
         confidence = _db_tier(db_confidence(score), owned)
         if confidence is None:
             continue
@@ -200,11 +208,28 @@ def _db_direction(
     return (b, a) if a_created > b_created else (a, b)
 
 
+def _linked_refs(repos: list[RepoFacts]) -> dict[str, set[str]]:
+    return {
+        r.id: {
+            f.value
+            for f in _facts(r, False, FactKind.DB_PROJECT_REF)
+            if not f.value.startswith(_LOCAL_REF)
+        }
+        for r in repos
+    }
+
+
+def _disjoint(a: set[str], b: set[str]) -> bool:
+    """Both sides declare something and nothing matches."""
+    return bool(a) and bool(b) and not a & b
+
+
 def _project_ref_edges(repos: list[RepoFacts]) -> list[Edge]:
     by_ref: dict[str, list[tuple[str, Fact]]] = {}
     for repo in repos:
         for fact in _facts(repo, False, FactKind.DB_PROJECT_REF):
             by_ref.setdefault(fact.value, []).append((repo.id, fact))
+    linked = _linked_refs(repos)
     return [
         _edge(
             a_id,
@@ -217,6 +242,7 @@ def _project_ref_edges(repos: list[RepoFacts]) -> list[Edge]:
         )
         for ref, members in by_ref.items()
         for (a_id, a_fact), (b_id, b_fact) in combinations(members, 2)
+        if not _disjoint(linked[a_id], linked[b_id])
     ]
 
 

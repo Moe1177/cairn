@@ -148,3 +148,23 @@ def test_db_provider_facts_from_client_dependencies(tmp_path: Path) -> None:
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     providers = [f.value for f in result.consumes if f.kind is FactKind.DB_PROVIDER]
     assert providers == ["neon", "supabase"]
+
+
+def test_block_comments_are_skipped_but_star_led_sql_is_kept(tmp_path: Path) -> None:
+    # Phase 2a review #6
+    code = (
+        "/**\n"
+        " * UPDATE docs FROM legacy_table when needed\n"
+        " */\n"
+        "const q = sql`SELECT\n"
+        "  * FROM orders`;\n"
+    )
+    repo = make_repo(tmp_path, "app", {"src/q.ts": code})
+    assert _tables(DatabaseDetector().run(ctx_for(tmp_path, repo)).consumes) == ["orders"]
+
+
+def test_firebase_is_not_a_database_provider(tmp_path: Path) -> None:
+    # Phase 2a review I5: firebase is mostly auth/push; it must not veto table links.
+    repo = make_repo(tmp_path, "app", {"package.json": '{"dependencies": {"firebase": "10"}}'})
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    assert [f for f in result.consumes if f.kind is FactKind.DB_PROVIDER] == []

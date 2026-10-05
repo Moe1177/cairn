@@ -136,6 +136,10 @@ def test_lookalikes_have_no_confident_false_positives(materialize) -> None:
         if (*sorted((e.source, e.target)), e.type.value) not in confident_ok
     ]
     assert wrong == []
+    # Same local Supabase id but different linked projects: provably different databases.
+    pairs = {frozenset((e.source, e.target)) for e in result.workspace.edges}
+    assert frozenset(("linked-a", "linked-c")) not in pairs
+    assert frozenset(("linked-b", "linked-c")) not in pairs
 
 
 def test_scan_never_opens_forbidden_files(materialize, monkeypatch) -> None:

@@ -235,3 +235,32 @@ def test_unknown_provider_keeps_table_edges() -> None:
     )
     b = _repo("b", consumes=[(T, "invoices"), (T, "ledgers")])
     assert len(match_edges([a, b])) == 1
+
+
+def test_different_linked_supabase_projects_are_never_linked() -> None:
+    # Phase 2a review I1
+    r = FactKind.DB_PROJECT_REF
+    api = _repo(
+        "api",
+        exposes=[(T, "orders"), (T, "order_items")],
+        consumes=[(r, "supabase:aaaaaaaaaaaaaaaaaaaa"), (r, "supabase-local:app")],
+    )
+    web = _repo(
+        "web",
+        consumes=[
+            (T, "orders"),
+            (T, "order_items"),
+            (r, "supabase:bbbbbbbbbbbbbbbbbbbb"),
+            (r, "supabase-local:app"),
+        ],
+    )
+    assert match_edges([api, web]) == ()
+
+
+def test_provider_veto_spares_consumer_to_owner_evidence() -> None:
+    # Phase 2a review I5: a supabase-auth-only worker still queries the owner's tables.
+    p = FactKind.DB_PROVIDER
+    app = _repo("app", exposes=[(T, "orders"), (T, "refunds")], consumes=[(p, "neon")])
+    worker = _repo("worker", consumes=[(T, "orders"), (T, "refunds"), (p, "supabase")])
+    (edge,) = match_edges([app, worker])
+    assert edge.confidence is Confidence.EXTRACTED

@@ -8,6 +8,8 @@ edges:
   - {from: linked-b, to: local-only-x, type: shares_db, confidence: ambiguous}
   - {from: linked-b, to: local-only-y, type: shares_db, confidence: ambiguous}
   - {from: local-only-x, to: local-only-y, type: shares_db, confidence: ambiguous}
+  - {from: linked-c, to: local-only-x, type: shares_db, confidence: ambiguous}
+  - {from: linked-c, to: local-only-y, type: shares_db, confidence: ambiguous}
 phrasings:
   - {query: "resume builder", repo: resume-app}
   - {query: "the storefront", repo: shop-app}

@@ -1,6 +1,7 @@
 """Database detector: tables a repo defines (exposes) and queries (consumes)."""
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
 
 from cairn.detectors.base import DetectorContext, DetectorResult, find_line, merge_facts
@@ -119,12 +120,26 @@ def _table(ctx: DetectorContext, path: Path, line_no: int, line: str, name: str)
     )
 
 
-_COMMENT_PREFIXES = ("//", "#", "--", "/*", "*")
+_LINE_COMMENT_PREFIXES = ("//", "#", "--")
 
 
-def _is_comment(line: str) -> bool:
-    """Comment-only lines describe code; they are never SQL evidence (spec §16.4)."""
-    return line.lstrip().startswith(_COMMENT_PREFIXES)
+def _code_lines(text: str) -> Iterator[tuple[int, str]]:
+    """Yield (line_no, line) for lines that aren't comments (spec §16.4).
+
+    Line comments are skipped, and so is everything inside /* ... */ blocks (JSDoc).
+    A line that merely starts with `*` outside a block is code, e.g. `  * FROM orders`.
+    """
+    in_block = False
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        stripped = line.lstrip()
+        if in_block:
+            in_block = "*/" not in line
+            continue
+        if stripped.startswith("/*"):
+            in_block = "*/" not in stripped[2:]
+            continue
+        if not stripped.startswith(_LINE_COMMENT_PREFIXES):
+            yield line_no, line
 
 
 def _is_table(name: str) -> bool:
@@ -139,9 +154,7 @@ def _is_table(name: str) -> bool:
 def _scan_sql(ctx: DetectorContext, path: Path, text: str) -> Found:
     exposes: list[Fact] = []
     consumes: list[Fact] = []
-    for line_no, line in enumerate(text.splitlines(), start=1):
-        if _is_comment(line):
-            continue
+    for line_no, line in _code_lines(text):
         created = [m.group(1) for m in CREATE_TABLE.finditer(line)]
         exposes += [_table(ctx, path, line_no, line, name) for name in created if _is_table(name)]
         if created:
@@ -158,9 +171,7 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     exposes: list[Fact] = []
     consumes: list[Fact] = []
     lines = text.splitlines()
-    for line_no, line in enumerate(lines, start=1):
-        if _is_comment(line):
-            continue
+    for line_no, line in _code_lines(text):
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
         refs = [m.group(1) for m in SQL_REF.finditer(line)]
         consumes += [_table(ctx, path, line_no, line, name) for name in refs if _is_table(name)]
@@ -204,7 +215,8 @@ def _scan_supabase(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
     return facts
 
 
-# Distinctive hosted-database clients. Two repos on disjoint providers cannot share tables.
+# Distinctive hosted-database clients. Name-only table overlap across disjoint providers
+# is dropped (spec §16.7). Auth/push SDKs such as firebase are deliberately not listed.
 _NPM_PROVIDERS = {
     "@neondatabase/serverless": "neon",
     "@supabase/supabase-js": "supabase",
@@ -213,13 +225,10 @@ _NPM_PROVIDERS = {
     "@libsql/client": "turso",
     "mongodb": "mongodb",
     "mongoose": "mongodb",
-    "firebase": "firebase",
-    "firebase-admin": "firebase",
 }
 _PY_PROVIDERS = {
     "supabase": "supabase",
     "pymongo": "mongodb",
-    "firebase-admin": "firebase",
     "libsql-client": "turso",
 }
 

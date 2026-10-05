@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
-from cairn.match.matcher import merge_edges
+from cairn.match.matcher import corroborate, merge_edges
 from cairn.model.graph import SYMMETRIC_TYPES, Confidence, Edge
 from cairn.model.overrides import Authored, Relations, RemovedEdge
 
@@ -30,7 +30,9 @@ def apply_overrides(
     manual, warnings = _manual_edges(relations, known_ids, whys)
     warnings += _unknown_keys("aliases", relations.aliases, known_ids)
     warnings += _unknown_keys("notes", relations.notes, known_ids)
-    return OverrideResult(edges=merge_edges([*kept, *manual]), warnings=tuple(warnings))
+    # Corroborate last, so rejected/removed edges can't vouch and manual links can (spec §16.2).
+    edges = corroborate(merge_edges([*kept, *manual]))
+    return OverrideResult(edges=edges, warnings=tuple(warnings))
 
 
 def edge_keys(edge: Edge) -> tuple[str, ...]:

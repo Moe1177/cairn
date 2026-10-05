@@ -33,11 +33,11 @@ def test_reject_preserves_other_authored_fields(tmp_path: Path) -> None:
     ws = _ws(tmp_path)
     write(ws, ".cairn/authored/b.yaml", "summary: Billing service\naliases: [billing]\n")
     path = annotate_edge(ws, "b->a:shares_db", review="rejected", why="different databases")
-    authored = load_authored(ws)["b"]
-    assert path.name == "b.yaml"
-    assert authored.summary == "Billing service" and authored.aliases == ("billing",)
-    assert authored.edge_reviews == {"b->a:shares_db": "rejected"}
-    assert authored.edge_whys == {"b->a:shares_db": "different databases"}
+    authored = load_authored(ws)
+    assert path.name == "a.yaml"  # stored under the edge's canonical key a->b
+    assert authored["b"].summary == "Billing service" and authored["b"].aliases == ("billing",)
+    assert authored["a"].edge_reviews == {"a->b:shares_db": "rejected"}
+    assert authored["a"].edge_whys == {"a->b:shares_db": "different databases"}
 
 
 def test_unknown_edge_is_refused_and_nothing_written(tmp_path: Path) -> None:
@@ -51,3 +51,35 @@ def test_unknown_edge_is_refused_and_nothing_written(tmp_path: Path) -> None:
 def test_annotating_without_a_map_is_refused(tmp_path: Path) -> None:
     with pytest.raises(CairnError):
         annotate_edge(tmp_path, "a->b:shares_db", review="confirmed", why=None)
+
+
+def _rescan(ws: Path) -> None:
+    write_outputs(ws, scan_workspace(ws))
+
+
+def test_a_rejection_can_be_undone(tmp_path: Path) -> None:
+    # Phase 2a review I2
+    ws = _ws(tmp_path)
+    annotate_edge(ws, "a->b:shares_db", review="rejected", why=None)
+    _rescan(ws)
+    annotate_edge(ws, "a->b:shares_db", review="confirmed", why="same Postgres")
+    assert load_authored(ws)["a"].edge_reviews == {"a->b:shares_db": "confirmed"}
+
+
+def test_flipped_keys_are_stored_canonically_and_stale_ones_removed(tmp_path: Path) -> None:
+    # Phase 2a review I3: the newest decision must win regardless of key direction.
+    ws = _ws(tmp_path)
+    write(ws, ".cairn/authored/b.yaml", "edge_reviews:\n  b->a:shares_db: confirmed\n")
+    annotate_edge(ws, "b->a:shares_db", review="rejected", why=None)
+    authored = load_authored(ws)
+    assert authored["a"].edge_reviews == {"a->b:shares_db": "rejected"}
+    assert authored.get("b") is None or "b->a:shares_db" not in authored["b"].edge_reviews
+
+
+def test_old_explanation_is_carried_to_the_canonical_key(tmp_path: Path) -> None:
+    ws = _ws(tmp_path)
+    write(ws, ".cairn/authored/b.yaml", "edge_whys:\n  b->a:shares_db: same Postgres\n")
+    annotate_edge(ws, "a->b:shares_db", review="confirmed", why=None)
+    authored = load_authored(ws)
+    assert authored["a"].edge_whys == {"a->b:shares_db": "same Postgres"}
+    assert "b->a:shares_db" not in authored["b"].edge_whys

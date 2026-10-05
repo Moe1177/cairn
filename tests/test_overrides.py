@@ -68,3 +68,20 @@ def test_symmetric_edge_reviews_and_whys_match_either_direction() -> None:
     }
     (edge,) = apply_overrides(edges, Relations(), authored, KNOWN).edges
     assert edge.key == "a->c:shares_db" and edge.why == "same Postgres instance"
+
+
+def test_corroboration_ignores_ambiguous_and_rejected_edges() -> None:
+    # Phase 2a review I4
+    db = Edge(
+        source="a", target="b", type=EdgeType.SHARES_DB, confidence=Confidence.AMBIGUOUS, score=0.3
+    )
+    weak_pkg = _edge("a", "b", EdgeType.DEPENDS_ON_PACKAGE, Confidence.AMBIGUOUS)
+    (still_db, _) = apply_overrides([db, weak_pkg], Relations(), {}, KNOWN).edges
+    assert still_db.confidence is Confidence.AMBIGUOUS
+    mention = _edge("b", "a", EdgeType.MENTIONS)
+    authored = {"b": Authored(edge_reviews={"b->a:mentions": "rejected"})}
+    (only,) = apply_overrides([db, mention], Relations(), authored, KNOWN).edges
+    assert only.confidence is Confidence.AMBIGUOUS
+    assert not any(s.startswith("corroborated:") for s in only.signals)
+    (upgraded, _) = apply_overrides([db, mention], Relations(), {}, KNOWN).edges
+    assert upgraded.confidence is Confidence.INFERRED
