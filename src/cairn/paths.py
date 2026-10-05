@@ -35,3 +35,11 @@ def index_file(ws_root: Path) -> Path:
 
 def backups_dir(ws_root: Path) -> Path:
     return cairn_dir(ws_root) / "cache" / "backups"
+
+
+def repo_cache_dir(ws_root: Path) -> Path:
+    return cairn_dir(ws_root) / "cache" / "repos"
+
+
+def logs_dir(ws_root: Path) -> Path:
+    return cairn_dir(ws_root) / "logs"
