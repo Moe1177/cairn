@@ -129,9 +129,10 @@ def query_text(ws_root: Path, repo: str, question: str) -> str:
     _, found, message = _find(ws_root, repo)
     if found is None:
         return message
-    layout = "\n".join(
-        f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}" for e in found.layout
-    ) or "- (no layout recorded)"
+    layout = (
+        "\n".join(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}" for e in found.layout)
+        or "- (no layout recorded)"
+    )
     return (
         f"No deep index is installed for {found.id} yet (graphify support arrives in a later "
         f"cairn release). To answer '{question}', start from these folders:\n{layout}"

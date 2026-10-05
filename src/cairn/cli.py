@@ -215,7 +215,9 @@ def annotate_edge_cmd(
 def serve(
     workspace: Annotated[
         Path | None,
-        typer.Option("--workspace", help="Workspace root (default: found from the current directory)."),
+        typer.Option(
+            "--workspace", help="Workspace root (default: found from the current directory)."
+        ),
     ] = None,
 ) -> None:
     """Run the cairn MCP server over stdio (harnesses start this for you)."""

@@ -1,5 +1,6 @@
 """Install/uninstall cairn into each harness (spec §7, §17.1)."""
 
+import os
 import shlex
 import shutil
 import subprocess
@@ -53,9 +54,7 @@ def _claude_cli(args: list[str]) -> str | None:
     if exe is None:
         return None
     try:
-        done = subprocess.run(
-            [exe, *args], capture_output=True, text=True, timeout=60, check=False
-        )
+        done = subprocess.run([exe, *args], capture_output=True, text=True, timeout=60, check=False)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return (done.stdout or "") + (done.stderr or "")
@@ -64,7 +63,10 @@ def _claude_cli(args: list[str]) -> str | None:
 def _refresh_pointers() -> None:
     """Keep every installed global pointer listing all registered workspaces."""
     body = pointer_text(list_workspaces())
-    for path, label in ((codex_home() / "AGENTS.md", "codex"), (gemini_home() / "GEMINI.md", "gemini")):
+    for path, label in (
+        (codex_home() / "AGENTS.md", "codex"),
+        (gemini_home() / "GEMINI.md", "gemini"),
+    ):
         if "<!-- cairn:start -->" in cf.read_raw(path):
             cf.set_marker_text(path, body, label=label)
 
@@ -76,7 +78,7 @@ def _install_claude(ws_root: Path, _per_repo: bool) -> Lines:
     command = server_command()
     out = _claude_cli(["mcp", "add", "--scope", "user", "cairn", "--", *command])
     if out is None:
-        mcp = f"Claude Code MCP: run `claude mcp add --scope user cairn -- {shlex.join(command)}`"
+        mcp = f"Claude Code MCP: run `claude mcp add --scope user cairn -- {_display(command)}`"
     elif "already exists" in out.lower():
         mcp = "Claude Code MCP: already registered"
     else:
@@ -181,3 +183,9 @@ _UNINSTALLERS: dict[str, Callable[[Path], Lines]] = {
     "gemini": _uninstall_gemini,
     "cursor": _uninstall_cursor,
 }
+
+
+def _display(command: list[str], *, windows: bool | None = None) -> str:
+    """Quote a command for the user's shell (cmd/PowerShell on Windows, POSIX elsewhere)."""
+    on_windows = os.name == "nt" if windows is None else windows
+    return subprocess.list2cmdline(command) if on_windows else shlex.join(command)

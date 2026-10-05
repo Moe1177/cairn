@@ -69,3 +69,11 @@ def test_marker_text_and_owned_files(tmp_path: Path) -> None:
     cf.write_owned(skill, "body")
     assert cf.remove_owned(skill) is True
     assert not skill.parent.exists() and cf.remove_owned(skill) is False
+
+
+def test_config_created_by_cairn_is_deleted_on_removal(tmp_path: Path) -> None:
+    # Dogfood: uninstall left {"mcpServers": {}} files the user never had.
+    path = tmp_path / "mcp.json"
+    cf.set_json_server(path, CMD, label="cursor")
+    assert cf.remove_json_server(path, label="cursor") is True
+    assert not path.exists()

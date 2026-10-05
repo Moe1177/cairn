@@ -91,3 +91,10 @@ def test_pointer_lists_every_registered_workspace(env, tmp_path: Path) -> None:
     h.install_harness("claude", other)  # registers a second workspace; codex pointer must follow
     text = (home / ".codex" / "AGENTS.md").read_text(encoding="utf-8")
     assert ws.resolve().as_posix() in text and other.resolve().as_posix() in text
+
+
+def test_manual_command_uses_native_quoting() -> None:
+    # Dogfood: POSIX single quotes don't work in Windows cmd.
+    cmd = [r"C:\Program Files\cairn\cairn.exe", "serve"]
+    assert h._display(cmd, windows=True) == r'"C:\Program Files\cairn\cairn.exe" serve'
+    assert h._display(["/usr/bin/cairn", "serve"], windows=False) == "/usr/bin/cairn serve"

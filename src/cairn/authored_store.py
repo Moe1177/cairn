@@ -108,15 +108,15 @@ def _drop_variants(ws_root: Path, authored: Mapping[str, Authored], stale: set[s
 SUMMARY_LIMIT = 500
 
 
-def set_summary(
-    ws_root: Path, repo_id: str, summary: str, *, aliases: Iterable[str] = ()
-) -> Path:
+def set_summary(ws_root: Path, repo_id: str, summary: str, *, aliases: Iterable[str] = ()) -> Path:
     """Store a harness/human-written summary (spec §9.2), stamped with the repo's current HEAD."""
     text = " ".join(summary.split())
     if not text:
         raise CairnInputError("summary", "must not be empty")
     if len(text) > SUMMARY_LIMIT:
-        raise CairnInputError("summary", f"is {len(text)} characters; keep it under {SUMMARY_LIMIT}")
+        raise CairnInputError(
+            "summary", f"is {len(text)} characters; keep it under {SUMMARY_LIMIT}"
+        )
     workspace = load_workspace(ws_root)
     if workspace is None:
         raise CairnError("No map found. Run `cairn scan` first.")

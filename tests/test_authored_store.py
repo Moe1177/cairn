@@ -89,7 +89,11 @@ def test_set_summary_keeps_reviews_and_merges_aliases(tmp_path: Path) -> None:
     from cairn.authored_store import set_summary
 
     ws = _ws(tmp_path)
-    write(ws, ".cairn/authored/a.yaml", "aliases: [billing]\nedge_reviews:\n  a->b:shares_db: rejected\n")
+    write(
+        ws,
+        ".cairn/authored/a.yaml",
+        "aliases: [billing]\nedge_reviews:\n  a->b:shares_db: rejected\n",
+    )
     set_summary(ws, "a", "  Billing   service for invoices. ", aliases=("Ledger", "billing"))
     authored = load_authored(ws)["a"]
     assert authored.summary == "Billing service for invoices."

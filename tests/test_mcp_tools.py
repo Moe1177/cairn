@@ -9,7 +9,16 @@ from cairn.render.tokens import estimate_tokens
 
 def _git(cwd: Path, *args: str) -> None:
     subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@e.com", "-c", "commit.gpgsign=false", *args],
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@e.com",
+            "-c",
+            "commit.gpgsign=false",
+            *args,
+        ],
         cwd=cwd,
         check=True,
         capture_output=True,

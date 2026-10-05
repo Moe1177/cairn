@@ -53,6 +53,29 @@ cairn annotate-edge "web->api:shares_db" --confirm
 
 Decisions are stored in `.cairn/authored/` and survive every re-scan.
 
+## Use it from any agent
+
+```bash
+cairn install claude     # parent CLAUDE.md index + /cairn skill + MCP server (user scope)
+cairn install codex      # pointer in ~/.codex/AGENTS.md + skill + [mcp_servers.cairn]
+cairn install gemini     # pointer in ~/.gemini/GEMINI.md + /cairn command + mcpServers.cairn
+cairn install cursor     # /cairn command + ~/.cursor/mcp.json (add --per-repo for git-excluded rules)
+cairn install all        # everything above; one broken config doesn't stop the rest
+cairn uninstall <name|all>
+```
+
+cairn only edits its own key or marked block in those files, backs each file up once to
+`~/.cairn/backups/`, and refuses to touch a file it can't parse.
+
+**MCP tools** (`cairn serve`, started by your harness; it finds the workspace from the
+directory you're working in): `resolve_repo`, `repo_card`, `related`, `find_across`,
+`query`, `refresh`. Every answer is capped, and a repo whose HEAD moved is re-scanned before
+its card is returned.
+
+**Summaries:** run `/cairn` in your agent. It reads `cairn status`, writes a short summary
+per repo with `cairn set-summary <repo> "<text>" [--alias name]`, and settles unconfirmed
+links with `cairn annotate-edge`.
+
 ## Safety
 
 - cairn never modifies your repos.
@@ -62,7 +85,7 @@ Decisions are stored in `.cairn/authored/` and survive every re-scan.
 ## Roadmap
 
 1. **Core map** (this release): INDEX, cards, relationships, Claude Code.
-2. MCP server, `/cairn` skill, refresh, Codex/Gemini/Cursor integrations.
+2. Precision pass (done), MCP server + `/cairn` skill + Codex/Gemini/Cursor (done); next: incremental refresh, more detectors, first token benchmark.
 3. Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify).
 4. Published benchmarks proving the token savings.
 

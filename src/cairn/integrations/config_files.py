@@ -60,8 +60,12 @@ def remove_json_server(path: Path, *, label: str) -> bool:
     if SERVER_NAME not in servers:
         return False
     rest = {k: v for k, v in servers.items() if k != SERVER_NAME}
+    remaining = {**data, "mcpServers": rest}
     backup_once(path, label)
-    atomic_write_text(path, json.dumps({**data, "mcpServers": rest}, indent=2) + "\n")
+    if remaining == {"mcpServers": {}}:
+        path.unlink()  # nothing but cairn's entry was ever in it
+    else:
+        atomic_write_text(path, json.dumps(remaining, indent=2) + "\n")
     return True
 
 
