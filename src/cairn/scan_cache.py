@@ -15,7 +15,7 @@ from cairn.model.graph import Command, DetectorError, Fact, Frozen, LayoutEntry,
 from cairn.paths import repo_cache_dir
 from cairn.store.atomic import atomic_write_text
 
-CACHE_VERSION = 2  # bump whenever a cached detector's output changes
+CACHE_VERSION = 3  # bump whenever a cached detector's output changes
 
 
 class CachedResult(Frozen):

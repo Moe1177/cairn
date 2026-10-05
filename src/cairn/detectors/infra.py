@@ -8,14 +8,14 @@ pathrefs: the workspace paths depend on where repos sit.
 
 from pathlib import Path, PurePosixPath
 
-import yaml
-
 from cairn.detectors.base import DetectorContext, DetectorResult, find_line, merge_facts
 from cairn.detectors.database import MAX_FACTS_PER_FILE
 from cairn.model.graph import Fact, FactKind
+from cairn.security.safe_yaml import load_yaml
 
 _COMPOSE_MAX = 256_000  # real compose files are small; anything bigger isn't worth parsing
-_Loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+_MAX_SERVICES = 500
+_MAX_DEPENDS = 200
 
 
 class InfraDetector:
@@ -39,22 +39,23 @@ def _is_compose(name: str) -> bool:
 
 
 def _compose_links(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
-    try:
-        data = yaml.load(text, Loader=_Loader)  # noqa: S506 - a safe loader
-    except yaml.YAMLError:
-        return []
+    data = load_yaml(text)
     services = data.get("services") if isinstance(data, dict) else None
     if not isinstance(services, dict):
         return []
-    refs = {name: _ref(ctx, path, spec) for name, spec in services.items() if isinstance(name, str)}
+    # Anchors can make a small file expand into a huge one: bound every loop (spec §20.1).
+    entries = [(n, s) for n, s in list(services.items())[:_MAX_SERVICES] if isinstance(n, str)]
+    refs = {name: _ref(ctx, path, spec) for name, spec in entries}
     facts: list[Fact] = []
-    for name, spec in services.items():
+    for name, spec in entries:
         source = refs.get(name)
         if not source or not isinstance(spec, dict):
             continue
-        for dependency in _depends_on(spec.get("depends_on")):
+        for dependency in dict.fromkeys(_depends_on(spec.get("depends_on"))[:_MAX_DEPENDS]):
+            if len(facts) >= MAX_FACTS_PER_FILE:
+                return facts
             target = refs.get(dependency)
-            if target and target != source and len(facts) < MAX_FACTS_PER_FILE:
+            if target and target != source:
                 line_no, line = find_line(text, dependency)
                 evidence = (ctx.evidence(path, line_no, line),)
                 facts.append(
@@ -82,6 +83,8 @@ def _ref(ctx: DetectorContext, compose: Path, spec: object) -> str | None:
     build = spec.get("build")
     context = build.get("context") if isinstance(build, dict) else build
     if isinstance(context, str) and context.strip():
+        if "://" in context or context.strip().startswith("git@"):
+            return None  # a remote build context, not a sibling folder
         try:
             target = (compose.parent / context.strip()).resolve()
             rel = target.relative_to(ctx.workspace_root.resolve()).as_posix()
@@ -89,7 +92,9 @@ def _ref(ctx: DetectorContext, compose: Path, spec: object) -> str | None:
             return None
         return f"path:{rel}"
     image = spec.get("image")
-    if isinstance(image, str) and image.strip():
+    if isinstance(image, str) and "/" in image and not image.startswith("library/"):
+        # Only namespaced images (acme/api, ghcr.io/acme/api): `postgres:16` is Docker Hub's,
+        # not a repo of yours that happens to be called postgres.
         name = image.strip().split("@", 1)[0].rsplit("/", 1)[-1].split(":", 1)[0].lower()
         return f"image:{name}" if name else None
     return None

@@ -35,10 +35,8 @@ class PackagesDetector:
                 found_exposes, found_consumes = probe(ctx, root)
                 exposes += found_exposes
                 consumes += found_consumes
-        repo_path = ctx.repo.rel_path(ctx.workspace_root)
-        packages = tuple(
-            Package(name=m.name, path=f"{repo_path}/{m.path}", stack=m.stack) for m in members
-        )
+        # Repo-relative here (this result is cached); the scan adds the repo's current location.
+        packages = tuple(Package(name=m.name, path=m.path, stack=m.stack) for m in members)
         return DetectorResult(
             exposes=merge_facts(exposes), consumes=merge_facts(consumes), packages=packages
         )

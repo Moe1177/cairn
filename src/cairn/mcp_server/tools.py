@@ -96,24 +96,42 @@ def _find(ws_root: Path, name: str) -> tuple[Workspace, Repo | None, str]:
     return workspace, None, f"No repo named '{name}'. Did you mean: {hint}? (use resolve_repo)"
 
 
+def _package_owners(workspace: Workspace, lowered: str) -> list[tuple[Repo, Package]]:
+    """Every repo whose monorepo contains a package with this exact name (spec §21.4)."""
+    return [
+        (repo, package)
+        for repo in workspace.repos
+        for package in repo.packages
+        if package.name.lower() == lowered
+    ]
+
+
 def _package_owner(workspace: Workspace, lowered: str) -> tuple[Repo, Package] | None:
-    """The repo whose monorepo contains a package with this exact name (spec §21.4)."""
-    for repo in workspace.repos:
-        for package in repo.packages:
-            if package.name.lower() == lowered:
-                return repo, package
-    return None
+    owners = _package_owners(workspace, lowered)
+    return owners[0] if owners else None
+
+
+def _names_a_repo(workspace: Workspace, lowered: str) -> bool:
+    return any(
+        lowered == r.id.lower() or lowered in (a.lower() for a in r.aliases)
+        for r in workspace.repos
+    )
 
 
 @locked
 def resolve_text(ws_root: Path, query: str) -> str:
     workspace = _workspace(ws_root)
-    owner = _package_owner(workspace, query.strip().lower())
-    if owner is not None:
-        repo, package = owner
-        return clean_inline(
-            f"- {repo.id}: package {package.name} at `{package.path}` → .cairn/cards/{repo.id}.md",
-            400,
+    lowered = query.strip().lower()
+    # A repo's own name always wins; then every repo holding a package by that name.
+    owners = [] if _names_a_repo(workspace, lowered) else _package_owners(workspace, lowered)
+    if owners:
+        return "\n".join(
+            clean_inline(
+                f"- {repo.id}: package {package.name} at `{package.path}` "
+                f"→ .cairn/cards/{repo.id}.md",
+                400,
+            )
+            for repo, package in owners[:MAX_LINES]
         )
     matches = resolve_repo(workspace, load_authored(ws_root), query, limit=5)
     if not matches:
