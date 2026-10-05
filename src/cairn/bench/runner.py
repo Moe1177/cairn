@@ -89,6 +89,20 @@ class ClaudeRunner:
     timeout: float = 900.0
     home: Path | None = None  # Claude Code's config folder; default claude_home()
 
+    def isolation_settings(self, ws: Path) -> dict[str, object]:
+        """Keep the benchmarking user's own instructions out of every run.
+
+        `--setting-sources project,local` doesn't cover memory files: ~/.claude/CLAUDE.md
+        and ~/.claude/rules still load, as would a CLAUDE.md in any folder above the
+        temporary workspace. Only the condition's workspace CLAUDE.md may load.
+        """
+        home = (self.home or claude_home()).as_posix().rstrip("/")
+        above = [p.as_posix().rstrip("/") for p in ws.parents]
+        excludes = [f"{home}/**"]
+        excludes += [f"{d}/{name}" for d in above for name in ("CLAUDE.md", "CLAUDE.local.md")]
+        excludes += [f"{d}/.claude/**" for d in above]
+        return {"claudeMdExcludes": excludes, "autoMemoryEnabled": False}
+
     def command(self, prompt: str, ws: Path, mcp_config: Path | None) -> list[str]:
         # The resolved path, so npm's `claude.cmd` shim launches on Windows too.
         cmd = [
@@ -101,6 +115,8 @@ class ClaudeRunner:
             self.model,
             "--setting-sources",
             "project,local",
+            "--settings",
+            json.dumps(self.isolation_settings(ws)),
             "--no-session-persistence",
             "--permission-mode",
             "dontAsk",

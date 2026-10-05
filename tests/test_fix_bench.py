@@ -185,3 +185,17 @@ def test_scan_summary_line_is_plain_ascii(tmp_path: Path) -> None:
     make_repo(tmp_path, "alpha")
     output = CliRunner().invoke(app, ["scan", str(tmp_path)]).output
     assert "from cache" in output and output.isascii()
+
+
+def test_runs_never_load_the_users_own_claude_md_or_rules(tmp_path: Path) -> None:
+    # Probe (claude 2.1.289): --setting-sources project,local still loaded ~/.claude/rules/*.md.
+    ws = tmp_path / "run" / "ws"
+    home = tmp_path / "claude-home"
+    cmd = ClaudeRunner(home=home).command("q?", ws, None)
+    settings = json.loads(cmd[cmd.index("--settings") + 1])
+    excludes = settings["claudeMdExcludes"]
+    assert f"{home.as_posix()}/**" in excludes
+    for ancestor in ws.parents:
+        assert f"{ancestor.as_posix().rstrip('/')}/CLAUDE.md" in excludes
+    assert f"{ws.as_posix()}/CLAUDE.md" not in excludes  # the condition's own context
+    assert settings["autoMemoryEnabled"] is False
