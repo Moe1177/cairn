@@ -104,3 +104,11 @@ def test_readme_excerpt_skips_boilerplate_and_junk() -> None:
     assert first_paragraph("> Cairns are stacked-stone trail markers.\n") == (
         "Cairns are stacked-stone trail markers."
     )
+
+
+def test_scaffold_readme_yields_no_excerpt_at_all() -> None:
+    scaffold = (
+        "This is a [Next.js](https://nextjs.org) project bootstrapped with `create-next-app`.\n\n"
+        "First, run the development server:\n\n```bash\nnpm run dev\n```\n"
+    )
+    assert first_paragraph(scaffold) is None

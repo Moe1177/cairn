@@ -88,16 +88,17 @@ def first_paragraph(text: str) -> str | None:
         if not stripped or stripped.startswith(_SKIP_PREFIXES):
             continue
         flat = " ".join(_MD_LINK.sub(r"\1", stripped).split())
-        if _is_junk(flat):
+        if _BOILERPLATE.search(flat):
+            return None  # a scaffold template README says nothing about this repo
+        if _is_fragment(flat):
             continue
         return flat if len(flat) <= EXCERPT_MAX else flat[: EXCERPT_MAX - 1] + "…"
     return None
 
 
-def _is_junk(text: str) -> bool:
-    """Scaffold boilerplate, or a fragment too short to describe a repo."""
-    has_letters = any(ch.isalpha() for ch in text)
-    return not has_letters or len(text.split()) < 2 or bool(_BOILERPLATE.search(text))
+def _is_fragment(text: str) -> bool:
+    """Too short, or letterless (e.g. a lone "**1**"), to describe a repo."""
+    return not any(ch.isalpha() for ch in text) or len(text.split()) < 2
 
 
 def _manifest_names(ctx: DetectorContext, root: Path) -> list[str]:
