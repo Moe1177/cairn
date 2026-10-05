@@ -140,7 +140,7 @@ and you can commit them so your team shares them.
 | `repo_card` | The card for a repo (re-scanned first if its HEAD moved) |
 | `related` | Everything connected to a repo, with evidence |
 | `find_across` | Which repos expose or use a table, package, or path |
-| `query` | Where to start looking inside a repo |
+| `query` | Where inside a repo: `symbol — file:line` from a deep index, else which folders to start in |
 | `refresh` | Update the map now |
 
 ### What cairn detects
@@ -166,6 +166,28 @@ Look-alikes are deliberately ignored:
 - generic env vars such as `PORT`.
 
 An evaluation workspace in the test suite keeps every one of these at precision 1.0.
+
+## Deep queries
+
+The map tells an agent *which* repo to open. A deep index tells it *where inside*: the `query` MCP
+tool answers "where is login handled?" with `login() — src/auth.py:12` hits and their neighbours,
+instead of a list of folders.
+
+Deep indexes are optional and built per repo with [graphify](https://github.com/Graphify-Labs/graphify):
+
+```bash
+uv tool install 'cairnmap[graphify]'   # or: pip install 'cairnmap[graphify]'
+cairn deep build trips-svc             # one repo (or --all)
+cairn deep status                      # size, build sha, fresh or stale
+cairn refresh --deep                   # after changes: rebuild only the stale indexes
+cairn deep clear trips-svc             # delete it
+```
+
+- graphify always runs `--code-only`: no LLM, no network, and an allowlisted environment, so no
+  API key reaches it. It writes only to `.cairn/deep/<repo>/`, never into the repo.
+- cairn answers queries itself from the saved graph, offline, so serving needs no graphify.
+- Building is never automatic (the first build of a large repo can take minutes). When an index
+  falls behind the repo, `query` says so and the card's **Deeper** section flags it.
 
 ## Benchmarks
 
@@ -305,7 +327,7 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 1. ✅ Core map, precision pass, MCP server, harness integrations, freshness, benchmarks, release
    hardening (0.1).
 2. ✅ HTTP, gRPC, pub/sub, compose and env-var relationships; packages inside monorepos (0.2).
-3. Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify).
+3. ✅ Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify) (0.3).
 4. Efficiency: faster scans on very large workspaces, faster and more reliable CI, and product
    polish (`cairn doctor`, shell completion).
 5. Larger benchmark suites (real open-source workspaces), significance testing, and more harnesses.

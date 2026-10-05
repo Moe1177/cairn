@@ -7,6 +7,21 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+- **Deep queries.** `cairn deep build REPO…|--all|--stale` indexes repos with graphify
+  (`pip install 'cairnmap[graphify]'`); `cairn deep status` and `cairn deep clear` manage them.
+  The MCP `query` tool then answers with `symbol — file:line` hits and their neighbours, and says
+  when an index is stale.
+- Cards gain a **Deeper** section (symbols, build sha, stale flag, busiest symbols).
+- `cairn refresh --deep` rebuilds only the deep indexes that went stale. `cairn status` lists them.
+
+### Security
+- graphify always runs code-only (no LLM, no network) as a subprocess with an allowlisted
+  environment, and writes only under `.cairn/deep/`. Graph files are size-capped and every label
+  is sanitised before an agent sees it.
+
 ## [0.2.0]
 
 ### Added
