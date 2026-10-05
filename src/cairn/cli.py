@@ -7,6 +7,7 @@ from typing import Annotated, NoReturn
 
 import typer
 
+from cairn.authored_store import annotate_edge
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import install_claude, is_installed, sync_claude, uninstall_claude
@@ -169,3 +170,23 @@ def status(path: PathArg = Path(".")) -> None:
             "Confirm or reject with: cairn annotate-edge <key> --confirm|--reject [--why TEXT]"
         )
     typer.echo("\n".join(lines))
+
+
+@app.command("annotate-edge")
+def annotate_edge_cmd(
+    key: str,
+    path: PathArg = Path("."),
+    confirm: Annotated[bool, typer.Option("--confirm", help="Mark the link as real.")] = False,
+    reject: Annotated[bool, typer.Option("--reject", help="Mark the link as wrong.")] = False,
+    why: Annotated[str | None, typer.Option("--why", help="One-line reason shown on cards.")] = None,
+) -> None:
+    """Confirm, reject, or explain a relationship, then re-scan."""
+    if (confirm and reject) or not (confirm or reject or why):
+        _fail("pass --confirm, --reject, or --why (and not both --confirm and --reject).")
+    review = "confirmed" if confirm else "rejected" if reject else None
+    try:
+        written = annotate_edge(path.resolve(), key, review=review, why=why)
+        typer.echo(f"Saved to {written}")
+        _report(_scan_and_write(path))
+    except CairnError as exc:
+        _fail(str(exc))

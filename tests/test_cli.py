@@ -115,3 +115,16 @@ def test_status_lists_ambiguous_edges(tmp_path: Path) -> None:
     out = runner.invoke(app, ["status", str(ws)]).output
     assert "Unconfirmed links (1):" in out and "a->b:shares_db" in out
     assert "cairn annotate-edge" in out
+
+
+def test_annotate_edge_rejects_and_rescans(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    sql = "CREATE TABLE invoices (id int);\nCREATE TABLE ledgers (id int);\n"
+    make_repo(ws, "a", {"db/1.sql": sql})
+    make_repo(ws, "b", {"db/1.sql": sql})
+    runner.invoke(app, ["scan", str(ws)])
+    result = runner.invoke(app, ["annotate-edge", "a->b:shares_db", str(ws), "--reject"])
+    assert result.exit_code == 0, result.output
+    assert "Mapped 2 repos and 0 relationships" in result.output
+    bad = runner.invoke(app, ["annotate-edge", "a->b:shares_db", str(ws)])
+    assert bad.exit_code == 1 and "--confirm, --reject, or --why" in bad.output
