@@ -34,6 +34,12 @@ dependencies = [
   "mcp>=2.3,<3",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Moe1177/cairn"
+Source = "https://github.com/Moe1177/cairn"
+Issues = "https://github.com/Moe1177/cairn/issues"
+Changelog = "https://github.com/Moe1177/cairn/blob/main/CHANGELOG.md"
+
 [project.scripts]
 cairn = "cairn.cli:app"
 

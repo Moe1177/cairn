@@ -1,190 +1,280 @@
 # cairn
 
+[![CI](https://github.com/Moe1177/cairn/actions/workflows/ci.yml/badge.svg)](https://github.com/Moe1177/cairn/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/cairnmap)](https://pypi.org/project/cairnmap/)
 [![Python](https://img.shields.io/pypi/pyversions/cairnmap)](https://pypi.org/project/cairnmap/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Moe1177/cairn/blob/main/LICENSE)
+
+**A map of all your repos for coding agents.** cairn scans every git repo in a folder once, works
+out how they connect, and gives your agent:
+- a tiny always-loaded index;
+- a short card per repo.
+
+The agent knows where things live without re-exploring.
 
 > Cairns are the stacked-stone markers that guide hikers along a trail. cairn leaves small, cheap
 > markers that guide coding agents to the right repo, and then to the right file.
 
-Mention a repo that isn't in your agent's working directory, and the agent usually doesn't know
-what you mean, so it explores, greps, and burns tokens. cairn maps every git repo under a folder
-once. It then gives your agent two things:
-- a tiny always-loaded index;
-- one short card per repo, read on demand, covering what the repo is, how it connects to the
-  others, and where to look.
+Works with **Claude Code, Codex, Gemini CLI, and Cursor**, on **Windows, macOS, and Linux**.
 
-It works with Claude Code, Codex, Gemini CLI, and Cursor, on Windows, macOS, and Linux.
+---
+
+## Why
+
+Coding agents work inside one repo. Real work spans many: a web app, an API, a shared types
+package, a payments service, a reporting job. Say *"add a tip amount to trips end to end"* and the
+agent has to:
+1. discover that sibling repos exist;
+2. grep through all of them;
+3. read a pile of files;
+4. guess which service owns the `trips` table.
+
+That costs tokens and turns, and weaker models guess wrong.
+
+Hand-maintained "related repos" docs help until they go stale. cairn builds that map from the code
+itself and keeps it fresh:
+
+```
+~/code/                          ~/code/.cairn/
+├── rider-web/        cairn      ├── INDEX.md           ← ~25 tokens per repo, always loaded
+├── trips-svc/        ─────▶     ├── cards/trips-svc.md ← read on demand (≤ 800 tokens)
+├── payments-svc/     scan       ├── workspace.json     ← the full graph
+├── analytics-etl/               └── authored/          ← your summaries and decisions
+└── …
+```
+
+## What your agent sees
+
+The **index** is a few lines, loaded into every session through `CLAUDE.md` or an equivalent:
+
+```markdown
+# Workspace repos (cairn)
+- admin-console (@fleetline/admin-console): Next.js back-office for ops staff; queries trips… · nextjs
+- analytics-etl: Nightly SQL reporting jobs over trips, payments, drivers… · python
+- payments-svc (payments): Go service that charges completed trips and records weekly payouts · go
+- trips-svc: FastAPI service owning the trip lifecycle and the trips/trip_events tables · fastapi
+- ui-kit (@fleetline/ui-kit): Shared React components (Button, Card) · react
+```
+
+A **card** is read only when the agent needs that repo:
+
+```markdown
+# trips-svc
+> FastAPI service owning the trip lifecycle and the trips/trip_events tables.
+`./trips-svc` · python, fastapi · HEAD 1fee22d
+
+## Relates
+← infra: references path trips-svc (extracted · infra/docker-compose.dev.yml:3)
+→ admin-console: shares tables trips (inferred · admin-console/lib/db.ts:4)
+→ analytics-etl: shares tables trips (inferred · analytics-etl/jobs/daily_revenue.sql:2)
+→ payments-svc: shares tables trips (inferred · payments-svc/internal/charge/charge.go:3)
+
+## Run
+test `pytest`
+
+## Layout
+app/ → routes/pages
+migrations/ → DB migrations
+```
+
+Every relationship comes with evidence (file and line) and a trust level:
+- `extracted`: found directly, such as a package dependency or a path reference;
+- `inferred`: strong signals, such as a table that only one repo creates;
+- `ambiguous`: hidden until you confirm it.
+
+## Install
+
+You need Python 3.11+ and git.
+
+| Tool | Command |
+|---|---|
+| [uv](https://docs.astral.sh/uv/) (recommended) | `uv tool install cairnmap` |
+| pipx | `pipx install cairnmap` |
+| run once, no install | `uvx --from cairnmap cairn init` |
+| pip | `pip install cairnmap` |
+
+The package is called `cairnmap`; the command is `cairn`.
 
 ## Quick start
 
 ```bash
-cd ~/code                              # the folder that contains your repos
-uvx --from cairnmap cairn init         # or: pipx install cairnmap / uv tool install cairnmap
+cd ~/code              # the folder that CONTAINS your repos
+cairn init             # scan, then add the index to ./CLAUDE.md (asks first)
+cairn install all      # optional: Codex, Gemini CLI, Cursor, the /cairn skill, the MCP server
 ```
 
-`cairn init` scans every git repo under the folder, writes `.cairn/`, and offers to add the index
-to `CLAUDE.md` in that folder. Claude Code reads parent `CLAUDE.md` files, so every repo inside now
-knows about its siblings. For other agents, run `cairn install all` (see
-[Use it from any agent](#use-it-from-any-agent)).
+Open your agent in any repo under that folder. It now knows about every sibling repo.
 
-Requirements: Python 3.11+ and git.
+To give each repo a good one-line summary, run `/cairn` inside your agent. It writes the summaries
+with `cairn set-summary` and settles uncertain links. Until then, the index says "no summary yet"
+for that repo. README text is deliberately kept out of always-loaded context.
 
-## What it finds
+## How to use it
 
-cairn links repos through:
-- **Package dependencies:** npm, PyPI, Go modules, Cargo.
-- **Shared database tables:** SQL migrations and queries, Prisma, Drizzle, and Supabase.
-- **`../` path references** in configs such as docker-compose and tsconfig.
-- **Docs that mention a sibling repo.**
-
-Each relationship is tagged `extracted`, `inferred`, or `ambiguous`, so the agent knows how far to
-trust it. Unconfirmed links are hidden from cards until you settle them:
+### Day to day
 
 ```bash
-cairn status                                                   # lists unconfirmed links
-cairn annotate-edge "web->api:shares_db" --confirm
-cairn annotate-edge "shop->blog:shares_db" --reject --why "different databases"
+cairn status               # repos, relationships, unconfirmed links, missing/stale summaries
+cairn refresh              # re-read only repos that changed (fast)
+cairn hooks install        # optional: refresh automatically after each commit/merge
 ```
 
-Decisions are stored in `.cairn/authored/` and survive every re-scan.
+### Settle uncertain links once
 
-## Commands
+```bash
+cairn annotate-edge "web->api:shares_db" --confirm
+cairn annotate-edge "shop->blog:shares_db" --reject --why "different databases"
+cairn set-summary payments-svc "Charges completed trips and pays drivers weekly." --alias payments
+```
+
+These decisions live in `.cairn/authored/` and `.cairn/relations.yaml`. They survive every re-scan,
+and you can commit them so your team shares them.
+
+### From your agent (MCP)
+
+`cairn install <harness>` registers cairn's MCP server. Agents can call these tools:
+
+| Tool | What it answers |
+|---|---|
+| `resolve_repo` | "Which repo is 'the payments service'?" |
+| `repo_card` | The card for a repo (re-scanned first if its HEAD moved) |
+| `related` | Everything connected to a repo, with evidence |
+| `find_across` | Which repos expose or use a table, package, or path |
+| `query` | Where to start looking inside a repo |
+| `refresh` | Update the map now |
+
+### What cairn detects
+
+| Signal | Examples |
+|---|---|
+| Package dependencies | npm (`workspace:*`, scoped packages), PyPI, Go modules, Cargo |
+| Shared database tables | SQL migrations and queries, Prisma, Drizzle, Supabase |
+| Path references | `../trips-svc` in docker-compose, tsconfig, and other config files |
+| Documentation | READMEs and docs that mention a sibling repo |
+
+Coming next: HTTP calls between services, infrastructure links, shared environment variables, and
+packages inside monorepos.
+
+## Benchmarks
+
+cairn ships a benchmark harness (`cairn bench`). It runs real tasks through headless Claude Code
+under five conditions, each in a fresh, isolated copy of a multi-repo workspace:
+
+| | Condition |
+|---|---|
+| **A** | No map (the agent explores) |
+| **B** | A hand-written "related repos" doc |
+| **C** | cairn's index only |
+| **D** | Index + repo cards |
+| **E** | D + cairn's MCP server |
+
+Tasks cover:
+- **orientation:** "who owns the trips table?";
+- **localization:** "which files change to add a tip amount end to end?";
+- **cross-repo impact:** "what breaks if `drivers.license_no` is renamed?";
+- **control:** questions answerable within one repo.
+
+Answers are graded deterministically on the files and facts they must name.
+
+**First results** on two synthetic workspaces, `shopverse` (6 repos) and `fleetline` (15 repos):
+
+| | Haiku 4.5 | Sonnet 5.5 | Opus 5.5 |
+|---|---|---|---|
+| Success, no map (A) | 89–96% | 100% | 100% |
+| Success, cairn index (C) | **100%** | **100%** | **100%** |
+| Best cairn cost vs no map | **−42%** (D) | **−24%** (C) | **−7%** (C) |
+
+What this shows so far:
+- **Weaker models gain accuracy.** Haiku went from missing 4–11% of tasks to 100%.
+- **The index alone is the most reliable condition** on every model and suite.
+- **Cost savings are modest on small workspaces.** Strong models with grep explore 6–15 small repos
+  in about 4 turns, and cairn's savings should grow with workspace size. These are first results:
+  3 runs per cell, no significance testing yet. The Opus runs cover shopverse only.
+
+Full tables, model ids, and caveats:
+[bench/published](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-05-shopverse-fleetline.md).
+
+Run the benchmarks yourself from a source checkout. They use your Claude usage.
+
+```bash
+cairn bench bench/suites/fleetline --runs 3 --model haiku
+cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
+```
+
+## Safety and privacy
+
+cairn treats every scanned repo as untrusted input. It:
+- **never** modifies your repos, apart from the opt-in hooks and Cursor's `--per-repo` rule (both
+  marked blocks, removed cleanly);
+- **never** opens `.env` files, private keys, or credential files, and never reads through a symlink
+  or junction inside a repo;
+- **never** runs code from a repo: its git calls turn off fsmonitor, hooks, and the repo's own
+  filters.
+
+It also:
+- **redacts** common secret formats from every stored snippet, and stores git remotes without
+  credentials;
+- **keeps README text out** of always-loaded context. Repo names that do appear are flattened and
+  capped, so they can't inject instructions or break cairn's blocks.
+
+cairn makes **no network calls and collects no telemetry**. `cairn bench` is the only feature that
+runs another program that does (the `claude` CLI).
+
+See [SECURITY.md](https://github.com/Moe1177/cairn/blob/main/SECURITY.md) for the threat model and
+how to report a vulnerability.
+
+## Reference
+
+### Commands
 
 | Command | What it does |
 |---|---|
 | `cairn init` | Scan, then offer to add the index to Claude Code |
 | `cairn scan [--full] [--verbose]` | Map every repo under the folder into `.cairn/` |
 | `cairn refresh` | Re-read only repos whose HEAD or working tree changed |
-| `cairn status` | What cairn knows, unconfirmed links, and missing or stale summaries |
+| `cairn status` | What cairn knows, unconfirmed links, missing or stale summaries |
 | `cairn annotate-edge KEY --confirm\|--reject [--why TEXT]` | Settle a relationship |
-| `cairn set-summary REPO TEXT [--alias NAME]` | Save a one- or two-sentence summary (`-` reads stdin) |
+| `cairn set-summary REPO TEXT [--alias NAME]` | Save a summary (`-` reads stdin) |
 | `cairn install <claude\|codex\|gemini\|cursor\|all>` | Load cairn into an agent harness |
 | `cairn uninstall <name\|all>` | Remove it again |
 | `cairn hooks install\|uninstall` | Opt-in git hooks that refresh after commits and merges |
 | `cairn serve` | The MCP server (harnesses start it for you) |
-| `cairn bench SUITE` | Measure what the map saves (see [Benchmarks](#benchmarks)) |
+| `cairn bench SUITE` | Run the benchmark harness |
 | `cairn --version` | Versions of cairn, Python, the platform, and mcp |
 
-## Use it from any agent
+**Exit codes:** `0` means success, `1` an error (one line on stderr), and `2` a usage error.
 
-```bash
-cairn install claude     # index in the folder's CLAUDE.md, /cairn skill, MCP server (user scope)
-cairn install codex      # pointer in ~/.codex/AGENTS.md, skill, [mcp_servers.cairn]
-cairn install gemini     # pointer in ~/.gemini/GEMINI.md, /cairn command, mcpServers.cairn
-cairn install cursor     # /cairn command, ~/.cursor/mcp.json (--per-repo adds git-excluded rules)
-cairn install all        # all of the above; one broken config doesn't stop the rest
-```
-
-cairn only edits its own key or marked block in those files, backs each file up once to
-`~/.cairn/backups/`, and refuses to touch a file it can't parse.
-
-**MCP tools.** `resolve_repo`, `repo_card`, `related`, `find_across`, `query`, and `refresh`.
-- Every answer is capped.
-- A repo whose HEAD moved is re-scanned before its card is returned.
-- While another scan is running, tools answer from the last map within a few seconds.
-
-**Summaries.** Run `/cairn` in your agent. It reads `cairn status`, writes a short summary for each
-repo with `cairn set-summary`, and settles unconfirmed links. Until a repo has a summary, its index
-line says "no summary yet". README text never goes into always-loaded context.
-
-## Freshness
-
-Each repo's results are cached against:
-- its HEAD,
-- a working-tree fingerprint, and
-- the cairn config.
-
-So refreshing an unchanged workspace is near-instant. `cairn hooks install` adds a background
-refresh after each commit and merge. It goes in a marked block next to any hook you already have,
-and `cairn hooks uninstall` restores the original byte for byte. It skips non-shell hooks and repos
-managed by husky or lefthook (`core.hooksPath`), and tells you which ones it skipped. When a repo has
-changed a lot since its summary was written, its card flags the summary as possibly stale.
-
-## What cairn writes, and where
+### What cairn writes, and where
 
 | Path | What it is |
 |---|---|
-| `<folder>/.cairn/INDEX.md` | One line per repo (~25 tokens): name, aliases, summary, stack |
-| `<folder>/.cairn/cards/<repo>.md` | A card of at most 800 tokens: summary, run commands, layout, relationships with evidence |
+| `<folder>/.cairn/INDEX.md` | One line per repo: name, aliases, summary, stack |
+| `<folder>/.cairn/cards/<repo>.md` | One card per repo |
 | `<folder>/.cairn/workspace.json` | The full graph |
-| `<folder>/.cairn/cache/`, `logs/`, `.lock` | Per-repo scan cache, last scan log, lock file |
-| `<folder>/.cairn/relations.yaml` | **Yours:** extra aliases, manual links, notes, ignored repos |
-| `<folder>/.cairn/authored/<repo>.yaml` | **Yours:** summaries and link decisions |
+| `<folder>/.cairn/cache/`, `logs/`, `.lock` | Scan cache, last scan log, lock file |
+| `<folder>/.cairn/relations.yaml`, `authored/` | **Yours:** aliases, manual links, summaries, decisions |
 | `<folder>/CLAUDE.md` | A marked block holding the index (`cairn install claude`) |
-| `~/.claude/skills/cairn/`, Claude's user MCP config | `/cairn` skill and MCP server |
+| `~/.claude/skills/cairn/` and Claude's user MCP config | `/cairn` skill and MCP server |
 | `~/.codex/AGENTS.md`, `config.toml`, `skills/cairn/` | Codex pointer, MCP server, skill |
 | `~/.gemini/GEMINI.md`, `settings.json`, `commands/cairn.toml` | Gemini CLI pointer, MCP server, command |
 | `~/.cursor/mcp.json`, `commands/cairn.md` | Cursor MCP server and command |
 | `<repo>/.git/hooks/post-commit`, `post-merge` | Only with `cairn hooks install` |
-| `~/.cairn/registry.json`, `backups/` | Mapped workspaces; one backup of each file cairn first edited |
+| `~/.cairn/registry.json`, `backups/` | Mapped workspaces; one private backup of each config file cairn first edited |
 
-Commit `.cairn/relations.yaml` and `.cairn/authored/` if you want to share decisions with your
-team; the rest is generated.
+cairn only edits its own key or marked block in other tools' files, and refuses to touch a file it
+can't parse.
 
-## Uninstall
+### Uninstall
 
 ```bash
 cairn uninstall all          # harness entries, skills, commands, Cursor rules
 cairn hooks uninstall        # if you installed hooks
-pipx uninstall cairnmap      # or: uv tool uninstall cairnmap
+uv tool uninstall cairnmap   # or: pipx uninstall cairnmap
 ```
 
 Then delete `<folder>/.cairn/` and `~/.cairn/`.
 
-## Safety
-
-cairn treats every scanned repo as untrusted input. It:
-- **never** modifies your repos, apart from the opt-in hooks and Cursor's `--per-repo` rule;
-- **never** follows symlinks or junctions out of a repo;
-- **never** opens `.env` files, private keys, or credential files;
-- **never** runs code from a repo; its git calls turn off fsmonitor, hooks, and the repo's own
-  filters.
-
-Every stored snippet is redacted for common secret formats, and git remotes are stored without
-credentials. README text stays out of always-loaded context. The names that do appear there are
-flattened to one line and capped, and can't break out of cairn's marked blocks. cairn makes **no network calls and collects no telemetry**; `cairn bench` is the only
-feature that runs another program that does (the `claude` CLI).
-
-See [SECURITY.md](SECURITY.md) for the full threat model and how to report a vulnerability.
-
-## Benchmarks
-
-`cairn bench` runs each task in a suite through headless Claude Code under five conditions, each
-in a fresh copy of the suite's workspace:
-
-| | Condition |
-|---|---|
-| A | No map |
-| B | A hand-written `RELATED_REPOS`-style doc as CLAUDE.md |
-| C | cairn's index only |
-| D | Index + repo cards |
-| E | D + cairn's MCP server |
-
-Runs are isolated. The agent only has read-only tools (Read, Grep, Glob, plus cairn's MCP tools in
-E), and your own CLAUDE.md, rules, memory, and MCP servers are never loaded.
-
-Answers are graded deterministically:
-- **Localization and impact tasks:** recall of the files that must change (pass at 80%).
-- **Orientation tasks:** required keywords.
-
-Reports go to `bench/results/`, with every finished run appended immediately.
-
-```bash
-# from a source checkout (uses your Claude usage)
-cairn bench bench/suites/fleetline --runs 3 --model haiku
-cairn bench bench/suites/shopverse --conditions A,D --tasks gift-message
-```
-
-**First results** ([full tables](bench/published/2026-10-05-shopverse-fleetline.md); 3 runs per
-cell on small synthetic workspaces, so treat them as direction, not proof):
-- **Accuracy.** With cairn's index, Haiku answered every task correctly on both suites. With no
-  map it missed 4–11%.
-- **Cost.** The effect is small at this scale: −42% to +6% against no map, depending on the model
-  and condition. Strong models with grep explore a 6–15 repo workspace in about 4 turns. Larger
-  workspaces are the next benchmark.
-
-## Troubleshooting
+### Troubleshooting
 
 | Symptom | Fix |
 |---|---|
@@ -194,23 +284,36 @@ cell on small synthetic workspaces, so treat them as direction, not proof):
 | "another cairn process is still updating this workspace" | A scan or hook refresh is running; retry in a moment |
 | An agent says it can't find the workspace | Run `cairn init` in the workspace folder, then restart the agent session |
 | `cairn install codex/gemini/cursor` refuses a config | That file isn't valid TOML/JSON; fix it and re-run (cairn never guesses) |
-| Hooks did nothing | `cairn hooks install` lists the repos it skipped and why (non-shell hook, `core.hooksPath`) |
-
-**Exit codes:** `0` means success, `1` an error (one line on stderr), and `2` a usage error.
+| Hooks did nothing | `cairn hooks install` lists the repos it skipped and why |
 
 ## Roadmap
 
-1. Core map, precision pass, harness integrations, freshness, benchmarks, release hardening
-   (**done**, 0.1).
-2. HTTP, infra and environment-variable relationships, and packages inside monorepos.
+1. ✅ Core map, precision pass, MCP server, harness integrations, freshness, benchmarks, release
+   hardening (0.1).
+2. HTTP, infrastructure and environment-variable relationships; packages inside monorepos.
 3. Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify).
-4. Larger benchmark suites (open-source workspaces), significance testing, and more harnesses.
+4. Larger benchmark suites (real open-source workspaces), significance testing, and more harnesses.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md). By participating you
-agree to the [code of conduct](CODE_OF_CONDUCT.md).
+Issues and pull requests are welcome. See
+[CONTRIBUTING.md](https://github.com/Moe1177/cairn/blob/main/CONTRIBUTING.md) for setup and checks,
+and the [changelog](https://github.com/Moe1177/cairn/blob/main/CHANGELOG.md) for what's new. By
+participating you agree to the
+[code of conduct](https://github.com/Moe1177/cairn/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+cairn is licensed under the **Apache License 2.0**: use it, modify it, and ship it, commercially
+too. Keep the license and the [NOTICE](https://github.com/Moe1177/cairn/blob/main/NOTICE) file
+with any redistribution. Full text: [LICENSE](https://github.com/Moe1177/cairn/blob/main/LICENSE).
+
+Runtime dependencies and their licenses:
+
+| Package | License |
+|---|---|
+| [typer](https://github.com/fastapi/typer) | MIT |
+| [pydantic](https://github.com/pydantic/pydantic) | MIT |
+| [PyYAML](https://github.com/yaml/pyyaml) | MIT |
+| [pathspec](https://github.com/cpburnz/python-pathspec) | MPL-2.0 (used unmodified as a library) |
+| [mcp](https://github.com/modelcontextprotocol/python-sdk) | MIT |
