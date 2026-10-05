@@ -1,0 +1,19 @@
+{
+  "name": "@fleetline/admin-console",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "next": "15.0.0",
+    "react": "19.0.0",
+    "@fleetline/ui-kit": "workspace:*",
+    "postgres": "3.4.0"
+  },
+  "devDependencies": {
+    "typescript": "5.6.0",
+    "vitest": "2.1.0"
+  }
+}

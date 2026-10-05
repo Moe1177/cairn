@@ -1,0 +1,4 @@
+[project]
+name = "drivers-svc"
+version = "1.2.0"
+dependencies = ["fastapi>=0.110"]

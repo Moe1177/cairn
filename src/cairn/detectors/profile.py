@@ -1,5 +1,6 @@
 """Profile detector: tech stack, run commands, and a top-level layout map."""
 
+import re
 from pathlib import Path
 
 from cairn.detectors.base import DetectorContext, DetectorResult
@@ -12,8 +13,10 @@ from cairn.detectors.manifests import (
     parse_go_mod,
     python_requirement_names,
 )
-from cairn.discover.files import DEFAULT_IGNORE_DIRS
+from cairn.discover.files import DEFAULT_IGNORE_DIRS, is_link
 from cairn.model.graph import Command, LayoutEntry
+
+_PLAIN_PATH = re.compile(r"[A-Za-z0-9._/@+\-]+")
 
 _JS_STACK = (
     ("next", "nextjs"),
@@ -88,7 +91,8 @@ class ProfileDetector:
             for probe in (_node, _python, _go, _rust, _java):
                 found_stack, found_cmds = probe(ctx, root)
                 stack += found_stack
-                commands += [_scoped(ctx, root, c, multi) for c in found_cmds]
+                scoped = (_scoped(ctx, root, c, multi) for c in found_cmds)
+                commands += [c for c in scoped if c is not None]
         return DetectorResult(
             stack=tuple(dict.fromkeys(stack)),
             commands=_first_by_name(commands),
@@ -172,10 +176,14 @@ def _java(ctx: DetectorContext, root: Path) -> Probe:
     return [], []
 
 
-def _scoped(ctx: DetectorContext, root: Path, command: Command, multi: bool) -> Command:
+def _scoped(ctx: DetectorContext, root: Path, command: Command, multi: bool) -> Command | None:
+    """`cd <app> && <cmd>`; None when the folder name isn't plain, since a card's commands are
+    meant to be pasted into a shell (sh, cmd, or PowerShell, which quote differently)."""
     rel = root.relative_to(ctx.repo.root).as_posix()
     if rel == ".":
         return command
+    if not _PLAIN_PATH.fullmatch(rel):
+        return None
     name = f"{rel}:{command.name}" if multi else command.name
     return Command(name=name, run=f"cd {rel} && {command.run}")
 
@@ -186,9 +194,15 @@ def _layout(ctx: DetectorContext) -> tuple[LayoutEntry, ...]:
     ignore = DEFAULT_IGNORE_DIRS | frozenset(ctx.config.ignore_dirs)
     try:
         children = sorted(
-            p
-            for p in primary.iterdir()
-            if p.is_dir() and not p.name.startswith(".") and p.name not in ignore
+            (
+                p
+                for p in primary.iterdir()
+                if p.is_dir()
+                and not is_link(p)
+                and not p.name.startswith(".")
+                and p.name not in ignore
+            ),
+            key=lambda p: p.name,  # string order: identical on every OS (spec §20.2)
         )
     except OSError:
         return ()

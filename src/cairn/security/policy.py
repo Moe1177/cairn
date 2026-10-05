@@ -23,8 +23,16 @@ SECRET_NAMES = frozenset(
         "secrets.toml",
         ".dev.vars",
         ".secrets",
+        ".envrc",
+        ".pgpass",
+        ".htpasswd",
+        "pip.conf",
+        "kubeconfig",
+        "local.settings.json",
+        "auth.json",
     }
 )
+_DATA_SUFFIXES = frozenset({".yaml", ".yml", ".json", ".toml"})
 
 
 def is_forbidden(path: Path) -> bool:
@@ -33,4 +41,12 @@ def is_forbidden(path: Path) -> bool:
         return False
     if name == ".env" or name.startswith(".env.") or name.endswith(".env"):
         return True
-    return name in SECRET_NAMES or path.suffix.lower() in SECRET_SUFFIXES
+    if name in SECRET_NAMES or path.suffix.lower() in SECRET_SUFFIXES:
+        return True
+    if ".tfstate" in name:  # terraform.tfstate, *.tfstate.backup: plaintext resource secrets
+        return True
+    if "secret" in name and path.suffix.lower() in _DATA_SUFFIXES:
+        return True
+    if name.startswith("appsettings") and name.endswith(".json"):  # .NET connection strings
+        return True
+    return name == "config.json" and path.parent.name.lower() == ".docker"

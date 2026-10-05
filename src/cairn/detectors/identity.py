@@ -14,6 +14,7 @@ from cairn.detectors.manifests import (
     project_name,
 )
 from cairn.security.redact import redact
+from cairn.security.text import valid_alias
 
 GENERIC_ALIASES = frozenset(
     {
@@ -48,7 +49,10 @@ GENERIC_ALIASES = frozenset(
 README_NAMES = ("README.md", "readme.md", "Readme.md", "README.rst", "README.txt", "README")
 EXCERPT_MAX = 300
 _SKIP_PREFIXES = ("#", "[![", "![", "<", "```", "---", "|", "=")
-_MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+_MD_LINK = re.compile(r"\[([^\]\[\n]{1,300})\]\([^)\s]{1,500}\)")
+# The first paragraph is all we keep; never feed a whole (hostile) README to the regexes.
+_README_SCAN_MAX = 16_384
+_BLOCK_MAX = 4_096
 _BOILERPLATE = re.compile(
     r"create-next-app|create-react-app|create react app|angular cli|create-vite|"
     r"bootstrapped with|this template should help",
@@ -76,7 +80,7 @@ def clean_aliases(
     seen = {repo_id.lower()}
     for raw in names:
         alias = raw.strip().lower()
-        if len(alias) < 2 or alias in generic or alias in seen:
+        if len(alias) < 2 or alias in generic or alias in seen or not valid_alias(alias):
             continue
         aliases.append(alias)
         seen.add(alias)
@@ -84,8 +88,8 @@ def clean_aliases(
 
 
 def first_paragraph(text: str) -> str | None:
-    for block in re.split(r"\n\s*\n", text.replace("\r\n", "\n")):
-        stripped = _QUOTE_MARKER.sub("", block.strip())
+    for block in re.split(r"\n[ \t]*\n", text[:_README_SCAN_MAX].replace("\r\n", "\n")):
+        stripped = _QUOTE_MARKER.sub("", block.strip()[:_BLOCK_MAX])
         if not stripped or stripped.startswith(_SKIP_PREFIXES):
             continue
         flat = " ".join(_MD_LINK.sub(r"\1", stripped).split())

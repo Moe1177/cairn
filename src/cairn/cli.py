@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
+from pydantic import ValidationError
 
 from cairn.authored_store import annotate_edge, set_summary
 from cairn.emit import write_outputs
@@ -26,26 +27,60 @@ from cairn.integrations.harnesses import (
 )
 from cairn.load import load_authored
 from cairn.model.graph import Confidence
+from cairn.paths import cairn_dir
 from cairn.scan import ScanResult, scan_workspace
 from cairn.scan_log import render_log
 from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
 app = typer.Typer(
-    no_args_is_help=True, add_completion=False, help="cairn: a workspace map for coding agents."
+    no_args_is_help=True,
+    add_completion=False,
+    pretty_exceptions_enable=False,
+    help="cairn: a workspace map for coding agents.",
 )
 PathArg = Annotated[Path, typer.Argument(help="Workspace root (default: current directory).")]
 
 
+def _version(value: bool) -> None:
+    if not value:
+        return
+    import platform
+    from importlib.metadata import PackageNotFoundError, version
+
+    import cairn
+
+    try:
+        mcp_version = version("mcp")
+    except PackageNotFoundError:
+        mcp_version = "not installed"
+    typer.echo(f"cairn {cairn.__version__}")
+    typer.echo(f"Python {platform.python_version()} on {platform.platform()}, mcp {mcp_version}")
+    raise typer.Exit()
+
+
 @app.callback()
-def _main() -> None:
+def _main(
+    _version_flag: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version,
+            is_eager=True,
+            help="Show cairn, Python, platform and mcp versions, then exit.",
+        ),
+    ] = False,
+) -> None:
     """cairn: a workspace map for coding agents."""
     # Legacy consoles (e.g. Windows cp1252) cannot encode every character in
     # paths or messages; print a replacement character instead of crashing.
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
-            reconfigure(errors="replace")
+            # Piped output is read by agents and scripts that expect UTF-8, not the console
+            # code page; a terminal keeps its own encoding but never crashes on a character.
+            piped = not stream.isatty()
+            reconfigure(**({"encoding": "utf-8"} if piped else {}), errors="replace")
 
 
 def _fail(message: str) -> NoReturn:
@@ -77,8 +112,14 @@ def _run_for(names: tuple[str, ...], action: Callable[[str], tuple[str, ...]]) -
 
 def _scan_and_write(path: Path, *, use_cache: bool = True) -> ScanResult:
     root = path.resolve()
+    first: ScanResult | None = None
+    if not cairn_dir(root).exists():
+        # First scan here: don't create .cairn/ in a folder that has no repos.
+        first = scan_workspace(root, use_cache=use_cache)
+        if not first.workspace.repos:
+            return first
     with workspace_lock(root):
-        result = scan_workspace(root, use_cache=use_cache)
+        result = first or scan_workspace(root, use_cache=use_cache)
         write_outputs(root, result)
         sync_claude(root)
         return result
@@ -96,6 +137,12 @@ def _summary_line(result: ScanResult) -> str:
 
 
 def _report(result: ScanResult, *, verbose: bool = False) -> None:
+    if not result.workspace.repos:
+        root = result.workspace.workspace_root
+        existing = cairn_dir(Path(root)).exists()
+        tail = "the map is now empty." if existing else "nothing written."
+        typer.echo(f"No git repos found under {root}; {tail}")
+        return
     typer.echo(_summary_line(result))
     for warning in result.warnings:
         typer.echo(f"warning: {warning}", err=True)
@@ -117,7 +164,7 @@ def scan(
     """Map every git repo under PATH into .cairn/."""
     try:
         result = _scan_and_write(path, use_cache=not full)
-    except CairnError as exc:
+    except (CairnError, OSError, ValidationError) as exc:
         _fail(str(exc))
     _report(result, verbose=verbose)
 
@@ -131,7 +178,7 @@ def refresh(
     """Update the map, re-reading only repos that changed since the last scan."""
     try:
         result = _scan_and_write(path)
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
     if not quiet:
         _report(result, verbose=verbose)
@@ -166,7 +213,7 @@ def init(
             typer.echo(f"Claude Code: index added to {install_claude(path.resolve())}")
         else:
             typer.echo("Skipped. Run `cairn install claude` any time.")
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
 
 
@@ -197,7 +244,7 @@ def status(path: PathArg = Path(".")) -> None:
     try:
         workspace = load_workspace(root)
         authored = load_authored(root)
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
     if workspace is None:
         _fail("No map found. Run `cairn scan` first.")
@@ -247,8 +294,18 @@ def annotate_edge_cmd(
         written = annotate_edge(path.resolve(), key, review=review, why=why)
         typer.echo(f"Saved to {written}")
         _report(_scan_and_write(path))
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
+
+
+def serve_start(workspace: Path | None, from_dir: Path | None) -> tuple[Path | None, Path]:
+    """(workspace root or None, folder the search started from) for `cairn serve`."""
+    from cairn.mcp_server.server import find_workspace
+
+    start = from_dir or Path.cwd()
+    if workspace:
+        return workspace.resolve(), start
+    return (find_workspace(start) if start.is_dir() else None), start
 
 
 @app.command()
@@ -259,14 +316,22 @@ def serve(
             "--workspace", help="Workspace root (default: found from the current directory)."
         ),
     ] = None,
+    from_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--from",
+            help="Find the workspace from this folder instead of the current directory "
+            "(editors that start servers elsewhere pass the open folder).",
+        ),
+    ] = None,
 ) -> None:
     """Run the cairn MCP server over stdio (harnesses start this for you)."""
-    from cairn.mcp_server.server import build_server, find_workspace
+    from cairn.mcp_server.server import build_server
 
-    root = workspace.resolve() if workspace else find_workspace(Path.cwd())
+    root, start = serve_start(workspace, from_dir)
     # Outside a workspace the server still starts and its tools explain how to set one up,
     # so a globally registered cairn never shows as a failed server in unrelated projects.
-    build_server(root, start=Path.cwd()).run()
+    build_server(root, start=start).run()
 
 
 @app.command("set-summary")
@@ -279,12 +344,12 @@ def set_summary_cmd(
     ] = None,
 ) -> None:
     """Save a one-or-two sentence summary for a repo (use - to read stdin), then re-scan."""
-    text = sys.stdin.read() if summary == "-" else summary
+    text = sys.stdin.buffer.read().decode("utf-8-sig", "replace") if summary == "-" else summary
     try:
         written = set_summary(path.resolve(), repo, text, aliases=alias or ())
         typer.echo(f"Saved to {written}")
         _report(_scan_and_write(path))
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
 
 
@@ -337,7 +402,7 @@ def bench(
         _fail(f"unknown condition {', '.join(unknown) or '(none)'} (choose from A,B,C,D,E).")
     try:
         suite = load_suite(suite_dir)
-    except CairnError as exc:
+    except (CairnError, OSError) as exc:
         _fail(str(exc))
     task_ids = _comma_list(tasks) if tasks else None
     missing = [t for t in task_ids or () if t not in {task.id for task in suite.tasks}]

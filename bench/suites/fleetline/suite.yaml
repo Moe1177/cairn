@@ -1,0 +1,77 @@
+name: fleetline
+workspace: fixtures
+related_repos_doc: related_repos.md
+tasks:
+  - id: trips-owner
+    category: orientation
+    repo: rider-web
+    prompt: >-
+      Which repository owns the trips table, and which other repositories query the trips
+      table directly? Answer with repository names only.
+    expect_keywords: [trips-svc, payments-svc, admin-console, analytics-etl]
+  - id: surge-where
+    category: orientation
+    repo: driver-web
+    prompt: Which repository computes surge pricing, and in which file? Give the path as repo/path.
+    expect_files: [pricing-svc/internal/surge/surge.go]
+    expect_keywords: [pricing-svc]
+  - id: tip-amount
+    category: localization
+    repo: rider-web
+    prompt: >-
+      We are adding an optional tip_amount_cents to trips end to end: the database, the trips
+      service model, the shared API types, the rider receipt page, and the daily revenue report.
+      List the existing files that must change, as workspace paths like repo/path. Do not edit
+      anything.
+    expect_files:
+      - trips-svc/migrations/001_trips.sql
+      - trips-svc/app/models.py
+      - api-types/src/trip.ts
+      - rider-web/app/receipt/[tripId]/page.tsx
+      - analytics-etl/jobs/daily_revenue.sql
+  - id: payout-logic
+    category: localization
+    repo: driver-web
+    prompt: >-
+      Where are driver payouts calculated and recorded, and which table is written? Give file
+      paths as repo/path.
+    expect_files: [payments-svc/internal/payout/payout.go]
+    expect_keywords: [payouts]
+  - id: rename-license
+    category: impact
+    repo: driver-web
+    prompt: >-
+      If the drivers.license_no column is renamed to drivers.licence_number, which files across
+      the workspace break? List them as repo/path.
+    expect_files:
+      - drivers-svc/migrations/001_drivers.sql
+      - drivers-svc/app/models.py
+      - drivers-svc/app/verification.py
+      - admin-console/lib/db.ts
+      - analytics-etl/jobs/driver_quality.sql
+      - api-types/src/driver.ts
+      - driver-web/app/onboarding/page.tsx
+  - id: button-variant
+    category: impact
+    repo: ui-kit
+    prompt: >-
+      We are renaming the Button prop `variant` to `kind` in this repository. Which files in
+      OTHER repositories must change? List them as repo/path.
+    expect_files:
+      - rider-web/app/ride/page.tsx
+      - driver-web/app/earnings/page.tsx
+      - admin-console/app/drivers/[id]/page.tsx
+  - id: move-trips-svc
+    category: impact
+    repo: trips-svc
+    prompt: >-
+      This repository's folder is being renamed from trips-svc to trip-service. Which files in
+      other repositories reference its folder path and must change? List them as repo/path.
+    expect_files:
+      - infra/docker-compose.yml
+      - infra/docker-compose.dev.yml
+  - id: eta
+    category: control
+    repo: geo-svc
+    prompt: In this repository, which file computes the ETA? Give its path.
+    expect_files: [geo-svc/src/eta.rs]

@@ -50,8 +50,8 @@ def test_related_hides_unconfirmed_by_default(ws: Path) -> None:
 
 def test_find_across_lists_owners_and_users(ws: Path) -> None:
     text = tools.find_across_text(ws, "cook_profiles")
-    assert "- eats exposes db table `cook_profiles`" in text
-    assert "- eats-admin consumes db table `cook_profiles`" in text
+    assert "- eats exposes db table 'cook_profiles'" in text
+    assert "- eats-admin consumes db table 'cook_profiles'" in text
 
 
 def test_stale_repo_is_rescanned_before_answering(ws: Path) -> None:

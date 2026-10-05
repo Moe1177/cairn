@@ -1,0 +1,1 @@
+summary: "FastAPI service owning the trip lifecycle and the trips/trip_events tables."

@@ -1,5 +1,5 @@
 name: shopverse
-workspace: workspace
+workspace: fixtures
 related_repos_doc: related_repos.md
 tasks:
   - id: owners

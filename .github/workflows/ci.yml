@@ -1,20 +1,84 @@
 name: ci
-on: [push, pull_request]
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ["3.11", "3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ matrix.python }}
-      - run: uv sync --all-groups
+          enable-cache: true
+      - run: uv sync --locked --all-groups
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright
       - run: uv run pytest --cov=cairn --cov-report=term-missing --cov-fail-under=80
+
+  lowest-dependencies:
+    # The oldest versions pyproject.toml allows must still work.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.11"
+      - run: uv lock --resolution lowest-direct
+      - run: uv sync --frozen --all-groups
+      - name: Show the versions under test
+        run: |
+          uv run --no-sync python -c "import importlib.metadata as m; print({p: m.version(p) for p in ('typer', 'click', 'pydantic', 'pyyaml', 'pathspec', 'mcp')})"
+      - run: uv run --no-sync pytest -q
+
+  package:
+    # What users install: build, check metadata, install the wheel into a clean venv, run it.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.12"
+      - run: uv build
+      - run: uvx twine check --strict dist/*
+        shell: bash
+      - name: Install the wheel and smoke-test it (cairn --version, scan, serve)
+        shell: bash
+        run: |
+          uv venv "$RUNNER_TEMP/pkg"
+          uv pip install --python "$RUNNER_TEMP/pkg" dist/*.whl
+          CAIRN="$RUNNER_TEMP/pkg/bin/cairn"
+          [ -x "$CAIRN" ] || CAIRN="$RUNNER_TEMP/pkg/Scripts/cairn.exe"
+          "$CAIRN" --version
+          mkdir -p "$RUNNER_TEMP/ws/app"
+          git -C "$RUNNER_TEMP/ws/app" init -q
+          "$CAIRN" scan "$RUNNER_TEMP/ws"
+          test -f "$RUNNER_TEMP/ws/.cairn/INDEX.md"
+          "$CAIRN" serve --workspace "$RUNNER_TEMP/ws" < /dev/null

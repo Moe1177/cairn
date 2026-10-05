@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import re
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_EVIDENCE = 3
+# A repo id is one safe file-name segment (cards are written as `<id>.md`).
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
+_DRIVE = re.compile(r"[A-Za-z]:")
+_REPO_ID = re.compile(r"[^/\\:\x00-\x1f\x7f-\x9f\u2028\u2029]{1,128}")
 
 
 class Frozen(BaseModel):
@@ -103,6 +108,29 @@ class Repo(Frozen):
     summary_stale: bool = False
     contracts: Contracts = Field(default_factory=Contracts)
     detector_errors: tuple[DetectorError, ...] = ()
+
+    @field_validator("id")
+    @classmethod
+    def _safe_id(cls, value: str) -> str:
+        # A map file could come from anywhere (spec §20.1): an id must not name another path.
+        if value in (".", "..") or not _REPO_ID.fullmatch(value):
+            raise ValueError(f"unsafe repo id {value!r}")
+        return value
+
+    @field_validator("path", "app_roots")
+    @classmethod
+    def _inside_workspace(cls, value: str | tuple[str, ...]) -> str | tuple[str, ...]:
+        for path in (value,) if isinstance(value, str) else value:
+            if unsafe_path(path):
+                raise ValueError(f"repo path must stay inside the workspace: {path!r}")
+        return value
+
+
+def unsafe_path(path: str) -> bool:
+    """Absolute, escaping (`..`), or containing control/line-separator characters."""
+    parts = path.replace("\\", "/").split("/")
+    absolute = path.startswith(("/", "\\")) or _DRIVE.match(path) is not None
+    return absolute or ".." in parts or _CONTROL.search(path) is not None
 
 
 class Edge(Frozen):

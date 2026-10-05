@@ -19,12 +19,15 @@ def test_homes_follow_env(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_server_command_prefers_installed_cli(monkeypatch, tmp_path: Path) -> None:
+    # No cairn script beside this interpreter, so the PATH lookup decides (spec 20.2 order).
+    python = tmp_path / "py" / "python.exe"
+    monkeypatch.setattr(sc.sys, "executable", str(python))
     exe = tmp_path / "cairn.exe"
     exe.write_text("")
     monkeypatch.setattr(sc.shutil, "which", lambda name: str(exe))
     assert sc.server_command() == [str(exe.resolve()), "serve"]
     monkeypatch.setattr(sc.shutil, "which", lambda name: None)
-    assert sc.server_command() == [sys.executable, "-m", "cairn", "serve"]
+    assert sc.server_command() == [str(python), "-m", "cairn", "serve"]
 
 
 def test_python_dash_m_cairn_runs_the_cli() -> None:

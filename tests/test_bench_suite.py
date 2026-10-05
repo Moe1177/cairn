@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from cairn.bench.suite import load_suite
 from cairn.bench.workspace import materialize
 from cairn.scan import scan_workspace
@@ -26,3 +28,14 @@ def test_shopverse_map_finds_the_core_relationships(tmp_path: Path) -> None:
     assert ("orders-svc", "payments-svc", "shares_db") in edges
     assert ("admin", "orders-svc", "shares_db") in edges
     assert ("shared-types", "storefront", "depends_on_package") in edges
+
+
+@pytest.mark.parametrize("name", ["shopverse", "fleetline"])
+def test_every_expected_file_exists_in_the_suite(name: str) -> None:
+    suite_dir = Path(__file__).resolve().parents[1] / "bench" / "suites" / name
+    suite = load_suite(suite_dir)
+    root = suite_dir / suite.workspace
+    assert {t.repo for t in suite.tasks} <= {p.name for p in root.iterdir()}
+    for task in suite.tasks:
+        for rel in task.expect_files:
+            assert (root / rel).is_file(), f"{task.id}: {rel}"

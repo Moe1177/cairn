@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Protocol
 
 from cairn.config import CairnConfig
-from cairn.discover.files import DEFAULT_IGNORE_DIRS, iter_files, read_text
+from cairn.discover.files import DEFAULT_IGNORE_DIRS, crosses_link, iter_files, read_text
 from cairn.discover.repos import RepoLocation
 from cairn.model.graph import MAX_EVIDENCE, Command, Evidence, Fact, FactKind, LayoutEntry
 from cairn.security.redact import make_snippet
@@ -32,6 +32,8 @@ NOISE_DIRS = frozenset(
 )
 _TEST_FILE = re.compile(r"^test_.*\.py$|_test\.(?:py|go)$|\.(?:test|spec)\.[cm]?[jt]sx?$")
 
+_SQL_DATA = re.compile(r"(?i)\b(?:insert\s+into|values|copy)\b")
+
 
 @dataclass(frozen=True)
 class DetectorContext:
@@ -44,9 +46,10 @@ class DetectorContext:
         return path.relative_to(self.repo.root).as_posix()
 
     def evidence(self, path: Path, line_no: int, line: str) -> Evidence:
-        return Evidence(
-            repo=self.repo.id, file=self.rel(path), line=line_no, snippet=make_snippet(line)
-        )
+        # Seed/fixture rows in .sql files are data: keep where, never what (spec §20.1).
+        seed = path.suffix.lower() == ".sql" and _SQL_DATA.search(line) is not None
+        snippet = "" if seed else make_snippet(line)
+        return Evidence(repo=self.repo.id, file=self.rel(path), line=line_no, snippet=snippet)
 
     def files(self, match: Callable[[str], bool]) -> Iterator[Path]:
         ignore = DEFAULT_IGNORE_DIRS | NOISE_DIRS | frozenset(self.config.ignore_dirs)
@@ -58,6 +61,11 @@ class DetectorContext:
         )
 
     def read(self, path: Path) -> str | None:
+        try:
+            if crosses_link(self.repo.root, path):
+                return None  # e.g. `supabase/.temp` -> a folder outside the repo
+        except ValueError:
+            pass  # not below this repo (a sibling path ref); read_text still refuses links
         return read_text(path, self.config.max_file_bytes)
 
 

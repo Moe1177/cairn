@@ -28,9 +28,16 @@ def install_claude(ws_root: Path) -> Path:
     index = index_file(ws_root)
     if not index.is_file():
         raise CairnError("No .cairn/INDEX.md found; run `cairn scan` first.")
+    body = _read(index)
+    if "<!--" in body or "-->" in body:
+        # Rendering strips these from repo text; refuse rather than let a block break out.
+        raise CairnError(
+            f"{index} contains an HTML comment marker; refusing to copy it into CLAUDE.md. "
+            "Run `cairn scan` to regenerate it."
+        )
     target = claude_md(ws_root)
     original = _read(target)
-    updated = _checked(target, lambda: upsert_block(original, _read(index)))
+    updated = _checked(target, lambda: upsert_block(original, body))
     _backup_once(ws_root, original)
     atomic_write_text(target, updated)
     register_workspace(ws_root)

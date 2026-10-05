@@ -1,11 +1,13 @@
 """cairn MCP tool logic: workspace path + arguments in, short capped markdown out."""
 
 import functools
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
 from cairn.discover.git import git_info
 from cairn.emit import write_outputs
+from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
 from cairn.load import load_authored
 from cairn.model.graph import Confidence, Repo, Workspace
@@ -13,6 +15,7 @@ from cairn.paths import cards_dir
 from cairn.render.card import relate_line
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
+from cairn.security.text import clean_inline
 from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
@@ -27,13 +30,32 @@ def rescan(ws_root: Path) -> ScanResult:
         return result
 
 
+LOCK_WAIT = 5.0
+_NO_RESCAN = threading.local()
+
+
 def locked(func: Callable[..., str]) -> Callable[..., str]:
     """Run a tool under the workspace lock so reads never race a concurrent rescan."""
 
     @functools.wraps(func)
     def wrapper(ws_root: Path, *args: object, **kwargs: object) -> str:
-        with workspace_lock(ws_root):
-            return func(ws_root, *args, **kwargs)
+        try:
+            with workspace_lock(ws_root, timeout=LOCK_WAIT):
+                return func(ws_root, *args, **kwargs)
+        except CairnError as exc:
+            if "still updating" not in str(exc):
+                raise
+        # Another scan holds the lock: answer from the map on disk (atomically written, so
+        # never half-updated) rather than leaving the agent waiting up to a minute.
+        _NO_RESCAN.active = True
+        try:
+            text = func(ws_root, *args, **kwargs)
+        finally:
+            _NO_RESCAN.active = False
+        return (
+            f"{text}\n(note: another cairn process is updating this workspace; "
+            "this answer may be slightly stale)"
+        )
 
     return wrapper
 
@@ -44,6 +66,8 @@ def _workspace(ws_root: Path) -> Workspace:
 
 def _fresh(ws_root: Path, repo: Repo) -> Workspace:
     """Spec §17: re-scan when the repo's HEAD moved since the map was written."""
+    if getattr(_NO_RESCAN, "active", False):
+        return _workspace(ws_root)
     current = git_info(ws_root / repo.path).head_sha
     if current and repo.head_sha and current != repo.head_sha:
         return rescan(ws_root).workspace
@@ -129,7 +153,8 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
                 ev = fact.evidence[0] if fact.evidence else None
                 where = f" ({ev.file}:{ev.line})" if ev else ""
                 label = fact.kind.value.replace("_", " ")
-                lines.append(f"- {repo.id} {direction} {label} `{fact.value}`{where}")
+                line = f"- {repo.id} {direction} {label} '{fact.value}'{where}"
+                lines.append(clean_inline(line, 400))
     return "\n".join(_cap(lines)) if lines else f"Nothing in the map matches '{query}'."
 
 
@@ -153,7 +178,10 @@ def query_text(ws_root: Path, repo: str, question: str) -> str:
         return message
     found = _fresh(ws_root, found).repo(found.id) or found
     layout = (
-        "\n".join(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}" for e in found.layout)
+        "\n".join(
+            clean_inline(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}", 200)
+            for e in found.layout
+        )
         or "- (no layout recorded)"
     )
     return (

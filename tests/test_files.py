@@ -75,3 +75,12 @@ def test_read_text_refuses_missing_forbidden_and_oversized(tmp_path: Path) -> No
     assert read_text(tmp_path / "missing.txt") is None
     assert read_text(env) is None
     assert read_text(big, max_bytes=10) is None
+
+
+def test_skips_test_fixture_dirs(tmp_path: Path) -> None:
+    # Fixture SQL (e.g. cairn's own benchmark suites) is not the repo's real schema.
+    write(tmp_path, "migrations/001.sql", "CREATE TABLE real (id int);")
+    for folder in ("fixtures", "tests/__fixtures__", "pkg/testdata"):
+        write(tmp_path, f"{folder}/schema.sql", "CREATE TABLE fake (id int);")
+    names = {p.relative_to(tmp_path).as_posix() for p in iter_files(tmp_path)}
+    assert names == {"migrations/001.sql"}

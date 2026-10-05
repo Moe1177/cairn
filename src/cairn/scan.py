@@ -1,7 +1,9 @@
 """The scan pipeline: discover repos, run detectors, match edges, apply overrides."""
 
+import shutil
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,7 +21,7 @@ from cairn.load import load_authored, load_config, load_relations
 from cairn.match.matcher import RepoFacts, match_edges
 from cairn.match.overrides import apply_overrides
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST
-from cairn.model.graph import Contracts, DetectorError, Repo, Workspace
+from cairn.model.graph import Contracts, DetectorError, Repo, Workspace, unsafe_path
 from cairn.model.overrides import Authored, Relations
 from cairn.scan_cache import (
     CacheEntry,
@@ -33,6 +35,9 @@ from cairn.scan_cache import (
 from cairn.security.redact import redact
 
 Run = tuple[DetectorResult, tuple[DetectorError, ...]]
+
+
+SCAN_WORKERS = 8
 
 
 @dataclass(frozen=True)
@@ -67,11 +72,20 @@ def scan_workspace(
         max_depth=config.max_depth,
         ignore_repos=frozenset(relations.ignore_repos),
     )
+    # A folder name git allows but a map can't hold safely (control characters) is skipped.
+    skipped = [loc for loc in locations if unsafe_path(loc.rel_path(root))]
+    locations = tuple(loc for loc in locations if loc not in skipped)
     enclosing = next((p for p in root.parents if safe_exists(p / ".git")), None)
     if not locations and enclosing is not None:
         raise _inside_repo_error(root, enclosing)
-    gits = {loc.id: git_info(loc.root) for loc in locations}
-    reads = {loc.id: _read_repo(root, loc, config, gits[loc.id], use_cache) for loc in locations}
+    # Per-repo work is mostly waiting on git subprocesses and disk: run it in parallel.
+    with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
+        infos = list(pool.map(lambda loc: git_info(loc.root), locations))
+        gits = {loc.id: info for loc, info in zip(locations, infos, strict=True)}
+        read_list = list(
+            pool.map(lambda loc: _read_repo(root, loc, config, gits[loc.id], use_cache), locations)
+        )
+    reads = {loc.id: read for loc, read in zip(locations, read_list, strict=True)}
     aliases = {
         loc.id: _aliases_for(
             loc, reads[loc.id].identity[0], gits[loc.id], relations, authored, config
@@ -104,7 +118,15 @@ def scan_workspace(
         edges=overridden.edges,
     )
     cached = tuple(repo_id for repo_id, read in reads.items() if read.cached)
-    return ScanResult(workspace, authored, relations, config, overridden.warnings, cached)
+    unsafe = tuple(f"skipped {loc.root.name!r}: unusual characters in its path" for loc in skipped)
+    warnings = (*_git_warning(locations), *unsafe, *overridden.warnings)
+    return ScanResult(workspace, authored, relations, config, warnings, cached)
+
+
+def _git_warning(locations: Sequence[RepoLocation]) -> tuple[str, ...]:
+    if locations and shutil.which("git") is None:
+        return ("git not found on PATH: remotes, HEAD, staleness and the scan cache are off",)
+    return ()
 
 
 def _detectors(*, live: bool) -> tuple[Detector, ...]:

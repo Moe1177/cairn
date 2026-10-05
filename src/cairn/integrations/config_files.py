@@ -6,6 +6,7 @@ the caller can report it and move on to the next harness.
 """
 
 import json
+import stat
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -37,9 +38,12 @@ def backup_once(path: Path, label: str) -> None:
     """Keep the user's original file once, before cairn's first edit."""
     if not path.is_file():
         return
-    dest = cairn_home() / "backups" / f"{label}-{path.name}.orig"
+    backups = cairn_home() / "backups"
+    dest = backups / f"{label}-{path.name}.orig"
     if not dest.exists():
-        atomic_write_text(dest, read_raw(path))
+        backups.mkdir(parents=True, exist_ok=True, mode=0o700)  # config files can hold tokens
+        source_mode = stat.S_IMODE(path.stat().st_mode)
+        atomic_write_text(dest, read_raw(path), mode=source_mode & 0o700)
 
 
 def _split_bom(raw: str) -> tuple[str, str]:
@@ -112,11 +116,12 @@ def set_toml_server(path: Path, command: list[str], *, label: str) -> None:
         raise CairnInputError(
             str(path), "already defines [mcp_servers.cairn] outside cairn's block; left untouched"
         )
-    # json.dumps output is a valid TOML basic string (Windows backslashes are escaped).
+    # json.dumps output is a valid TOML basic string (Windows backslashes are escaped);
+    # ensure_ascii=False because TOML rejects JSON's surrogate-pair escapes for emoji.
     body = (
         f"[mcp_servers.{SERVER_NAME}]\n"
-        f"command = {json.dumps(command[0])}\n"
-        f"args = {json.dumps(command[1:])}"
+        f"command = {json.dumps(command[0], ensure_ascii=False)}\n"
+        f"args = {json.dumps(command[1:], ensure_ascii=False)}"
     )
     updated = upsert_block(text, body, start=TOML_START, end=TOML_END)
     expected = {"command": command[0], "args": command[1:]}

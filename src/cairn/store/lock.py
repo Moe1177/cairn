@@ -1,6 +1,8 @@
 """A cross-process lock on a workspace's .cairn/ so concurrent scans never interleave writes."""
 
+import errno
 import os
+import sys
 import threading
 import time
 from collections.abc import Iterator
@@ -18,7 +20,9 @@ _POLL = 0.05
 @contextmanager
 def workspace_lock(ws_root: Path, timeout: float = 60.0) -> Iterator[None]:
     """Serialize work across threads (RLock) and processes (OS file lock). Re-entrant per thread."""
-    with _THREAD_LOCK:
+    if not _THREAD_LOCK.acquire(timeout=timeout):
+        raise CairnError("another cairn task is still updating this workspace")
+    try:
         depth = getattr(_HELD, "depth", 0)
         if depth:
             _HELD.depth = depth + 1
@@ -32,22 +36,59 @@ def workspace_lock(ws_root: Path, timeout: float = 60.0) -> Iterator[None]:
         path = cairn_dir(ws_root) / ".lock"
         path.parent.mkdir(exist_ok=True)
         with path.open("a+b") as handle:
-            _acquire(handle.fileno(), timeout)
+            locked = _acquire(handle.fileno(), timeout)
             _HELD.depth = 1
             try:
                 yield
             finally:
                 _HELD.depth = 0
-                _release(handle.fileno())
+                if locked:
+                    _release(handle.fileno())
+    finally:
+        _THREAD_LOCK.release()
 
 
-def _acquire(fd: int, timeout: float) -> None:
+_FILE_THREAD_LOCK = threading.Lock()
+
+
+@contextmanager
+def file_lock(lock_path: Path, timeout: float = 10.0) -> Iterator[None]:
+    """Serialize a read-modify-write of a shared file (e.g. ~/.cairn/registry.json)."""
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    if not _FILE_THREAD_LOCK.acquire(timeout=timeout):
+        raise CairnError(f"timed out waiting for {lock_path}")
+    try:
+        with lock_path.open("a+b") as handle:
+            locked = _acquire(handle.fileno(), timeout)
+            try:
+                yield
+            finally:
+                if locked:
+                    _release(handle.fileno())
+    finally:
+        _FILE_THREAD_LOCK.release()
+
+
+# What a held lock looks like: flock's EWOULDBLOCK/EAGAIN, msvcrt's EACCES (Windows errno 13).
+_CONTENTION = frozenset({errno.EAGAIN, errno.EACCES, errno.EDEADLK, errno.EWOULDBLOCK})
+
+
+def _acquire(fd: int, timeout: float) -> bool:
+    """True once locked; False when this filesystem can't lock at all (some NFS/SMB/FUSE
+    mounts), in which case cairn carries on unlocked rather than waiting for nothing."""
     deadline = time.monotonic() + timeout
     while True:
         try:
             _lock(fd)
-            return
+            return True
         except OSError as exc:
+            if exc.errno not in _CONTENTION:
+                print(
+                    f"cairn: warning: file locking isn't supported here ({exc}); "
+                    "continuing without the workspace lock",
+                    file=sys.stderr,
+                )
+                return False
             if time.monotonic() > deadline:
                 raise CairnError("another cairn process is still updating this workspace") from exc
             time.sleep(_POLL)

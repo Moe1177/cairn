@@ -46,3 +46,33 @@ def test_grades_by_task_kind(tmp_path: Path) -> None:
         expect_keywords=("orders-svc", "admin"),
     )
     assert grade(ori, "Owned by ORDERS-SVC; admin reads it.", tmp_path, IDS).success
+
+
+def test_paths_relative_to_the_workspace_parent(tmp_path: Path) -> None:
+    # Benchmark finding: sonnet cited `ws/orders-svc/...` (relative to the temp run dir).
+    ws = tmp_path / "run" / "ws"
+    text = "Edit `ws/orders-svc/app/main.py` and run/ws/admin/lib/db.ts."
+    assert mentioned_files(text, ws, "storefront", IDS) == {
+        "orders-svc/app/main.py",
+        "admin/lib/db.ts",
+    }
+
+
+def test_bare_paths_under_a_repo_heading_belong_to_that_repo(tmp_path: Path) -> None:
+    # Benchmark finding: haiku grouped files under "**orders-svc:**" headings.
+    text = (
+        "Files that break:\n\n"
+        "**orders-svc:**\n"
+        "- `migrations/001_orders.sql` - schema\n"
+        "- `app/main.py` - model\n\n"
+        "### Database & Backend (admin)\n"
+        "- lib/db.ts\n\n"
+        "**Here, in this repo:**\n"
+        "- lib/cart.ts\n"
+    )
+    assert mentioned_files(text, tmp_path, "storefront", IDS) == {
+        "orders-svc/migrations/001_orders.sql",
+        "orders-svc/app/main.py",
+        "admin/lib/db.ts",
+        "storefront/lib/cart.ts",
+    }

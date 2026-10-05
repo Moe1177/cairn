@@ -24,7 +24,7 @@ ORM_TABLE = re.compile(r"\b(?:pgTable|mysqlTable|sqliteTable)\(\s*['\"`]([A-Za-z
 SUPABASE_REF = re.compile(
     r"\.from\(\s*['\"`]([A-Za-z_]\w*)['\"`]\s*\)\s*\.\s*(?:select|insert|update|upsert|delete)\b"
 )
-PRISMA_MODEL = re.compile(r"^\s*model\s+(\w+)\s*\{(.*?)^\s*\}", re.M | re.S)
+PRISMA_MODEL = re.compile(r"\s*model\s+(\w+)\s*\{")
 PRISMA_MAP = re.compile(r'@@map\(\s*"([^"]+)"\s*\)')
 CODE_SUFFIXES = frozenset(
     {
@@ -185,13 +185,31 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
 
 def _scan_prisma(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
     lines = text.splitlines()
-    facts = []
-    for match in PRISMA_MODEL.finditer(text):
-        mapped = PRISMA_MAP.search(match.group(2))
-        name = mapped.group(1) if mapped else match.group(1)
-        line_no = text.count("\n", 0, match.start(1)) + 1
-        facts.append(_table(ctx, path, line_no, lines[line_no - 1], name))
-    return facts
+    return [
+        _table(ctx, path, line_no, lines[line_no - 1], name)
+        for line_no, name in prisma_models(lines)
+    ]
+
+
+def prisma_models(lines: list[str]) -> list[tuple[int, str]]:
+    """(line, table) per `model` block, honouring `@@map`. One pass over the lines: a lazy
+    multi-line regex goes quadratic on unclosed blocks (spec §20.1)."""
+    found: list[tuple[int, str]] = []
+    current: tuple[int, str] | None = None
+    for line_no, line in enumerate(lines, start=1):
+        opened = PRISMA_MODEL.match(line)
+        if opened:
+            if current:  # an unclosed block: keep it and start the next one
+                found.append(current)
+            current = (line_no, opened.group(1))
+        elif current and line.strip().startswith("}"):
+            found.append(current)
+            current = None
+        elif current and (mapped := PRISMA_MAP.search(line)):
+            current = (current[0], mapped.group(1))
+    if current:
+        found.append(current)
+    return found
 
 
 def _scan_supabase(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:

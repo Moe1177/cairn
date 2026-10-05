@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from cairn.detectors.base import DetectorContext, DetectorResult
+from cairn.discover.files import is_link
 from cairn.model.graph import MAX_EVIDENCE, Evidence, Fact, FactKind
 from cairn.security.policy import is_forbidden
 
@@ -59,12 +60,15 @@ def _doc_files(ctx: DetectorContext) -> list[Path]:
     files: list[Path] = []
     for directory in dict.fromkeys((ctx.repo.root, *ctx.repo.app_roots)):
         try:
-            entries = sorted(directory.iterdir())
+            entries = sorted(directory.iterdir(), key=lambda p: p.name)
         except OSError:
             continue
         files += [
             p
             for p in entries
-            if p.is_file() and p.name.lower() in DOC_NAMES and not is_forbidden(p)
+            if p.is_file()
+            and not is_link(p)
+            and p.name.lower() in DOC_NAMES
+            and not is_forbidden(p)
         ]
     return files

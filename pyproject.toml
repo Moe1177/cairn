@@ -1,20 +1,37 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
 name = "cairnmap"
-version = "0.1.0"
-description = "Workspace-level repo map and router for coding agents."
+dynamic = ["version"]
+description = "A workspace map for coding agents: every repo in a folder, how they connect, and where to look."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "The cairn authors" }]
+keywords = ["mcp", "claude-code", "codex", "cursor", "ai-agents", "microservices", "monorepo", "knowledge-graph"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Documentation",
+  "Typing :: Typed",
+]
 dependencies = [
-  "typer>=0.12",
-  "pydantic>=2.7",
-  "pyyaml>=6.0",
+  "typer>=0.16",
+  "pydantic>=2.11",
+  "pyyaml>=6.0.2",
   "pathspec>=0.12",
-  "mcp>=2.3",
+  "mcp>=2.3,<3",
 ]
 
 [project.scripts]
@@ -29,8 +46,14 @@ dev = [
   "tiktoken>=0.7",
 ]
 
+[tool.hatch.version]
+path = "src/cairn/__init__.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/cairn"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src/cairn", "/README.md", "/CHANGELOG.md", "/LICENSE", "/NOTICE", "/pyproject.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

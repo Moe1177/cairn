@@ -1,0 +1,22 @@
+name: Feature request
+description: An idea that would make cairn more useful.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation an agent (or you) gets stuck in today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like cairn to do?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: An example workspace or relationship cairn misses
+      description: For example, "service A calls service B over HTTP via a client in lib/api.ts".

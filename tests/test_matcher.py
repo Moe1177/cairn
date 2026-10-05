@@ -264,3 +264,24 @@ def test_provider_veto_spares_consumer_to_owner_evidence() -> None:
     worker = _repo("worker", consumes=[(T, "orders"), (T, "refunds"), (p, "supabase")])
     (edge,) = match_edges([app, worker])
     assert edge.confidence is Confidence.EXTRACTED
+
+
+def test_unique_owner_links_show_even_when_the_table_is_widely_queried() -> None:
+    # Benchmark finding: three repos touch `orders`; only orders-svc creates it. The
+    # owner->consumer links must reach cards (inferred), not hide as ambiguous.
+    owner = _repo("orders-svc", exposes=[(T, "orders"), (T, "refunds")])
+    admin = _repo("admin", consumes=[(T, "orders")])
+    payments = _repo("payments-svc", consumes=[(T, "orders")], exposes=[(T, "ledger")])
+    tiers = {(e.source, e.target): e.confidence for e in match_edges([owner, admin, payments])}
+    assert tiers[("admin", "orders-svc")] is Confidence.INFERRED
+    assert tiers[("payments-svc", "orders-svc")] is Confidence.INFERRED
+    # Two consumers of the same table are still only a guess.
+    consumers = {("admin", "payments-svc"), ("payments-svc", "admin")}
+    assert all(tiers[k] is Confidence.AMBIGUOUS for k in consumers if k in tiers)
+
+
+def test_owner_floor_needs_a_single_creator_in_the_workspace() -> None:
+    a = _repo("shop-a", exposes=[(T, "orders")])
+    b = _repo("shop-b", exposes=[(T, "orders")])
+    c = _repo("report", consumes=[(T, "orders")])
+    assert all(e.confidence is Confidence.AMBIGUOUS for e in match_edges([a, b, c]))

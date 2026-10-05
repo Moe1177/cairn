@@ -2,6 +2,7 @@
 
 import contextlib
 import os
+import stat
 import tempfile
 import time
 from pathlib import Path
@@ -11,20 +12,49 @@ _REPLACE_RETRIES = 40
 _REPLACE_DELAY = 0.05
 
 
-def atomic_write_text(path: Path, text: str) -> None:
-    """Atomically replace `path`'s content. A symlinked path keeps its link; the target is written."""
+def atomic_write_text(path: Path, text: str, *, mode: int | None = None) -> None:
+    """Atomically replace `path`'s content. A symlinked path keeps its link; the target is written.
+
+    POSIX mode: `mode` if given, else the existing file's, else what a normal create would give.
+    """
     if path.is_symlink():
         path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
+    mode = mode if mode is not None and os.name != "nt" else _mode_for(path)
     fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
+        if mode is not None:
+            os.chmod(tmp_name, mode)  # mkstemp makes 0600; keep what the file had
         _replace(tmp_name, path)
     except BaseException:
         with contextlib.suppress(FileNotFoundError):
             os.unlink(tmp_name)
         raise
+
+
+def _read_umask() -> int:
+    """Read once at import, while single-threaded: os.umask() is process-wide, and toggling it
+    from scan or MCP threads could leave every later file world-writable."""
+    if os.name == "nt":
+        return 0o022
+    current = os.umask(0o022)
+    os.umask(current)
+    return current
+
+
+_UMASK = _read_umask()
+
+
+def _mode_for(path: Path) -> int | None:
+    """POSIX: the existing file's mode, or what a normal create would give (0666 & ~umask)."""
+    if os.name == "nt":
+        return None
+    try:
+        return stat.S_IMODE(os.stat(path).st_mode)
+    except FileNotFoundError:
+        return 0o666 & ~_UMASK
 
 
 def _replace(src: str, dest: Path) -> None:
