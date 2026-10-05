@@ -145,3 +145,18 @@ def test_many_app_roots_do_not_crowd_out_relationships() -> None:
     card = render_card(repo, _ws(repo, [EDGE]))
     assert estimate_tokens(card) <= 800
     assert "## Relates" in card and "+117 more" in card
+
+
+def test_ambiguous_edges_are_hidden_behind_one_line() -> None:
+    weak = Edge(
+        source="shop-admin",
+        target="shopapp",
+        type=EdgeType.SHARES_DB,
+        confidence=Confidence.AMBIGUOUS,
+        score=0.3,
+        signals=("db_table:x",),
+    )
+    card = render_card(_admin(), _ws(_admin(), [EDGE, weak]))
+    assert "shares tables x" not in card
+    assert "shares tables cook_profiles" in card
+    assert "…(+1 unconfirmed link hidden; see `cairn status`)" in card

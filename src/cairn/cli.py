@@ -161,4 +161,11 @@ def status(path: PathArg = Path(".")) -> None:
         f"Detector errors: {'; '.join(errors) or 'none'}",
         f"Claude Code integration: {'installed' if is_installed(root) else 'not installed'}",
     ]
+    weak = [e for e in workspace.edges if e.confidence is Confidence.AMBIGUOUS]
+    if weak:
+        lines.append(f"Unconfirmed links ({len(weak)}):")
+        lines += [f"  {e.key}  [{', '.join(e.signals[:3])}]" for e in weak]
+        lines.append(
+            "Confirm or reject with: cairn annotate-edge <key> --confirm|--reject [--why TEXT]"
+        )
     typer.echo("\n".join(lines))

@@ -104,3 +104,14 @@ def test_init_with_no_repos_does_not_offer_install(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "No git repos found" in result.output
     assert not (empty / "CLAUDE.md").exists()
+
+
+def test_status_lists_ambiguous_edges(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    sql = "CREATE TABLE invoices (id int);\nCREATE TABLE ledgers (id int);\n"
+    make_repo(ws, "a", {"db/1.sql": sql})
+    make_repo(ws, "b", {"db/1.sql": sql})
+    runner.invoke(app, ["scan", str(ws)])
+    out = runner.invoke(app, ["status", str(ws)]).output
+    assert "Unconfirmed links (1):" in out and "a->b:shares_db" in out
+    assert "cairn annotate-edge" in out

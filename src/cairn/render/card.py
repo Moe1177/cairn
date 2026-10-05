@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from cairn.model.graph import SYMMETRIC_TYPES, Edge, EdgeType, Repo, Workspace
+from cairn.model.graph import SYMMETRIC_TYPES, Confidence, Edge, EdgeType, Repo, Workspace
 from cairn.model.overrides import Authored
 from cairn.render.tokens import estimate_tokens
 
@@ -98,7 +98,13 @@ def _relates(repo: Repo, workspace: Workspace) -> tuple[str, ...]:
         workspace.edges_for(repo.id),
         key=lambda e: (-e.confidence.rank, -e.score, e.source, e.target, e.type.value),
     )
-    return tuple(_relate_line(repo.id, e) for e in edges)
+    shown = [e for e in edges if e.confidence is not Confidence.AMBIGUOUS]
+    hidden = len(edges) - len(shown)
+    lines = [_relate_line(repo.id, e) for e in shown]
+    if hidden:
+        plural = "s" if hidden != 1 else ""
+        lines.append(f"…(+{hidden} unconfirmed link{plural} hidden; see `cairn status`)")
+    return tuple(lines)
 
 
 def _relate_line(repo_id: str, edge: Edge) -> str:
