@@ -1,0 +1,2 @@
+STRIPE_SECRET_KEY=sk_live_FAKEFAKEFAKEFAKE5678
+DATABASE_URL=postgres://admin:SuperSecretPw123@db.example.com/eats

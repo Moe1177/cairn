@@ -1,0 +1,4 @@
+[project]
+name = "orders-svc"
+version = "0.1.0"
+dependencies = ["shopverse-common>=0.1", "fastapi>=0.110"]

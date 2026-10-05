@@ -1,0 +1,23 @@
+edges:
+  - {from: orders-svc, to: common, type: depends_on_package, confidence: extracted}
+  - {from: payments, to: money, type: depends_on_package, confidence: extracted}
+  - {from: payments, to: money, type: path_ref, confidence: extracted}
+  - {from: payments, to: orders-svc, type: shares_db, confidence: inferred}
+  - {from: payments, to: web, type: shares_db, confidence: inferred}
+  - {from: orders-svc, to: payments, type: mentions, confidence: inferred}
+phrasings:
+  - {query: "orders service", repo: orders-svc}
+  - {query: "payments", repo: payments}
+  - {query: "the go payments service", repo: payments}
+  - {query: "money library", repo: money}
+  - {query: "rust ledger", repo: ledger}
+  - {query: "the prisma web app", repo: web}
+  - {query: "shop-web", repo: web}
+  - {query: "shopverse common", repo: common}
+  - {query: "shared python models", repo: common}
+  - {query: "fastapi orders", repo: orders-svc}
+  - {query: "go money module", repo: money}
+  - {query: "the frontend", repo: web}
+  - {query: "ledger", repo: ledger}
+  - {query: "payment processing", repo: payments}
+  - {query: "orders api", repo: orders-svc}

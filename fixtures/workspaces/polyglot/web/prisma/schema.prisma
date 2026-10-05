@@ -1,0 +1,4 @@
+model Payment {
+  id Int @id
+  @@map("payments_ledger")
+}

@@ -1,0 +1,1 @@
+{ "compilerOptions": { "paths": { "@ui/*": ["../../shared-ui/src/*"] } } }

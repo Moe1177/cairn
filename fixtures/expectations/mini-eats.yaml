@@ -1,0 +1,23 @@
+edges:
+  - {from: eats-admin, to: eats, type: shares_db, confidence: extracted}
+  - {from: eats, to: eats-admin, type: mentions, confidence: inferred}
+  - {from: eats-admin, to: eats, type: mentions, confidence: inferred}
+  - {from: eats, to: shared-ui, type: depends_on_package, confidence: extracted}
+  - {from: eats-admin, to: shared-ui, type: depends_on_package, confidence: extracted}
+  - {from: eats-admin, to: shared-ui, type: path_ref, confidence: extracted}
+phrasings:
+  - {query: "eats", repo: eats}
+  - {query: "eats-admin", repo: eats-admin}
+  - {query: "the admin panel", repo: eats-admin}
+  - {query: "admin dashboard", repo: eats-admin}
+  - {query: "owner portal", repo: eats-admin}
+  - {query: "restaurant owner dashboard", repo: eats-admin}
+  - {query: "eats admn", repo: eats-admin}
+  - {query: "the ui library", repo: shared-ui}
+  - {query: "shared components", repo: shared-ui}
+  - {query: "@eats/ui", repo: shared-ui}
+  - {query: "the marketplace app", repo: eats}
+  - {query: "my notes", repo: notes}
+  - {query: "python scripts", repo: notes}
+  - {query: "the next.js app for customers", repo: eats}
+  - {query: "payouts dashboard", repo: eats-admin}
