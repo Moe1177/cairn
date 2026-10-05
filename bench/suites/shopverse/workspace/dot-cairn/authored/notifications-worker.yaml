@@ -1,0 +1,1 @@
+summary: Python worker that emails receipts when payments-svc publishes order.paid.

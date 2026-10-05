@@ -1,0 +1,1 @@
+summary: FastAPI service that owns the orders, order_items, and refunds tables and the orders API.
