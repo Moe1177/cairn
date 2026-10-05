@@ -45,3 +45,11 @@ def test_incomplete_block_is_refused_not_destroyed() -> None:
         remove_block(broken)
     with pytest.raises(CairnError):
         upsert_block(f"{END}\nx\n{START}\n", "new")
+
+
+def test_custom_markers_for_toml() -> None:
+    from cairn.render.markers import TOML_END, TOML_START
+
+    out = upsert_block('model = "x"\n', "[mcp_servers.cairn]", start=TOML_START, end=TOML_END)
+    assert out == 'model = "x"\n\n# cairn:start\n[mcp_servers.cairn]\n# cairn:end\n'
+    assert remove_block(out, start=TOML_START, end=TOML_END) == 'model = "x"\n'
