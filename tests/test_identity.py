@@ -85,3 +85,22 @@ def test_merge_and_combine_helpers() -> None:
     assert combined.aliases == ("a", "b") and combined.readme_excerpt == "x"
     assert find_line("one\ntwo\n", "two") == (2, "two")
     assert find_line("one\n", "zzz") == (1, "one")
+
+
+def test_readme_excerpt_skips_boilerplate_and_junk() -> None:
+    # Found while dogfooding: every create-next-app README looked identical.
+    nextjs = (
+        "This is a [Next.js](https://nextjs.org) project bootstrapped with "
+        "[`create-next-app`](https://github.com/vercel/next.js).\n\n## Getting Started\n"
+    )
+    assert first_paragraph(nextjs) is None
+    assert (
+        first_paragraph("This project was generated with [Angular CLI](https://x) version 17.\n")
+        is None
+    )
+    assert first_paragraph("**1**\n\nPractice notes for data science interviews.\n") == (
+        "Practice notes for data science interviews."
+    )
+    assert first_paragraph("> Cairns are stacked-stone trail markers.\n") == (
+        "Cairns are stacked-stone trail markers."
+    )

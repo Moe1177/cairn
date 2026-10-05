@@ -58,8 +58,15 @@ SQL_NOT_TABLES = frozenset(
         "and",
         "or",
         "sub",
+        "no",
+        "action",
+        "cascade",
+        "restrict",
+        "null",
+        "default",
     }
 )
+_SYSTEM_PREFIXES = ("pg_", "sqlite_")
 
 Found = tuple[list[Fact], list[Fact]]
 
@@ -103,7 +110,12 @@ def _table(ctx: DetectorContext, path: Path, line_no: int, line: str, name: str)
 
 
 def _is_table(name: str) -> bool:
-    return name.lower() not in SQL_NOT_TABLES and not name.isdigit()
+    lowered = name.lower()
+    return (
+        lowered not in SQL_NOT_TABLES
+        and not lowered.startswith(_SYSTEM_PREFIXES)
+        and not name.isdigit()
+    )
 
 
 def _scan_sql(ctx: DetectorContext, path: Path, text: str) -> Found:

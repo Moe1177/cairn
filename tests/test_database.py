@@ -87,3 +87,33 @@ def test_supabase_project_ref(tmp_path: Path) -> None:
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     refs = [f.value for f in result.consumes if f.kind is FactKind.DB_PROJECT_REF]
     assert refs == ["supabase:abcd1234"]
+
+
+def test_test_code_and_fixtures_are_not_evidence(tmp_path: Path) -> None:
+    # Found while dogfooding: cairn's own fixtures matched shopapp' tables.
+    repo = make_repo(
+        tmp_path,
+        "tool",
+        {
+            "tests/fixtures/ws/schema.sql": "CREATE TABLE cook_profiles (id int);\n",
+            "tests/test_db.py": 'Q = "SELECT * FROM cook_profiles"\n',
+            "src/lib/q.test.ts": "const q = sql`SELECT * FROM orders`;\n",
+            "src/lib/q_test.go": 'const q = "SELECT * FROM orders"\n',
+            "src/lib/real.ts": "const q = sql`SELECT * FROM invoices`;\n",
+        },
+    )
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    assert _tables(result.exposes) == []
+    assert _tables(result.consumes) == ["invoices"]
+
+
+def test_sql_keywords_and_system_catalogs_are_not_tables(tmp_path: Path) -> None:
+    sql = (
+        "CREATE TABLE orders (id int REFERENCES users(id) ON UPDATE NO ACTION);\n"
+        "ALTER TABLE x ADD FOREIGN KEY (a) REFERENCES b(id) ON UPDATE CASCADE;\n"
+        "SELECT conname FROM pg_constraint;\n"
+        "SELECT * FROM sqlite_master;\n"
+    )
+    repo = make_repo(tmp_path, "db", {"migrations/1.sql": sql})
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    assert _tables(result.consumes) == []

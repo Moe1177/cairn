@@ -48,6 +48,12 @@ README_NAMES = ("README.md", "readme.md", "Readme.md", "README.rst", "README.txt
 EXCERPT_MAX = 300
 _SKIP_PREFIXES = ("#", "[![", "![", "<", "```", "---", "|", "=")
 _MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+_BOILERPLATE = re.compile(
+    r"create-next-app|create-react-app|create react app|angular cli|create-vite|"
+    r"bootstrapped with|this template should help",
+    re.IGNORECASE,
+)
+_QUOTE_MARKER = re.compile(r"^>\s?", re.MULTILINE)
 
 
 class IdentityDetector:
@@ -78,12 +84,20 @@ def clean_aliases(
 
 def first_paragraph(text: str) -> str | None:
     for block in re.split(r"\n\s*\n", text.replace("\r\n", "\n")):
-        stripped = block.strip()
+        stripped = _QUOTE_MARKER.sub("", block.strip())
         if not stripped or stripped.startswith(_SKIP_PREFIXES):
             continue
         flat = " ".join(_MD_LINK.sub(r"\1", stripped).split())
+        if _is_junk(flat):
+            continue
         return flat if len(flat) <= EXCERPT_MAX else flat[: EXCERPT_MAX - 1] + "…"
     return None
+
+
+def _is_junk(text: str) -> bool:
+    """Scaffold boilerplate, or a fragment too short to describe a repo."""
+    has_letters = any(ch.isalpha() for ch in text)
+    return not has_letters or len(text.split()) < 2 or bool(_BOILERPLATE.search(text))
 
 
 def _manifest_names(ctx: DetectorContext, root: Path) -> list[str]:

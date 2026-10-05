@@ -1,5 +1,6 @@
 """Shared detector types and helpers."""
 
+import re
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,6 +11,26 @@ from cairn.discover.files import DEFAULT_IGNORE_DIRS, iter_files, read_text
 from cairn.discover.repos import RepoLocation
 from cairn.model.graph import MAX_EVIDENCE, Command, Evidence, Fact, FactKind, LayoutEntry
 from cairn.security.redact import make_snippet
+
+# Test code, fixtures, and examples hold fake data that would create false edges.
+NOISE_DIRS = frozenset(
+    {
+        "tests",
+        "test",
+        "__tests__",
+        "spec",
+        "e2e",
+        "fixtures",
+        "__fixtures__",
+        "testdata",
+        "test-data",
+        "__mocks__",
+        "mocks",
+        "examples",
+        "example",
+    }
+)
+_TEST_FILE = re.compile(r"^test_.*\.py$|_test\.(?:py|go)$|\.(?:test|spec)\.[cm]?[jt]sx?$")
 
 
 @dataclass(frozen=True)
@@ -28,9 +49,12 @@ class DetectorContext:
         )
 
     def files(self, match: Callable[[str], bool]) -> Iterator[Path]:
-        ignore = DEFAULT_IGNORE_DIRS | frozenset(self.config.ignore_dirs)
+        ignore = DEFAULT_IGNORE_DIRS | NOISE_DIRS | frozenset(self.config.ignore_dirs)
         return iter_files(
-            self.repo.root, ignore_dirs=ignore, max_bytes=self.config.max_file_bytes, match=match
+            self.repo.root,
+            ignore_dirs=ignore,
+            max_bytes=self.config.max_file_bytes,
+            match=lambda name: match(name) and not _TEST_FILE.search(name),
         )
 
     def read(self, path: Path) -> str | None:

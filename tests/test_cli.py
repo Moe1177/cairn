@@ -90,6 +90,8 @@ def test_cli_output_survives_a_legacy_windows_console(tmp_path: Path) -> None:
     for args in (["scan", str(ws)], ["status", str(ws)]):
         proc = subprocess.run(
             [sys.executable, "-c", "from cairn.cli import app; app()", *args],
-            capture_output=True, env=env, check=False,
+            capture_output=True,
+            env=env,
+            check=False,
         )
         assert proc.returncode == 0, proc.stderr.decode("cp1252", errors="replace")
