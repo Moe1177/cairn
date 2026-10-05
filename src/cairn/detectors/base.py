@@ -32,6 +32,8 @@ NOISE_DIRS = frozenset(
 )
 _TEST_FILE = re.compile(r"^test_.*\.py$|_test\.(?:py|go)$|\.(?:test|spec)\.[cm]?[jt]sx?$")
 
+_SQL_DATA = re.compile(r"(?i)\b(?:insert\s+into|values|copy)\b")
+
 
 @dataclass(frozen=True)
 class DetectorContext:
@@ -44,9 +46,10 @@ class DetectorContext:
         return path.relative_to(self.repo.root).as_posix()
 
     def evidence(self, path: Path, line_no: int, line: str) -> Evidence:
-        return Evidence(
-            repo=self.repo.id, file=self.rel(path), line=line_no, snippet=make_snippet(line)
-        )
+        # Seed/fixture rows in .sql files are data: keep where, never what (spec §20.1).
+        seed = path.suffix.lower() == ".sql" and _SQL_DATA.search(line) is not None
+        snippet = "" if seed else make_snippet(line)
+        return Evidence(repo=self.repo.id, file=self.rel(path), line=line_no, snippet=snippet)
 
     def files(self, match: Callable[[str], bool]) -> Iterator[Path]:
         ignore = DEFAULT_IGNORE_DIRS | NOISE_DIRS | frozenset(self.config.ignore_dirs)
