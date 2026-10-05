@@ -10,3 +10,17 @@ htmlcov/
 /.cairn/
 .superpowers/
 bench/results/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Build output
+build/
+*.egg-info/
+.mypy_cache/
+
+# Never commit secrets
+.env
