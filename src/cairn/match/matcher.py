@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST, db_confidence, noisy_or, specificity
-from cairn.match.services import http_edges
+from cairn.match.services import compose_edges, grpc_edges, http_edges, pubsub_edges
 from cairn.model.graph import (
     MAX_EVIDENCE,
     SYMMETRIC_TYPES,
@@ -49,6 +49,9 @@ def match_edges(
             *_path_edges(ordered),
             *_mention_edges(ordered),
             *http_edges(ordered),
+            *compose_edges(ordered),
+            *grpc_edges(ordered),
+            *pubsub_edges(ordered),
         ]
     )
     return merged  # corroboration runs after overrides (see match.overrides)

@@ -77,7 +77,7 @@ def http_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
             if any(r.id == caller.id for r, _ in routes):
                 continue  # it serves this route itself: most likely a call to itself
             for (owner, served), confidence in _resolve(routes, fact.hints):
-                link = found.setdefault((caller.id, owner.id), _Link())
+                link = found.setdefault((caller.id, owner.id), _Link(EdgeType.CALLS_HTTP))
                 link.add(confidence, f"http_route:{fact.value}", (*fact.evidence, *served))
     return [link.edge(source, target) for (source, target), link in sorted(found.items())]
 
@@ -95,8 +95,78 @@ def _resolve(
     return [(o, Confidence.AMBIGUOUS) for o in owners]
 
 
+def compose_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Spec §21.2: `depends_on` between two services built from (or named after) repos."""
+    found: dict[tuple[str, str], _Link] = {}
+    for holder in repos:
+        for fact in holder.contracts.consumes:
+            if fact.kind is not FactKind.COMPOSE_SERVICE or "=>" not in fact.value:
+                continue
+            source_ref, target_ref = fact.value.split("=>", 1)
+            source, target = _compose_repo(source_ref, repos), _compose_repo(target_ref, repos)
+            if source and target and source.id != target.id:
+                link = found.setdefault((source.id, target.id), _Link(EdgeType.COMPOSE_LINK))
+                link.add(Confidence.EXTRACTED, "compose:depends_on", fact.evidence)
+    return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
+def _compose_repo(ref: str, repos: Sequence["RepoFacts"]) -> "RepoFacts | None":
+    kind, _, value = ref.partition(":")
+    if kind == "path":
+        owners = [r for r in repos if value == r.path or value.startswith(f"{r.path}/")]
+        return max(owners, key=lambda r: len(r.path), default=None)
+    if kind == "image":
+        named = [r for r in repos if value in {n.lower() for n in (r.id, *r.aliases)}]
+        return named[0] if len(named) == 1 else None
+    return None
+
+
+def grpc_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Client → implementer of a gRPC service (spec §21.2)."""
+    return _provider_edges(
+        repos, FactKind.GRPC_SERVICE, EdgeType.GRPC, "grpc", consumer_to_provider=True
+    )
+
+
+def pubsub_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Publisher → subscriber of a topic (spec §21.2)."""
+    return _provider_edges(
+        repos, FactKind.TOPIC, EdgeType.PUBSUB, "topic", consumer_to_provider=False
+    )
+
+
+def _provider_edges(
+    repos: Sequence["RepoFacts"],
+    kind: FactKind,
+    edge_type: EdgeType,
+    label: str,
+    *,
+    consumer_to_provider: bool,
+) -> list[Edge]:
+    providers: dict[str, list[tuple[RepoFacts, tuple[Evidence, ...]]]] = defaultdict(list)
+    for repo in repos:
+        for fact in repo.contracts.exposes:
+            if fact.kind is kind:
+                providers[fact.value].append((repo, fact.evidence))
+    found: dict[tuple[str, str], _Link] = {}
+    for consumer in repos:
+        for fact in consumer.contracts.consumes:
+            if fact.kind is not kind:
+                continue
+            owners = providers.get(fact.value, [])
+            if any(r.id == consumer.id for r, _ in owners):
+                continue  # it provides this itself
+            confidence = Confidence.INFERRED if len(owners) == 1 else Confidence.AMBIGUOUS
+            for owner, provided in owners:
+                pair = (consumer.id, owner.id) if consumer_to_provider else (owner.id, consumer.id)
+                link = found.setdefault(pair, _Link(edge_type))
+                link.add(confidence, f"{label}:{fact.value}", (*provided, *fact.evidence))
+    return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
 class _Link:
-    def __init__(self) -> None:
+    def __init__(self, edge_type: EdgeType) -> None:
+        self.type = edge_type
         self.confidence = Confidence.AMBIGUOUS
         self.signals: list[str] = []
         self.evidence: list[Evidence] = []
@@ -111,7 +181,7 @@ class _Link:
         return Edge(
             source=source,
             target=target,
-            type=EdgeType.CALLS_HTTP,
+            type=self.type,
             confidence=self.confidence,
             score=_SCORES[self.confidence],
             signals=tuple(dict.fromkeys(self.signals)),
