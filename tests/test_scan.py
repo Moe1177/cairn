@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-import cairn.scan as scan_module
 from cairn.detectors.base import DetectorContext, DetectorResult
 from cairn.errors import CairnError
 from cairn.model.graph import EdgeType
@@ -53,9 +52,9 @@ def test_detector_crash_is_recorded_not_fatal(tmp_path: Path, monkeypatch) -> No
         def run(self, ctx: DetectorContext) -> DetectorResult:
             raise RuntimeError("kaboom ghp_FAKEfakeFAKEfakeFAKEfake1234567890")
 
-    monkeypatch.setattr(
-        scan_module, "RELATION_DETECTORS", (Boom(), *scan_module.RELATION_DETECTORS)
-    )
+    import cairn.detectors as registry
+
+    monkeypatch.setattr(registry, "RELATION_DETECTORS", (Boom(), *registry.RELATION_DETECTORS))
     ws = scan_workspace(_workspace(tmp_path), now=NOW).workspace
     errors = ws.repo("eats").detector_errors
     assert errors[0].detector == "boom"

@@ -36,7 +36,7 @@ trust it.
 
 ## Commands
 
-`cairn scan` · `cairn init` · `cairn status` · `cairn annotate-edge` · `cairn install claude` · `cairn uninstall claude`
+`cairn scan` · `cairn refresh` · `cairn init` · `cairn status` · `cairn annotate-edge` · `cairn set-summary` · `cairn install <harness>` · `cairn uninstall <harness>` · `cairn serve` · `cairn hooks` · `cairn bench`
 
 ### Unconfirmed links
 
@@ -76,16 +76,61 @@ its card is returned.
 per repo with `cairn set-summary <repo> "<text>" [--alias name]`, and settles unconfirmed
 links with `cairn annotate-edge`.
 
+## Freshness
+
+```bash
+cairn refresh            # re-read only repos whose HEAD or working tree changed
+cairn scan --full        # ignore the cache and re-read everything
+cairn scan --verbose     # print the scan log (also saved to .cairn/logs/last-scan.log)
+cairn hooks install      # opt-in: refresh in the background after each commit and merge
+cairn hooks uninstall
+```
+
+Each repo's detector results are cached by HEAD, a working-tree fingerprint, and the cairn
+config, so a refresh of an unchanged workspace is near-instant. Docs mentions are always
+re-checked because they depend on sibling repos. When a repo has changed a lot since its
+summary was written, its card says the summary may be stale and `cairn status` lists it;
+run `/cairn` to rewrite it. Hooks are added inside a marked block, next to any hook you
+already have, and `cairn hooks uninstall` restores the original file.
+
+## Benchmarks
+
+`cairn bench` measures what the map saves. It runs each task in a suite through headless
+Claude Code (`claude -p`, read-only tools, your user settings and MCP servers not loaded)
+under five conditions, each in a fresh copy of the suite's workspace:
+
+| | Condition |
+|---|---|
+| A | Cold: no map, no CLAUDE.md |
+| B | A hand-written `RELATED_REPOS`-style doc as CLAUDE.md |
+| C | cairn INDEX only |
+| D | cairn INDEX + repo cards |
+| E | D + the cairn MCP server |
+
+```bash
+cairn bench bench/suites/shopverse                        # full matrix (uses Claude usage)
+cairn bench bench/suites/shopverse --conditions A,D --tasks gift-message --runs 3
+```
+
+Answers are graded deterministically: localization and impact tasks by recall of the files
+that must change (pass at 80%), orientation tasks by required keywords. The report records
+success rate, fresh and cache-read tokens, cost, turns, and errored runs for each condition,
+and per-task results; the JSON also records the cairn and Claude Code versions and the exact
+model ids. Every finished run is appended to `bench/results/<timestamp>.jsonl` right away, so
+an interrupted run keeps what it measured; `<timestamp>.md` and `.json` are written at the end
+(git-ignored; curated runs go in `bench/published/`). The agent gets read-only tools only
+(Read, Grep, Glob, and cairn's MCP tools in condition E).
+
 ## Safety
 
-- cairn never modifies your repos.
+- cairn never modifies your repos (the opt-in `cairn hooks install` only adds a marked block to `.git/hooks`).
 - It never opens `.env` files (only `.env.example`-style templates, and only for names), keys, or credential files.
 - Evidence snippets are redacted, and git remotes are stored without credentials.
 
 ## Roadmap
 
 1. **Core map** (this release): INDEX, cards, relationships, Claude Code.
-2. Precision pass (done), MCP server + `/cairn` skill + Codex/Gemini/Cursor (done); next: incremental refresh, more detectors, first token benchmark.
+2. Precision pass, MCP server + `/cairn` skill + Codex/Gemini/Cursor, incremental refresh + benchmark harness (done); next: HTTP/infra/env-var detectors and monorepo packages.
 3. Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify).
 4. Published benchmarks proving the token savings.
 

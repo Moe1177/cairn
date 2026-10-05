@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+import cairn.detectors as detector_registry
 from cairn.config import CairnConfig
-from cairn.detectors import IDENTITY_DETECTORS, RELATION_DETECTORS
+from cairn.detectors import IDENTITY_DETECTORS, LIVE_DETECTOR_IDS
 from cairn.detectors.base import Detector, DetectorContext, DetectorResult, combine_results
 from cairn.detectors.identity import clean_aliases
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists
-from cairn.discover.git import GitInfo, git_info
+from cairn.discover.git import GitInfo, git_info, summary_is_stale
 from cairn.discover.repos import RepoLocation, discover_repos
 from cairn.errors import CairnError
 from cairn.load import load_authored, load_config, load_relations
@@ -20,6 +21,15 @@ from cairn.match.overrides import apply_overrides
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST
 from cairn.model.graph import Contracts, DetectorError, Repo, Workspace
 from cairn.model.overrides import Authored, Relations
+from cairn.scan_cache import (
+    CacheEntry,
+    cache_key,
+    from_cached,
+    load_entry,
+    save_entry,
+    to_cached,
+    worktree_fingerprint,
+)
 from cairn.security.redact import redact
 
 Run = tuple[DetectorResult, tuple[DetectorError, ...]]
@@ -32,9 +42,19 @@ class ScanResult:
     relations: Relations
     config: CairnConfig
     warnings: tuple[str, ...]
+    cached: tuple[str, ...] = ()
 
 
-def scan_workspace(ws_root: Path, *, now: datetime | None = None) -> ScanResult:
+@dataclass(frozen=True)
+class _RepoRead:
+    identity: Run
+    relation: Run
+    cached: bool
+
+
+def scan_workspace(
+    ws_root: Path, *, now: datetime | None = None, use_cache: bool = True
+) -> ScanResult:
     root = ws_root.resolve()
     if not root.is_dir():
         raise CairnError(f"{ws_root} is not a directory")
@@ -51,21 +71,27 @@ def scan_workspace(ws_root: Path, *, now: datetime | None = None) -> ScanResult:
     if not locations and enclosing is not None:
         raise _inside_repo_error(root, enclosing)
     gits = {loc.id: git_info(loc.root) for loc in locations}
-    identity = {
-        loc.id: _run_all(IDENTITY_DETECTORS, DetectorContext(root, loc, config))
-        for loc in locations
-    }
+    reads = {loc.id: _read_repo(root, loc, config, gits[loc.id], use_cache) for loc in locations}
     aliases = {
-        loc.id: _aliases_for(loc, identity[loc.id][0], gits[loc.id], relations, authored, config)
+        loc.id: _aliases_for(
+            loc, reads[loc.id].identity[0], gits[loc.id], relations, authored, config
+        )
         for loc in locations
     }
     table = build_alias_table(aliases)
-    relation = {
-        loc.id: _run_all(RELATION_DETECTORS, DetectorContext(root, loc, config, table))
-        for loc in locations
-    }
+    live = _detectors(live=True)
     repos = tuple(
-        _build_repo(root, loc, identity[loc.id], relation[loc.id], gits[loc.id], aliases[loc.id])
+        _build_repo(
+            root,
+            loc,
+            reads[loc.id].identity,
+            _merge(
+                reads[loc.id].relation, _run_all(live, DetectorContext(root, loc, config, table))
+            ),
+            gits[loc.id],
+            aliases[loc.id],
+            _is_stale(loc, gits[loc.id], authored.get(loc.id), config),
+        )
         for loc in locations
     )
     stop = DEFAULT_TABLE_STOPLIST | frozenset(t.lower() for t in config.stop_tables)
@@ -77,7 +103,51 @@ def scan_workspace(ws_root: Path, *, now: datetime | None = None) -> ScanResult:
         repos=repos,
         edges=overridden.edges,
     )
-    return ScanResult(workspace, authored, relations, config, overridden.warnings)
+    cached = tuple(repo_id for repo_id, read in reads.items() if read.cached)
+    return ScanResult(workspace, authored, relations, config, overridden.warnings, cached)
+
+
+def _detectors(*, live: bool) -> tuple[Detector, ...]:
+    # Looked up at call time so tests can monkeypatch the registry.
+    return tuple(
+        d for d in detector_registry.RELATION_DETECTORS if (d.id in LIVE_DETECTOR_IDS) == live
+    )
+
+
+def _read_repo(
+    root: Path, loc: RepoLocation, config: CairnConfig, git: GitInfo, use_cache: bool
+) -> _RepoRead:
+    """Identity + file-reading relation detectors, served from the cache when nothing changed."""
+    key = cache_key(git.head_sha, worktree_fingerprint(loc.root), config)
+    entry = load_entry(root, loc.id, key) if key and use_cache else None
+    if entry is not None:
+        relation = (from_cached(entry.relation), entry.errors)
+        return _RepoRead((from_cached(entry.identity), ()), relation, True)
+    identity = _run_all(IDENTITY_DETECTORS, DetectorContext(root, loc, config))
+    relation = _run_all(_detectors(live=False), DetectorContext(root, loc, config))
+    # A failed read (a file locked by antivirus, say) may be transient: never pin it.
+    if key and not identity[1] and not relation[1]:
+        entry = CacheEntry(
+            key=key, identity=to_cached(identity[0]), relation=to_cached(relation[0])
+        )
+        save_entry(root, loc.id, entry)
+    return _RepoRead(identity, relation, False)
+
+
+def _is_stale(
+    loc: RepoLocation, git: GitInfo, authored: Authored | None, config: CairnConfig
+) -> bool:
+    """Only asks git when an authored summary was written at a different commit."""
+    if not (authored and authored.summary and authored.summary_sha and git.head_sha):
+        return False
+    sha, head = authored.summary_sha, git.head_sha
+    if head.startswith(sha) or sha.startswith(head):
+        return False
+    return summary_is_stale(loc.root, sha, config.stale_file_threshold)
+
+
+def _merge(a: Run, b: Run) -> Run:
+    return combine_results([a[0], b[0]]), (*a[1], *b[1])
 
 
 def _inside_repo_error(root: Path, repo: Path) -> CairnError:
@@ -139,6 +209,7 @@ def _build_repo(
     relation: Run,
     git: GitInfo,
     aliases: tuple[str, ...],
+    summary_stale: bool = False,
 ) -> Repo:
     first, first_errors = identity
     second, second_errors = relation
@@ -154,6 +225,7 @@ def _build_repo(
         commands=first.commands,
         layout=first.layout,
         readme_excerpt=first.readme_excerpt,
+        summary_stale=summary_stale,
         contracts=Contracts(exposes=second.exposes, consumes=second.consumes),
         detector_errors=(*first_errors, *second_errors),
     )

@@ -193,3 +193,14 @@ def test_install_all_survives_a_locked_config(tmp_path: Path, monkeypatch) -> No
     result = runner.invoke(app, ["install", "all", str(ws)])
     assert result.exit_code == 1
     assert "gemini: error:" in result.output and "Cursor:" in result.output
+
+
+def test_refresh_quiet_and_verbose(materialize) -> None:
+    ws = materialize("mini-eats").resolve()
+    assert runner.invoke(app, ["scan", str(ws)]).exit_code == 0
+    quiet = runner.invoke(app, ["refresh", str(ws), "--quiet"])
+    assert quiet.exit_code == 0 and quiet.output == ""
+    loud = runner.invoke(app, ["refresh", str(ws), "--verbose"])
+    assert "4 from cache" in loud.output and "cairn scan at" in loud.output
+    full = runner.invoke(app, ["scan", str(ws), "--full"])
+    assert "0 from cache" in full.output

@@ -100,6 +100,7 @@ class Repo(Frozen):
     commands: tuple[Command, ...] = ()
     layout: tuple[LayoutEntry, ...] = ()
     readme_excerpt: str | None = None
+    summary_stale: bool = False
     contracts: Contracts = Field(default_factory=Contracts)
     detector_errors: tuple[DetectorError, ...] = ()
 

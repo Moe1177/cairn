@@ -15,3 +15,7 @@ RELATION_DETECTORS: tuple[Detector, ...] = (
     PathRefsDetector(),
     DocsDetector(),
 )
+
+# Detectors whose output depends on other repos (the alias table, which sibling paths
+# exist, where this repo sits) and so always re-run instead of being cached per repo.
+LIVE_DETECTOR_IDS = frozenset({"docs", "pathrefs"})
