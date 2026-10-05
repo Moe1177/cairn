@@ -1,6 +1,7 @@
 """Per-repo detector cache: unchanged repos are not re-read (spec §8, §18)."""
 
 import hashlib
+import os
 import subprocess
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 import cairn
 from cairn.config import CairnConfig
 from cairn.detectors.base import DetectorResult
+from cairn.discover.git import git_env
 from cairn.model.graph import Command, DetectorError, Fact, Frozen, LayoutEntry
 from cairn.paths import repo_cache_dir
 from cairn.store.atomic import atomic_write_text
@@ -42,29 +44,43 @@ def from_cached(cached: CachedResult) -> DetectorResult:
     return DetectorResult(**{name: getattr(cached, name) for name in CachedResult.model_fields})
 
 
+_STATUS = ["status", "--porcelain=v1", "-z", "--untracked-files=all"]
+
+
+def _changed_paths(raw: bytes) -> list[str]:
+    """Paths from `git status --porcelain=v1 -z`; a rename/copy record carries its source next."""
+    paths: list[str] = []
+    records = iter(raw.split(b"\0"))
+    for record in records:
+        if len(record) < 4:
+            continue
+        paths.append(os.fsdecode(record[3:]))
+        if record[:1] in (b"R", b"C") or record[1:2] in (b"R", b"C"):
+            next(records, None)  # the old name, which no longer exists
+    return paths
+
+
 def worktree_fingerprint(root: Path, timeout: float = 10.0) -> str | None:
     """Hash of `git status` plus each listed file's mtime/size; None when git can't answer."""
+    # Raw bytes and -z: no C-quoting of non-ASCII names, no console-codepage decoding.
+    command = ["git", "-c", "core.quotePath=false", "-C", str(root), *_STATUS]
     try:
         done = subprocess.run(
-            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
+            command, capture_output=True, timeout=timeout, check=False, env=git_env()
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
     if done.returncode != 0:
         return None
-    parts = [done.stdout]
-    for line in done.stdout.splitlines():
-        rel = line[3:].split(" -> ")[-1].strip().strip('"')
+    digest = hashlib.sha1(done.stdout)
+    for rel in _changed_paths(done.stdout):
         try:
             stat = (root / rel).stat()
-            parts.append(f"{rel}:{stat.st_mtime_ns}:{stat.st_size}")
-        except OSError:
-            parts.append(f"{rel}:gone")
-    return hashlib.sha1("\n".join(parts).encode("utf-8")).hexdigest()
+            entry = f"\n{rel}:{stat.st_mtime_ns}:{stat.st_size}"
+        except (OSError, ValueError):
+            entry = f"\n{rel}:gone"
+        digest.update(entry.encode("utf-8", "surrogateescape"))
+    return digest.hexdigest()
 
 
 def cache_key(head_sha: str | None, fingerprint: str | None, config: CairnConfig) -> str | None:

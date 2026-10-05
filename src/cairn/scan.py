@@ -125,10 +125,10 @@ def _read_repo(
         return _RepoRead((from_cached(entry.identity), ()), relation, True)
     identity = _run_all(IDENTITY_DETECTORS, DetectorContext(root, loc, config))
     relation = _run_all(_detectors(live=False), DetectorContext(root, loc, config))
-    if key:
-        errors = (*identity[1], *relation[1])
+    # A failed read (a file locked by antivirus, say) may be transient: never pin it.
+    if key and not identity[1] and not relation[1]:
         entry = CacheEntry(
-            key=key, identity=to_cached(identity[0]), relation=to_cached(relation[0]), errors=errors
+            key=key, identity=to_cached(identity[0]), relation=to_cached(relation[0])
         )
         save_entry(root, loc.id, entry)
     return _RepoRead(identity, relation, False)
