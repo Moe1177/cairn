@@ -1,5 +1,6 @@
 """Database detector: tables a repo defines (exposes) and queries (consumes)."""
 
+import bisect
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -24,6 +25,9 @@ ORM_TABLE = re.compile(r"\b(?:pgTable|mysqlTable|sqliteTable)\(\s*['\"`]([A-Za-z
 SUPABASE_REF = re.compile(
     r"\.from\(\s*['\"`]([A-Za-z_]\w*)['\"`]\s*\)\s*\.\s*(?:select|insert|update|upsert|delete)\b"
 )
+# Real files define or touch at most a few hundred tables; a hostile one can't make cairn
+# build an unbounded number of facts (spec §20.1).
+MAX_FACTS_PER_FILE = 2000
 PRISMA_MODEL = re.compile(r"\s*model\s+(\w+)\s*\{")
 PRISMA_MAP = re.compile(r'@@map\(\s*"([^"]+)"\s*\)')
 CODE_SUFFIXES = frozenset(
@@ -155,6 +159,8 @@ def _scan_sql(ctx: DetectorContext, path: Path, text: str) -> Found:
     exposes: list[Fact] = []
     consumes: list[Fact] = []
     for line_no, line in _code_lines(text):
+        if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
+            break
         created = [m.group(1) for m in CREATE_TABLE.finditer(line)]
         exposes += [_table(ctx, path, line_no, line, name) for name in created if _is_table(name)]
         if created:
@@ -172,12 +178,17 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     consumes: list[Fact] = []
     lines = text.splitlines()
     for line_no, line in _code_lines(text):
+        if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
+            return exposes, consumes
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
         refs = [m.group(1) for m in SQL_REF.finditer(line)]
         consumes += [_table(ctx, path, line_no, line, name) for name in refs if _is_table(name)]
     # Query-builder chains are usually split across lines: supabase / .from('t') / .select().
+    starts = [0, *(i + 1 for i, ch in enumerate(text) if ch == "\n")]
     for match in SUPABASE_REF.finditer(text):
-        line_no = text.count("\n", 0, match.start(1)) + 1
+        if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
+            break
+        line_no = bisect.bisect_right(starts, match.start(1))
         if _is_table(match.group(1)):
             consumes.append(_table(ctx, path, line_no, lines[line_no - 1], match.group(1)))
     return exposes, consumes
@@ -187,7 +198,7 @@ def _scan_prisma(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
     lines = text.splitlines()
     return [
         _table(ctx, path, line_no, lines[line_no - 1], name)
-        for line_no, name in prisma_models(lines)
+        for line_no, name in prisma_models(lines)[:MAX_FACTS_PER_FILE]
     ]
 
 
