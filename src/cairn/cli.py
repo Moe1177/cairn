@@ -192,3 +192,22 @@ def annotate_edge_cmd(
         _report(_scan_and_write(path))
     except CairnError as exc:
         _fail(str(exc))
+
+
+@app.command()
+def serve(
+    workspace: Annotated[
+        Path | None,
+        typer.Option("--workspace", help="Workspace root (default: found from the current directory)."),
+    ] = None,
+) -> None:
+    """Run the cairn MCP server over stdio (harnesses start this for you)."""
+    from cairn.mcp_server.server import build_server, find_workspace
+
+    root = workspace.resolve() if workspace else find_workspace(Path.cwd())
+    if root is None:
+        _fail(
+            "No cairn workspace found above the current directory. Run `cairn init` in the "
+            "folder that contains your repos, or pass --workspace."
+        )
+    build_server(root).run()

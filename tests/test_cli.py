@@ -128,3 +128,9 @@ def test_annotate_edge_rejects_and_rescans(tmp_path: Path) -> None:
     assert "Mapped 2 repos and 0 relationships" in result.output
     bad = runner.invoke(app, ["annotate-edge", "a->b:shares_db", str(ws)])
     assert bad.exit_code == 1 and "--confirm, --reject, or --why" in bad.output
+
+
+def test_serve_outside_a_workspace_fails_clearly(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["serve"])
+    assert result.exit_code == 1 and "No cairn workspace found" in result.output
