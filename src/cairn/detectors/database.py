@@ -127,7 +127,7 @@ def _code_lines(text: str) -> Iterator[tuple[int, str]]:
     """Yield (line_no, line) for lines that aren't comments (spec §16.4).
 
     Line comments are skipped, and so is everything inside /* ... */ blocks (JSDoc).
-    A line that merely starts with `*` outside a block is code, e.g. `  * FROM orders`.
+    A line that merely starts with `*` outside a block is code (the tail of a `SELECT *`).
     """
     in_block = False
     for line_no, line in enumerate(text.splitlines(), start=1):
