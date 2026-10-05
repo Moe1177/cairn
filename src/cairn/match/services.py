@@ -56,42 +56,75 @@ def tokens(text: str) -> frozenset[str]:
     )
 
 
-def names_repo(hint: str, repo: "RepoFacts") -> bool:
+def names_repo(hint: str, repo: "RepoFacts", distinctive: frozenset[str] | None = None) -> bool:
     wanted = tokens(hint)
+    if distinctive is not None:
+        wanted &= distinctive
     return any(wanted & tokens(name) for name in (repo.id, *repo.aliases))
+
+
+def distinctive_tokens(repos: Sequence["RepoFacts"]) -> frozenset[str]:
+    """Name words that point at exactly one repo. A company prefix (`acme` in every
+    @acme/* package) names everything, so it names nothing."""
+    owners: dict[str, set[str]] = defaultdict(set)
+    for repo in repos:
+        for name in (repo.id, *repo.aliases):
+            for token in tokens(name):
+                owners[token].add(repo.id)
+    return frozenset(t for t, ids in owners.items() if len(ids) == 1)
 
 
 def http_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
     """Consumer → exposer for each called route template another repo serves (spec §21.1)."""
-    servers: dict[str, list[tuple[RepoFacts, tuple[Evidence, ...]]]] = defaultdict(list)
+    code: dict[str, list[tuple[RepoFacts, tuple[Evidence, ...]]]] = defaultdict(list)
+    specs: dict[str, list[tuple[RepoFacts, tuple[Evidence, ...]]]] = defaultdict(list)
     for repo in repos:
         for fact in repo.contracts.exposes:
             if fact.kind is FactKind.HTTP_ROUTE and not is_generic(fact.value):
-                servers[fact.value].append((repo, fact.evidence))
+                spec_only = "source:openapi" in fact.hints and "source:code" not in fact.hints
+                (specs if spec_only else code)[fact.value].append((repo, fact.evidence))
+    distinctive = distinctive_tokens(repos)
     found: dict[tuple[str, str], _Link] = {}
     for caller in repos:
         for fact in caller.contracts.consumes:
             if fact.kind is not FactKind.HTTP_ROUTE or is_generic(fact.value):
                 continue
-            routes = servers.get(fact.value, [])
-            if any(r.id == caller.id for r, _ in routes):
-                continue  # it serves this route itself: most likely a call to itself
-            for (owner, served), confidence in _resolve(routes, fact.hints):
+            # Code that serves a route outranks an OpenAPI file merely describing it.
+            routes = code.get(fact.value) or specs.get(fact.value, [])
+            named = _named_repos(fact.hints, repos, distinctive)
+            serves_itself = any(r.id == caller.id for r, _ in routes)
+            if serves_itself:
+                # Most likely a call to itself, unless the base URL names another server
+                # (a gateway proxying /trips/:id to trips-svc).
+                routes = [(r, ev) for r, ev in routes if r.id in named and r.id != caller.id]
+            else:
+                routes = [(r, ev) for r, ev in routes if r.id != caller.id]
+            for (owner, served), confidence in _resolve(routes, named):
                 link = found.setdefault((caller.id, owner.id), _Link(EdgeType.CALLS_HTTP))
                 link.add(confidence, f"http_route:{fact.value}", (*fact.evidence, *served))
     return [link.edge(source, target) for (source, target), link in sorted(found.items())]
 
 
+def _named_repos(
+    hints: Iterable[str], repos: Sequence["RepoFacts"], distinctive: frozenset[str]
+) -> set[str]:
+    service_hints = [h for h in hints if not h.startswith("source:")]
+    return {r.id for r in repos if any(names_repo(h, r, distinctive) for h in service_hints)}
+
+
 def _resolve(
-    owners: list[tuple["RepoFacts", tuple[Evidence, ...]]], hints: Iterable[str]
+    owners: list[tuple["RepoFacts", tuple[Evidence, ...]]], named: set[str]
 ) -> list[tuple[tuple["RepoFacts", tuple[Evidence, ...]], Confidence]]:
     if not owners:
         return []
-    named = [o for o in owners if any(names_repo(h, o[0]) for h in hints)]
+    matching = [o for o in owners if o[0].id in named]
+    if named and not matching:
+        # The base URL names a different repo than the one serving the route: don't guess.
+        return [(o, Confidence.AMBIGUOUS) for o in owners]
     if len(owners) == 1:
-        return [(owners[0], Confidence.EXTRACTED if named else Confidence.INFERRED)]
-    if len(named) == 1:  # several services serve it; the base URL names one of them
-        return [(named[0], Confidence.INFERRED)]
+        return [(owners[0], Confidence.EXTRACTED if matching else Confidence.INFERRED)]
+    if len(matching) == 1:  # several services serve it; the base URL names one of them
+        return [(matching[0], Confidence.INFERRED)]
     return [(o, Confidence.AMBIGUOUS) for o in owners]
 
 

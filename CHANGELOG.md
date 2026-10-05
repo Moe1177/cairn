@@ -26,8 +26,22 @@ All notable changes to cairn are documented here. The format follows
   must be exact: precision and tier accuracy 1.0.
 
 ### Changed
-- The scan cache format is version 2, so the first scan after upgrading re-reads every repo.
+- The scan cache format is version 3, so the first scan after upgrading re-reads every repo.
 - A single file can produce at most 2,000 table facts.
+- Generated gRPC stubs, generic services (Health, Query), WebSocket and HTTP-response `.send()`
+  calls, public Docker images, and remote build contexts never create links.
+- Internal workspace packages (`@repo/ui` in two Turborepos) never link unrelated monorepos.
+- Compose and workspace YAML files are depth-checked before parsing, so a hostile file can't crash
+  a scan.
+
+### Upgrading
+- Re-run `cairn install <harness>` after upgrading. The map gained fields that cairn 0.1 can't read,
+  so a harness still pinned to 0.1 (an old `uvx` entry) would fail to load it.
+
+### Known limitations
+- Router prefixes mounted in another file aren't applied yet: FastAPI `include_router(prefix=...)`,
+  Express `app.use('/api', router)`, and Flask blueprint `url_prefix`. Calls to those routes may not
+  link. Precision is unaffected.
 
 ## [0.1.0]
 

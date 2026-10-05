@@ -13,6 +13,7 @@ _ROUTE_PREVIEW = 3
 _APP_ROOT_PREVIEW = 3
 _FIELD_MAX = 160
 _LINE_MAX = 400
+_PACKAGE_PREVIEW = 8
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,6 @@ def _sections(repo: Repo, workspace: Workspace, note: str | None) -> list[_Secti
             tuple(f"⚠ {e.detector} detector failed: {e.message}" for e in repo.detector_errors),
         ),
         _Section("Relates", _relates(repo, workspace)),
-        _Section("Packages", tuple(f"{_safe(p.name)} → {_safe(p.path)}" for p in repo.packages)),
         _Section("Run", tuple(f"{_safe(c.name)} `{_safe(c.run)}`" for c in repo.commands)),
         _Section(
             "Layout",
@@ -89,6 +89,7 @@ def _sections(repo: Repo, workspace: Workspace, note: str | None) -> list[_Secti
                 for e in repo.layout
             ),
         ),
+        _Section("Packages", _packages(repo)),
         _Section(
             "Exposes",
             tuple(
@@ -98,6 +99,14 @@ def _sections(repo: Repo, workspace: Workspace, note: str | None) -> list[_Secti
         _Section("Notes", (note,) if note else ()),
     )
     return [s for s in candidates if s.items]
+
+
+def _packages(repo: Repo) -> tuple[str, ...]:
+    shown = [f"{_safe(p.name)} → {_safe(p.path)}" for p in repo.packages[:_PACKAGE_PREVIEW]]
+    extra = len(repo.packages) - len(shown)
+    return (
+        (*shown, f"…(+{extra} more; ask resolve_repo by package name)") if extra else tuple(shown)
+    )
 
 
 def _fit(section: _Section, remaining: int) -> str | None:

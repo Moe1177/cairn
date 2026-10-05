@@ -17,6 +17,10 @@ _CODE_SUFFIXES = frozenset({".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py",
 _SPEC_SUFFIXES = frozenset({".yaml", ".yml", ".json"})
 _NEXT_ROUTE_STEMS = frozenset({"route"})
 _LINE_MAX = 2000
+# How a route is served: by code, or only described by an OpenAPI file (which a frontend
+# may keep for client generation without serving anything).
+CODE_SOURCE = "source:code"
+SPEC_SOURCE = "source:openapi"
 
 _Q = r"""(?:'[^'\n]{0,500}'|"[^"\n]{0,500}"|`[^`\n]{0,500}`)"""
 _BASE = r"""[\w.$\[\]'"]{1,100}\s*\+\s*"""
@@ -24,7 +28,7 @@ _BASE = r"""[\w.$\[\]'"]{1,100}\s*\+\s*"""
 # -- routes a repo serves ------------------------------------------------------------------
 _JS_ROUTE = re.compile(
     r"""\b(?:app|router|server|routes|fastify|hono|koa)\.(?:get|post|put|patch|delete|all|head"""
-    r"""|options|route)\(\s*['"`](/[^'"`\s]{0,300})['"`]"""
+    r"""|options)\(\s*['"`](/[^'"`\s]{0,300})['"`]\s*,"""  # a handler follows the path
 )
 _PY_ROUTE = re.compile(
     r"""@\s*(\w{1,64})\.(?:get|post|put|patch|delete|route|api_route|websocket)\(\s*"""
@@ -35,7 +39,7 @@ _PY_PREFIX = re.compile(
 )
 _GO_ROUTE = re.compile(
     r"""\.(?:HandleFunc|Handle|Get|Post|Put|Patch|Delete|GET|POST|PUT|PATCH|DELETE|Any)\(\s*"""
-    r""""(/[^"\s]{0,300})\""""
+    r""""(/[^"\s]{0,300})"\s*,"""  # a handler follows the path; client .Get("/x") has none
 )
 _SPEC_PATH = re.compile(r"""\s{0,8}['"]?(/[^'"\s:]{0,300})['"]?\s*:""")
 
@@ -95,13 +99,21 @@ def _wanted(name: str) -> bool:
 
 
 def _fact(
-    ctx: DetectorContext, path: Path, line_no: int, line: str, raw: str, hint: str | None = None
+    ctx: DetectorContext,
+    path: Path,
+    line_no: int,
+    line: str,
+    raw: str,
+    hint: str | None = None,
+    *,
+    source: str | None = None,
 ) -> list[Fact]:
+    """A route fact. `hint` names a call's base URL; `source` says how a route is served."""
     template = normalize_route(raw)
     if template is None:
         return []
     evidence = (ctx.evidence(path, line_no, line),)
-    hints = (hint,) if hint else ()
+    hints = tuple(h for h in (hint, source) if h)
     return [Fact(kind=FactKind.HTTP_ROUTE, value=template, evidence=evidence, hints=hints)]
 
 
@@ -123,7 +135,7 @@ def _file_route(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
         return []
     route = "/" + "/".join(segments)
     first_line = text.splitlines()[0] if text.splitlines() else ""
-    return _fact(ctx, path, 1, first_line, route)
+    return _fact(ctx, path, 1, first_line, route, source=CODE_SOURCE)
 
 
 def _spec_routes(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
@@ -131,7 +143,7 @@ def _spec_routes(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
     for line_no, line in enumerate(text.splitlines(), start=1):
         match = _SPEC_PATH.match(line[:_LINE_MAX])
         if match:
-            found += _fact(ctx, path, line_no, line, match.group(1))
+            found += _fact(ctx, path, line_no, line, match.group(1), source=SPEC_SOURCE)
         if len(found) >= MAX_FACTS_PER_FILE:
             break
     return found
@@ -156,7 +168,7 @@ def _code(ctx: DetectorContext, path: Path, text: str) -> tuple[list[Fact], list
             route = match.group(match.lastindex or 1)
             if language == "py":
                 route = prefixes.get(match.group(1), "") + route
-            served += _fact(ctx, path, line_no, line, route)
+            served += _fact(ctx, path, line_no, line, route, source=CODE_SOURCE)
         for match in calls.finditer(line):
             parsed = _call_target(match.group(1), line[match.end() :], env_of)
             if parsed is not None:

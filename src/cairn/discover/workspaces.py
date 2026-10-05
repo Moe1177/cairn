@@ -11,13 +11,14 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 
-import yaml
-
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, is_link, read_text
+from cairn.security.safe_yaml import load_yaml
 
 MAX_PACKAGES = 200
 _MAX_CANDIDATES = 2000
 _MAX_DEPTH = 4
+_MAX_PATTERNS = 50
+_MAX_VISITS = 5000
 _GLOB_CHARS = frozenset("*?[")
 _GO_USE = re.compile(r"use\s+(\S+)")
 
@@ -31,16 +32,33 @@ class WorkspacePackage:
 
 def workspace_packages(repo_root: Path, max_bytes: int = 1_000_000) -> tuple[WorkspacePackage, ...]:
     include, exclude = _patterns(repo_root, max_bytes)
+    budget = _Budget(_MAX_VISITS)
     found: dict[str, Path] = {}
     for pattern in include:
-        for directory in _expand(repo_root, pattern):
+        for directory in _expand(repo_root, pattern, budget):
             rel = directory.relative_to(repo_root).as_posix()
             if not any(fnmatch(rel, ex) for ex in exclude):
                 found.setdefault(rel, directory)
-        if len(found) >= _MAX_CANDIDATES:
+        if len(found) >= _MAX_CANDIDATES or budget.spent:
             break
-    packages = (_describe(found[rel], rel, max_bytes) for rel in sorted(found))
-    return tuple(p for p in packages if p is not None)[:MAX_PACKAGES]
+    chosen = sorted(found)[:MAX_PACKAGES]
+    packages = (_describe(found[rel], rel, max_bytes) for rel in chosen)
+    return tuple(p for p in packages if p is not None)
+
+
+class _Budget:
+    """One directory-visit allowance shared by every pattern, so `**` x 300 stays cheap."""
+
+    def __init__(self, visits: int) -> None:
+        self.left = visits
+
+    @property
+    def spent(self) -> bool:
+        return self.left <= 0
+
+    def take(self) -> bool:
+        self.left -= 1
+        return self.left >= 0
 
 
 def _patterns(root: Path, max_bytes: int) -> tuple[list[str], list[str]]:
@@ -65,7 +83,8 @@ def _patterns(root: Path, max_bytes: int) -> tuple[list[str], list[str]]:
     raw += _go_work(read_text(root / "go.work", max_bytes) or "")
     include = [p for p in raw if not p.startswith("!")]
     exclude += [p[1:] for p in raw if p.startswith("!")]
-    return [_clean(p) for p in include], [_clean(p) for p in exclude]
+    cleaned = list(dict.fromkeys(_clean(p) for p in include))[:_MAX_PATTERNS]
+    return cleaned, list(dict.fromkeys(_clean(p) for p in exclude))[:_MAX_PATTERNS]
 
 
 def _clean(pattern: str) -> str:
@@ -73,7 +92,7 @@ def _clean(pattern: str) -> str:
     return "/".join(parts)
 
 
-def _expand(root: Path, pattern: str) -> list[Path]:
+def _expand(root: Path, pattern: str, budget: "_Budget") -> list[Path]:
     parts = pattern.split("/") if pattern else []
     if not parts or ".." in parts:
         return []
@@ -81,30 +100,34 @@ def _expand(root: Path, pattern: str) -> list[Path]:
     for part in parts:
         following: list[Path] = []
         for directory in current:
+            if budget.spent:
+                break
             if part == "**":
-                following += _descendants(directory)
+                following += _descendants(directory, budget)
             elif _GLOB_CHARS & set(part):
-                following += [c for c in _children(directory) if fnmatch(c.name, part)]
+                following += [c for c in _children(directory, budget) if fnmatch(c.name, part)]
             elif _usable(directory / part):
                 following.append(directory / part)
         current = following[:_MAX_CANDIDATES]
     return [d for d in current if d != root and _manifest(d) is not None]
 
 
-def _descendants(directory: Path) -> list[Path]:
+def _descendants(directory: Path, budget: "_Budget") -> list[Path]:
     found = [directory]
     frontier = [(directory, 0)]
-    while frontier and len(found) < _MAX_CANDIDATES:
+    while frontier and len(found) < _MAX_CANDIDATES and not budget.spent:
         current, depth = frontier.pop()
         if depth >= _MAX_DEPTH:
             continue
-        for child in _children(current):
+        for child in _children(current, budget):
             found.append(child)
             frontier.append((child, depth + 1))
     return found
 
 
-def _children(directory: Path) -> list[Path]:
+def _children(directory: Path, budget: "_Budget") -> list[Path]:
+    if not budget.take():
+        return []
     try:
         entries = sorted(directory.iterdir(), key=lambda p: p.name)
     except OSError:
@@ -181,7 +204,7 @@ def _strings(value: object) -> list[str]:
 def _json(path: Path, max_bytes: int) -> dict:
     try:
         data = json.loads(read_text(path, max_bytes) or "null")
-    except ValueError:
+    except (ValueError, RecursionError):
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -189,13 +212,10 @@ def _json(path: Path, max_bytes: int) -> dict:
 def _toml(path: Path, max_bytes: int) -> dict:
     try:
         return tomllib.loads(read_text(path, max_bytes) or "")
-    except tomllib.TOMLDecodeError:
+    except (tomllib.TOMLDecodeError, RecursionError):
         return {}
 
 
 def _yaml(path: Path, max_bytes: int) -> dict:
-    try:
-        data = yaml.safe_load(read_text(path, max_bytes) or "")
-    except yaml.YAMLError:
-        return {}
+    data = load_yaml(read_text(path, max_bytes) or "")
     return data if isinstance(data, dict) else {}

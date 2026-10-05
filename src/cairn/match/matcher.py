@@ -141,7 +141,10 @@ def _package_edges(repos: list[RepoFacts]) -> list[Edge]:
             owners.setdefault(fact.value, []).append(repo.id)
     edges = []
     for repo in repos:
+        own = {f.value for f in _facts(repo, True, FactKind.PACKAGE)}
         for fact in _facts(repo, False, FactKind.PACKAGE):
+            if fact.value in own:
+                continue  # an internal workspace dependency (@repo/ui), not another repo's
             candidates = [o for o in owners.get(fact.value, []) if o != repo.id]
             # Two repos publishing the same name: we can't tell which one is consumed.
             unique = len(candidates) == 1

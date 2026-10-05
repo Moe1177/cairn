@@ -31,12 +31,13 @@ class EnvVarsDetector:
                 continue
             template = path.name.lower() in ENV_TEMPLATES
             found = template_env_names(text) if template else env_names(text)
-            lines = text.splitlines()
             for line_no, raw in found[:MAX_FACTS_PER_FILE]:
                 name = specific_name(raw)
                 if name:
-                    # A template line holds the (possibly secret) value: keep where, never what.
-                    shown = "" if template else lines[line_no - 1]
+                    # The line may hold a value (template) or a fallback default
+                    # (`process.env.X || "dev-secret"`): keep where, never what. The name is
+                    # the fact itself.
+                    shown = ""
                     consumes.append(_fact(ctx, path, line_no, name, shown, template=template))
         return DetectorResult(consumes=merge_facts(consumes))
 
