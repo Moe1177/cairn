@@ -100,14 +100,14 @@ def _relates(repo: Repo, workspace: Workspace) -> tuple[str, ...]:
     )
     shown = [e for e in edges if e.confidence is not Confidence.AMBIGUOUS]
     hidden = len(edges) - len(shown)
-    lines = [_relate_line(repo.id, e) for e in shown]
+    lines = [relate_line(repo.id, e) for e in shown]
     if hidden:
         plural = "s" if hidden != 1 else ""
         lines.append(f"…(+{hidden} unconfirmed link{plural} hidden; see `cairn status`)")
     return tuple(lines)
 
 
-def _relate_line(repo_id: str, edge: Edge) -> str:
+def relate_line(repo_id: str, edge: Edge) -> str:
     outgoing = edge.source == repo_id
     other = edge.target if outgoing else edge.source
     arrow = "→" if outgoing or edge.type in SYMMETRIC_TYPES else "←"
