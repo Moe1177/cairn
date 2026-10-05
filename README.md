@@ -147,13 +147,25 @@ and you can commit them so your team shares them.
 
 | Signal | Examples |
 |---|---|
+| HTTP calls | Next.js routes, Express/Fastify/Hono, FastAPI/Flask, Go (net/http, chi, gin, echo) and OpenAPI routes, matched with `fetch`/`axios`, `requests`/`httpx`, and Go `http` client calls |
+| gRPC | Go, Python, TypeScript and Java servers matched with their client stubs |
+| Pub/sub topics | Kafka, NATS and Redis publishers matched with subscribers (`trip.completed`) |
+| docker-compose | `depends_on` between services built from (or named after) your repos |
 | Package dependencies | npm (`workspace:*`, scoped packages), PyPI, Go modules, Cargo |
+| Packages inside monorepos | npm/yarn/pnpm, Cargo, `go.work` and uv workspaces, listed on the card and resolvable by name |
 | Shared database tables | SQL migrations and queries, Prisma, Drizzle, Supabase |
 | Path references | `../trips-svc` in docker-compose, tsconfig, and other config files |
 | Documentation | READMEs and docs that mention a sibling repo |
+| Shared env vars | Specific names read by both sides. These only back up another link; they never make one on their own |
 
-Coming next: HTTP calls between services, infrastructure links, shared environment variables, and
-packages inside monorepos.
+Look-alikes are deliberately ignored:
+- health-check routes;
+- calls to other companies' APIs;
+- vague topic names;
+- `.proto` files with no implementer;
+- generic env vars such as `PORT`.
+
+An evaluation workspace in the test suite keeps every one of these at precision 1.0.
 
 ## Benchmarks
 
@@ -290,7 +302,7 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 
 1. ✅ Core map, precision pass, MCP server, harness integrations, freshness, benchmarks, release
    hardening (0.1).
-2. HTTP, infrastructure and environment-variable relationships; packages inside monorepos.
+2. ✅ HTTP, gRPC, pub/sub, compose and env-var relationships; packages inside monorepos (0.2).
 3. Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify).
 4. Larger benchmark suites (real open-source workspaces), significance testing, and more harnesses.
 

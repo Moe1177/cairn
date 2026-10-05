@@ -7,6 +7,28 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+- **HTTP links.** Routes from Next.js (file routes), Express, Fastify, Hono, FastAPI (including an
+  `APIRouter` prefix), Flask, Go net/http, chi, gin, echo, and OpenAPI files are matched with
+  client calls (`fetch`, `axios`, `ky`, `got`, `requests`, `httpx`, Go `http`). A link is `extracted`
+  when the call's base URL env var or service host names the target.
+- **gRPC links.** Server implementations (Go, Python, TypeScript, Java) are matched with client
+  stubs.
+- **Pub/sub links.** Kafka, NATS, and Redis publishers are matched with subscribers on specific
+  topic names.
+- **Compose links.** A `depends_on` between services built from (or named after) your repos.
+- **Monorepo packages.** npm/yarn/pnpm, Cargo, `go.work`, and uv workspace packages are listed on
+  the card. They publish and depend like repos, and the MCP tools resolve them by name.
+- **Shared env vars.** These only corroborate other links; they are never shown on their own.
+- **`servicemesh` evaluation.** A new evaluation workspace with look-alikes. Every new link type
+  must be exact: precision and tier accuracy 1.0.
+
+### Changed
+- The scan cache format is version 2, so the first scan after upgrading re-reads every repo.
+- A single file can produce at most 2,000 table facts.
+
 ## [0.1.0]
 
 First public release.
