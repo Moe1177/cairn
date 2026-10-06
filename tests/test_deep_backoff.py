@@ -21,7 +21,8 @@ def _cli(*args: str) -> str:
 def _stale_selection(ws: Path) -> list[str]:  # noqa: F811
     workspace = load_workspace(ws)
     assert workspace is not None
-    return [r.id for r in deep_ops.select_repos(ws, workspace, [], every=False, stale=True)]
+    picked = deep_ops.select_repos(ws, workspace, [], every=False, stale=True, skip_failed=True)
+    return [r.id for r in picked]
 
 
 def _failing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -67,3 +68,40 @@ def test_an_explicit_build_retries_and_success_clears_the_failure(
     _working(monkeypatch, working)
     assert "app: 1 symbols indexed" in _cli("deep", "build", "app", "-w", str(ws))
     assert "last build failed" not in _cli("deep", "status", "-w", str(ws))
+
+
+def test_build_stale_retries_a_failed_repo_refresh_does_not(
+    ws: Path,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _cli("deep", "build", "app", "-w", str(ws))
+    _edit(ws, "def login():\n    return 1\n")
+    working = providers.default_provider()
+    _failing(monkeypatch)
+    _cli("deep", "build", "app", "-w", str(ws))
+    _working(monkeypatch, working)
+    assert "app: 1 symbols indexed" in _cli("deep", "build", "--stale", "-w", str(ws))
+
+
+def test_an_edit_made_while_a_build_fails_is_not_swallowed(
+    ws: Path,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The failure is recorded against the state the build started from: an edit made while
+    graphify ran (a commit whose hook found the build busy) must still count as a change."""
+    _cli("deep", "build", "app", "-w", str(ws))
+    _edit(ws, "def login():\n    return 1\n")
+    failing = GraphifyProvider(
+        executable=providers.default_provider().executable, extra_env={"FAKE_FAIL": "1"}
+    )
+    real_build = failing.build
+
+    def build_then_edit(*args, **kwargs):  # type: ignore[no-untyped-def]
+        result = real_build(*args, **kwargs)
+        _edit(ws, "def login():\n    return 2\n")  # lands while the build was running
+        return result
+
+    monkeypatch.setattr(failing, "build", build_then_edit)
+    monkeypatch.setattr(providers, "default_provider", lambda: failing)
+    _cli("deep", "build", "app", "-w", str(ws))
+    assert _stale_selection(ws) == ["app"]

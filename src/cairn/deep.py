@@ -46,9 +46,17 @@ def run_installer(command: list[str]) -> int:
 
 
 def select_repos(
-    ws_root: Path, workspace: Workspace, names: list[str], *, every: bool, stale: bool
+    ws_root: Path,
+    workspace: Workspace,
+    names: list[str],
+    *,
+    every: bool,
+    stale: bool,
+    skip_failed: bool = False,
 ) -> list[Repo]:
-    """Named repos, or all of them; `stale` keeps only existing indexes that went out of date."""
+    """Named repos, or all of them; `stale` keeps only existing indexes that went out of date,
+    and `skip_failed` (refresh's automatic rebuild) also leaves out repos whose last build failed
+    on the state they are still in."""
     if names:
         repos = [_named(workspace, name) for name in names]
     elif every or stale:
@@ -61,7 +69,11 @@ def select_repos(
     kept = []
     for repo in repos:
         status = provider.status(ws_root, repo.id, ws_root / repo.path)
-        if status.present and status.stale and not failed_unchanged(ws_root, repo):
+        if (
+            status.present
+            and status.stale
+            and not (skip_failed and failed_unchanged(ws_root, repo))
+        ):
             kept.append(repo)
     return kept
 
@@ -93,8 +105,11 @@ def _build_one(provider, ws_root: Path, repo: Repo, timeout: float) -> BuildResu
         fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     os.close(fd)
     try:
+        # The state the build starts from: an edit made while graphify runs (a commit whose
+        # hook found this build busy) must still count as a change if the build fails.
+        state = _repo_state(ws_root, repo)
         result = provider.build(ws_root, repo.id, ws_root / repo.path, timeout=timeout)
-        _note_outcome(ws_root, repo, ok=result.ok)
+        _note_outcome(ws_root, repo, state, ok=result.ok)
         return result
     finally:
         lock.unlink(missing_ok=True)
@@ -110,12 +125,14 @@ def last_build_failed(ws_root: Path, repo_id: str) -> bool:
     return _failed_state(ws_root, repo_id) is not None
 
 
-def _note_outcome(ws_root: Path, repo: Repo, *, ok: bool) -> None:
+def _note_outcome(
+    ws_root: Path, repo: Repo, state: tuple[str | None, str | None], *, ok: bool
+) -> None:
     marker = deep_dir(ws_root, repo.id) / FAILED_FILE
     if ok:
         marker.unlink(missing_ok=True)
         return
-    head, fingerprint = _repo_state(ws_root, repo)
+    head, fingerprint = state
     atomic_write_text(marker, json.dumps({"head_sha": head, "fingerprint": fingerprint}) + "\n")
 
 
