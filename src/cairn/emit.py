@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from cairn import providers
 from cairn.paths import cards_dir, index_file, logs_dir
 from cairn.providers.meta import read_deep_meta
 from cairn.render.card import render_card
@@ -17,14 +18,21 @@ def write_outputs(ws_root: Path, result: ScanResult) -> tuple[Path, ...]:
     written = [save_workspace(ws_root, workspace)]
     directory = cards_dir(ws_root)
     keep: set[str] = set()
+    provider = None  # looked up once, and only if some repo has a deep index
     for repo in workspace.repos:
+        deep = read_deep_meta(ws_root, repo.id)
+        ready = True
+        if deep is not None:
+            provider = provider or providers.default_provider()
+            ready = provider.graph_path(ws_root, repo.id).is_file()
         card = render_card(
             repo,
             workspace,
             authored=result.authored.get(repo.id),
             note=result.relations.notes.get(repo.id),
             budget=result.config.card_budget,
-            deep=read_deep_meta(ws_root, repo.id),
+            deep=deep,
+            deep_ready=ready,
         )
         path = directory / f"{repo.id}.md"
         atomic_write_text(path, card)

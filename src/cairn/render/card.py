@@ -31,9 +31,10 @@ def render_card(
     note: str | None = None,
     budget: int = 800,
     deep: DeepMeta | None = None,
+    deep_ready: bool = True,
 ) -> str:
     text = _header(repo, authored)
-    for section in _sections(repo, workspace, note, deep):
+    for section in _sections(repo, workspace, note, deep, deep_ready):
         fitted = _fit(section, budget - estimate_tokens(text))
         if fitted:
             text += fitted
@@ -77,7 +78,11 @@ def _meta(repo: Repo) -> str:
 
 
 def _sections(
-    repo: Repo, workspace: Workspace, note: str | None, deep: DeepMeta | None
+    repo: Repo,
+    workspace: Workspace,
+    note: str | None,
+    deep: DeepMeta | None,
+    deep_ready: bool = True,
 ) -> list[_Section]:
     candidates = (
         _Section(
@@ -100,7 +105,7 @@ def _sections(
                 f"{f.kind.value.replace('_', ' ')} {_safe(f.value)}" for f in repo.contracts.exposes
             ),
         ),
-        _Section("Deeper", _deeper(repo, deep)),
+        _Section("Deeper", _deeper(repo, deep, deep_ready)),
         _Section("Notes", (note,) if note else ()),
     )
     return [s for s in candidates if s.items]
@@ -114,10 +119,15 @@ def _packages(repo: Repo) -> tuple[str, ...]:
     )
 
 
-def _deeper(repo: Repo, deep: DeepMeta | None) -> tuple[str, ...]:
+def _deeper(repo: Repo, deep: DeepMeta | None, ready: bool = True) -> tuple[str, ...]:
     """Spec §23: provider, size, build sha, a stale flag, and the busiest symbols."""
     if deep is None:
         return ()
+    if not ready:
+        return (
+            f"{_safe(deep.provider)} index: incomplete (graph missing); rebuild with "
+            f"`cairn deep build {_safe(repo.id)}`",
+        )
     built = f" · built at {deep.head_sha[:7]}" if deep.head_sha else ""
     stale = (
         f" · may be stale (HEAD moved; `cairn deep build {_safe(repo.id)}`)"

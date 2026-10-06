@@ -21,6 +21,7 @@ _IDENT = r'"?(?:[A-Za-z_]\w*"?\.)?"?([A-Za-z_]\w*)"?'
 CREATE_TABLE = re.compile(r"(?i)\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?" + _IDENT)
 SQL_REF = re.compile(r"\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:ONLY\s+)?" + _IDENT)
 SQL_REF_ANYCASE = re.compile(SQL_REF.pattern, re.IGNORECASE)
+_CODE_GATE = ("Table(", "FROM", "JOIN", "INTO", "UPDATE")
 ORM_TABLE = re.compile(r"\b(?:pgTable|mysqlTable|sqliteTable)\(\s*['\"`]([A-Za-z_]\w*)['\"`]")
 SUPABASE_REF = re.compile(
     r"\.from\(\s*['\"`]([A-Za-z_]\w*)['\"`]\s*\)\s*\.\s*(?:select|insert|update|upsert|delete)\b"
@@ -180,6 +181,8 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     for line_no, line in _code_lines(text):
         if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
             return exposes, consumes
+        if not any(key in line for key in _CODE_GATE):
+            continue  # ORM_TABLE needs `Table(`; SQL_REF needs an upper-case keyword
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
         refs = [m.group(1) for m in SQL_REF.finditer(line)]
         consumes += [_table(ctx, path, line_no, line, name) for name in refs if _is_table(name)]

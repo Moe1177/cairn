@@ -25,12 +25,13 @@ from cairn.scan_cache import worktree_fingerprint
 from cairn.security.redact import make_snippet, redact
 from cairn.security.text import clean_inline
 from tests.helpers import make_repo, write
+from tests.timing import time_limit
 
 
 def _fast(fn, budget: float = 1.0) -> None:
     start = time.perf_counter()
     fn()
-    assert time.perf_counter() - start < budget
+    assert time.perf_counter() - start < time_limit(budget)
 
 
 # --- C1: no super-linear redaction or README parsing -------------------------------------
@@ -205,7 +206,7 @@ def test_pathological_gitignore_patterns_are_dropped(tmp_path: Path) -> None:
     write(tmp_path, "node_cache/x.txt", "x")
     start = time.perf_counter()
     names = {p.name for p in iter_files(tmp_path)}
-    assert time.perf_counter() - start < 1
+    assert time.perf_counter() - start < time_limit(1)
     assert "a" * 40 + ".txt" in names and "x.txt" not in names
 
 

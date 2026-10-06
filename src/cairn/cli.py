@@ -37,7 +37,7 @@ from cairn.store.workspace_store import load_workspace
 
 app = typer.Typer(
     no_args_is_help=True,
-    add_completion=False,
+    add_completion=True,
     pretty_exceptions_enable=False,
     help="cairn: a workspace map for coding agents.",
 )
@@ -193,7 +193,7 @@ def refresh(
             root,
             lambda: deep_ops.select_repos(root, result.workspace, [], every=False, stale=True),
             timeout=deep_ops.DEFAULT_TIMEOUT,
-            result=result,
+            quiet=quiet,
         )
 
 
@@ -288,6 +288,17 @@ def status(path: PathArg = Path(".")) -> None:
             "Confirm or reject with: cairn annotate-edge <key> --confirm|--reject [--why TEXT]"
         )
     typer.echo("\n".join(lines))
+
+
+@app.command()
+def doctor(path: PathArg = Path(".")) -> None:
+    """Check git, Python, the map, write access, harnesses and graphify; say what to fix."""
+    from cairn.doctor import FAIL, run_checks
+
+    checks = run_checks(path.resolve())
+    typer.echo("\n".join(check.line() for check in checks))
+    if any(check.status == FAIL for check in checks):
+        raise typer.Exit(1)
 
 
 @app.command("annotate-edge")
@@ -484,22 +495,27 @@ def _build_deep(
     pick: Callable[[], list[Repo]],
     *,
     timeout: float,
-    result: ScanResult | None = None,
+    quiet: bool = False,
+    none_message: str | None = None,
 ) -> None:
-    """Build the picked indexes, print one line each, then re-render cards (Deeper section)."""
+    """Build the picked indexes, print one line each, then re-scan so cards show them.
+
+    The re-scan comes after the build: a build can take minutes, and writing a scan taken
+    before it would undo whatever a hook or an MCP refresh mapped in the meantime.
+    """
     try:
-        outcomes = deep_ops.build(root, pick(), timeout=timeout)
+        picked = pick()
+        outcomes = deep_ops.build(root, picked, timeout=timeout)
     except (CairnError, OSError) as exc:
         _fail(str(exc))
+    if not picked and none_message and not quiet:
+        typer.echo(none_message)
     for outcome in outcomes:
-        typer.echo(outcome.message, err=not outcome.ok)
+        if not (quiet and outcome.ok):
+            typer.echo(outcome.message, err=not outcome.ok)
     if outcomes:
         try:
-            if result is None:
-                _scan_and_write(root)
-            else:
-                with workspace_lock(root):
-                    write_outputs(root, result)
+            _scan_and_write(root)
         except (CairnError, OSError) as exc:
             _fail(str(exc))
     if not all(o.ok for o in outcomes):
@@ -525,13 +541,15 @@ def deep_build(
         root,
         lambda: deep_ops.select_repos(root, loaded, repos or [], every=every, stale=stale),
         timeout=timeout,
+        none_message="No stale deep indexes." if stale else "No repos to index.",
     )
 
 
 @deep_app.command("status")
-def deep_status(path: PathArg = Path(".")) -> None:
+def deep_status(path: PathArg = Path("."), workspace: WorkspaceOpt = Path(".")) -> None:
     """List deep indexes: size, provider version, build sha, fresh or stale."""
-    root = path.resolve()
+    # Takes the workspace as PATH (like `cairn status`) or -w (like `deep build`/`clear`).
+    root = (path if path != Path(".") else workspace).resolve()
     lines = deep_ops.status_lines(root, _loaded(root))
     typer.echo("\n".join(lines) or "No deep indexes. Build one with `cairn deep build REPO`.")
 

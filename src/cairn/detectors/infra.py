@@ -23,14 +23,14 @@ class InfraDetector:
 
     def run(self, ctx: DetectorContext) -> DetectorResult:
         consumes: list[Fact] = []
-        for path in ctx.files(_is_compose):
+        for path in ctx.files(is_compose_file):
             text = ctx.read(path)
             if text and len(text) <= _COMPOSE_MAX:
                 consumes += _compose_links(ctx, path, text)
         return DetectorResult(consumes=merge_facts(consumes))
 
 
-def _is_compose(name: str) -> bool:
+def is_compose_file(name: str) -> bool:
     lowered = name.lower()
     stem = PurePosixPath(lowered).stem
     return lowered.endswith((".yml", ".yaml")) and (

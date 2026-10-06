@@ -2,7 +2,6 @@
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -11,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from cairn.bench.workspace import materialize
-from cairn.providers.graphify import GraphifyProvider
+from cairn.providers.graphify import GraphifyProvider, _find_executable
 
 FAKE = r"""
 import json, os, sys
@@ -131,12 +130,14 @@ def test_executable_discovery_prefers_the_running_install(
     beside.write_text("", encoding="utf-8")
     monkeypatch.setattr(module.sys, "executable", str(bin_dir / "python"))
     monkeypatch.setattr(module.shutil, "which", lambda name: "/elsewhere/graphify")
+    # The interpreter's own scripts folders may hold a real graphify (the CI `deep` job).
+    monkeypatch.setattr(module.sysconfig, "get_path", lambda *args, **kwargs: None)
     assert GraphifyProvider().executable == str(beside)
     beside.unlink()
     assert GraphifyProvider().executable == "/elsewhere/graphify"
 
 
-@pytest.mark.skipif(shutil.which("graphify") is None, reason="graphify not installed")
+@pytest.mark.skipif(_find_executable() is None, reason="graphify not installed")
 def test_real_graphify_builds_without_touching_the_repo(tmp_path: Path) -> None:
     ws, repo = _workspace(tmp_path)
     before = _tree(repo)

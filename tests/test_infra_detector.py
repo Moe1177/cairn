@@ -11,6 +11,7 @@ from cairn.detectors.messaging import MessagingDetector
 from cairn.model.graph import Confidence, EdgeType, FactKind
 from cairn.scan import scan_workspace
 from tests.helpers import ctx_for, make_repo, write
+from tests.timing import time_limit
 
 COMPOSE = """
 services:
@@ -151,4 +152,4 @@ def test_infra_and_messaging_are_linear(tmp_path: Path, name: str) -> None:
     start = time.perf_counter()
     InfraDetector().run(ctx)
     MessagingDetector().run(ctx)
-    assert time.perf_counter() - start < 1.5
+    assert time.perf_counter() - start < time_limit(1.5)

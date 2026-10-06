@@ -52,9 +52,12 @@ The **index** is a few lines, loaded into every session through `CLAUDE.md` or a
 - admin-console (@fleetline/admin-console): Next.js back-office for ops staff; queries trips… · nextjs
 - analytics-etl: Nightly SQL reporting jobs over trips, payments, drivers… · python
 - payments-svc (payments): Go service that charges completed trips and records weekly payouts · go
-- trips-svc: FastAPI service owning the trip lifecycle and the trips/trip_events tables · fastapi
-- ui-kit (@fleetline/ui-kit): Shared React components (Button, Card) · react
+- trips-svc: FastAPI service owning the trip lifecycle and the trips/trip_events tables · fastapi · used by admin-console
+- ui-kit (@fleetline/ui-kit): Shared React components (Button, Card) · react · used by admin-console
 ```
+
+`used by` lists the repos that depend on, call, or reference that one, so a change's blast
+radius is visible before any card is opened.
 
 A **card** is read only when the agent needs that repo:
 
@@ -236,6 +239,20 @@ cairn bench bench/suites/fleetline --runs 3 --model haiku
 cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
 ```
 
+## Performance
+
+cairn walks each repo once, reads each file once, and scans repos in parallel. A refresh
+re-reads only repos whose HEAD or working tree changed, and asks git one question per
+unchanged repo. On a synthetic workspace of 200 repos and 50,000 files (Windows 11, 12 cores):
+
+| | 0.3 | 0.4 |
+|---|---|---|
+| First scan | 156 s | 53 s |
+| Refresh, nothing changed | 15 s | 5.4 s |
+
+Most of a refresh on Windows is git process start-up; Linux and macOS start processes faster.
+Reproduce with `uv run python bench/perf_scan.py --out <dir>`.
+
 ## Safety and privacy
 
 cairn treats every scanned repo as untrusted input. It:
@@ -277,6 +294,8 @@ how to report a vulnerability.
 | `cairn hooks install\|uninstall` | Opt-in git hooks that refresh after commits and merges |
 | `cairn serve` | The MCP server (harnesses start it for you) |
 | `cairn bench SUITE` | Run the benchmark harness |
+| `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
+| `cairn --install-completion` | Tab completion for your shell (bash, zsh, fish, PowerShell) |
 | `cairn --version` | Versions of cairn, Python, the platform, and mcp |
 
 **Exit codes:** `0` means success, `1` an error (one line on stderr), and `2` a usage error.
@@ -315,6 +334,7 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 
 | Symptom | Fix |
 |---|---|
+| Something seems off | Run `cairn doctor`: it checks each dependency and says what to fix |
 | "No git repos found under …" | Run cairn from the folder that *contains* your repos |
 | "… is inside the git repository …" | Same: run from the parent folder, not inside a repo |
 | "git not found on PATH" warning | Install git; without it, remotes, HEAD and caching are off |
@@ -329,8 +349,8 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
    hardening (0.1).
 2. ✅ HTTP, gRPC, pub/sub, compose and env-var relationships; packages inside monorepos (0.2).
 3. ✅ Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify) (0.3).
-4. Efficiency: faster scans on very large workspaces, faster and more reliable CI, and product
-   polish (`cairn doctor`, shell completion).
+4. ✅ Efficiency: 3x faster scans, faster and more reliable CI, `cairn doctor`, shell completion,
+   and "used by" on INDEX lines (0.4).
 5. Larger benchmark suites (real open-source workspaces), significance testing, and more harnesses.
 
 ## Contributing

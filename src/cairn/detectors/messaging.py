@@ -57,6 +57,21 @@ _SUBSCRIBE = tuple(
     )
 )
 _QUOTED = re.compile(r"""['"]([^'"\s]{3,120})['"]""")
+# Every pattern above needs one of these substrings; a line with none can't match any of them.
+_GATE = (
+    "Server(",
+    "Servicer",
+    "ImplBase",
+    "addService(",
+    "Client(",
+    "Stub(",
+    "send",
+    "produce",
+    "ublish",
+    "ubscribe",
+    "KafkaListener",
+    "KafkaConsumer(",
+)
 # Generated stubs define both sides of every service; they say nothing about who calls whom.
 _GENERATED_SUFFIXES = (
     ".pb.go",
@@ -124,10 +139,14 @@ class MessagingDetector:
 def _scan(ctx: DetectorContext, path: Path, text: str) -> tuple[list[Fact], list[Fact]]:
     exposes: list[Fact] = []
     consumes: list[Fact] = []
+    if not any(key in text for key in _GATE):
+        return exposes, consumes
     for line_no, raw in enumerate(text.splitlines(), start=1):
         if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
             break
         line = raw[:_LINE_MAX]
+        if not any(key in line for key in _GATE):
+            continue
         definition = line.lstrip().startswith(("func ", "def ", "class ", "export function "))
         implements = line.lstrip().startswith("class ") and "Servicer" in line
         served = (

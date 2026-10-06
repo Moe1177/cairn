@@ -5,11 +5,13 @@ network) and writes to `<ws>/.cairn/deep/<repo>/graphify-out/`, never into the r
 with an allowlisted environment, so no API key or token can reach it.
 """
 
+import contextlib
 import json
 import os
 import re
 import shutil
 import sys
+import sysconfig
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -143,11 +145,30 @@ class GraphifyProvider:
 
 
 def _find_executable() -> str | None:
-    """The graphify installed beside the running cairn (the `graphify` extra), else PATH."""
-    beside = Path(sys.executable).parent / ("graphify.exe" if os.name == "nt" else "graphify")
-    if beside.is_file():
-        return str(beside)
+    """The graphify installed with the running cairn (the `graphify` extra), else PATH.
+
+    Scripts sit beside python in a venv, in `Scripts/` or `bin/` of a system Python, or in
+    the user scheme's scripts folder after `pip install --user`.
+    """
+    name = "graphify.exe" if os.name == "nt" else "graphify"
+    folders = [Path(sys.executable).parent]
+    for scheme in (None, _user_scheme()):
+        with contextlib.suppress(KeyError, ValueError):
+            found = (
+                sysconfig.get_path("scripts", scheme) if scheme else sysconfig.get_path("scripts")
+            )
+            if found:
+                folders.append(Path(found))
+    for folder in folders:
+        if (folder / name).is_file():
+            return str(folder / name)
     return shutil.which("graphify")
+
+
+def _user_scheme() -> str | None:
+    with contextlib.suppress(KeyError, ValueError, AttributeError):
+        return sysconfig.get_preferred_scheme("user")
+    return None
 
 
 def _is_batch_shim(executable: str) -> bool:

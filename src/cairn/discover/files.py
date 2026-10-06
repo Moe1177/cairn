@@ -66,6 +66,22 @@ def iter_files(
     max_bytes: int = 1_000_000,
     match: Callable[[str], bool] | None = None,
 ) -> Iterator[Path]:
+    for current, names in walk_groups(
+        root, ignore_dirs=ignore_dirs, max_bytes=max_bytes, match=match
+    ):
+        for name in names:
+            yield current / name
+
+
+def walk_groups(
+    root: Path,
+    *,
+    ignore_dirs: frozenset[str] = DEFAULT_IGNORE_DIRS,
+    max_bytes: int = 1_000_000,
+    match: Callable[[str], bool] | None = None,
+) -> Iterator[tuple[Path, list[str]]]:
+    """Each walked folder with the names of its readable files, in sorted walk order. Folders
+    with none are included, so callers can tell when a folder gains a file."""
     spec = _gitignore_spec(root)
     for dirpath, dirnames, filenames in os.walk(root, onerror=_ignore_error):
         current = Path(dirpath)
@@ -74,6 +90,7 @@ def iter_files(
         dirnames[:] = sorted(
             d for d in dirnames if _keep_dir(current, d, rel_parent, ignore_dirs, spec)
         )
+        kept: list[str] = []
         for name in sorted(filenames):
             if match is not None and not match(name):
                 continue
@@ -88,7 +105,8 @@ def iter_files(
             except OSError:
                 continue
             if size <= max_bytes:
-                yield path
+                kept.append(name)
+        yield current, kept
 
 
 def read_text(path: Path, max_bytes: int = 1_000_000) -> str | None:

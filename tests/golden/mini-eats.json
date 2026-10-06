@@ -1,0 +1,741 @@
+{
+ "edges": [
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "CLAUDE.md",
+     "line": 3,
+     "repo": "eats",
+     "snippet": "The restaurant-owner dashboard lives in the eats-admin repo."
+    }
+   ],
+   "note": null,
+   "score": 0.5,
+   "signals": [
+    "doc_mention"
+   ],
+   "source": "eats",
+   "target": "eats-admin",
+   "type": "mentions",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "my-app/package.json",
+     "line": 10,
+     "repo": "eats",
+     "snippet": "\"@eats/ui\": \"workspace:*\""
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "package:npm:@eats/ui"
+   ],
+   "source": "eats",
+   "target": "shared-ui",
+   "type": "depends_on_package",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "eats-admin/README.md",
+     "line": 3,
+     "repo": "eats-admin",
+     "snippet": "Owner portal for the eats app."
+    }
+   ],
+   "note": null,
+   "score": 0.5,
+   "signals": [
+    "doc_mention"
+   ],
+   "source": "eats-admin",
+   "target": "eats",
+   "type": "mentions",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "eats-admin/lib/admin-queries.ts",
+     "line": 3,
+     "repo": "eats-admin",
+     "snippet": "export const cooks = sql`SELECT * FROM cook_profiles ORDER BY id`;"
+    },
+    {
+     "file": "my-app/db/migrations/0000_baseline.sql",
+     "line": 1,
+     "repo": "eats",
+     "snippet": "CREATE TABLE \"cook_profiles\" (id serial PRIMARY KEY, active boolean);"
+    },
+    {
+     "file": "eats-admin/lib/admin-queries.ts",
+     "line": 4,
+     "repo": "eats-admin",
+     "snippet": "export const live = sql`SELECT * FROM listings l JOIN cook_profiles c ON c.id = l.cook_id`;"
+    }
+   ],
+   "note": null,
+   "score": 0.84,
+   "signals": [
+    "db_table:cook_profiles",
+    "db_table:listings"
+   ],
+   "source": "eats-admin",
+   "target": "eats",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "eats-admin/package.json",
+     "line": 10,
+     "repo": "eats-admin",
+     "snippet": "\"@eats/ui\": \"workspace:*\""
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "package:npm:@eats/ui"
+   ],
+   "source": "eats-admin",
+   "target": "shared-ui",
+   "type": "depends_on_package",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "eats-admin/tsconfig.json",
+     "line": 1,
+     "repo": "eats-admin",
+     "snippet": "{ \"compilerOptions\": { \"paths\": { \"@ui/*\": [\"../../shared-ui/src/*\"] } } }"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "path_ref:shared-ui/src"
+   ],
+   "source": "eats-admin",
+   "target": "shared-ui",
+   "type": "path_ref",
+   "why": null
+  }
+ ],
+ "repos": {
+  "eats": {
+   "aliases": [
+    "eats"
+   ],
+   "commands": [
+    {
+     "name": "dev",
+     "run": "cd my-app && npm run dev"
+    },
+    {
+     "name": "build",
+     "run": "cd my-app && npm run build"
+    },
+    {
+     "name": "test",
+     "run": "cd my-app && npm run test"
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 9,
+        "repo": "eats",
+        "snippet": "\"@neondatabase/serverless\": \"0.10.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "neon"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/lib/queries.ts",
+        "line": 3,
+        "repo": "eats",
+        "snippet": "export const listCooks = sql`SELECT * FROM cook_profiles WHERE active = true`;"
+       },
+       {
+        "file": "my-app/lib/queries.ts",
+        "line": 4,
+        "repo": "eats",
+        "snippet": "export const listListings = sql`SELECT l.* FROM listings l JOIN cook_profiles c ON c.id = l.cook_id`;"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "cook_profiles"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/lib/queries.ts",
+        "line": 4,
+        "repo": "eats",
+        "snippet": "export const listListings = sql`SELECT l.* FROM listings l JOIN cook_profiles c ON c.id = l.cook_id`;"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "listings"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/lib/queries.ts",
+        "line": 6,
+        "repo": "eats",
+        "snippet": "export const recentOrders = \"SELECT * FROM orders\"; // legacy token [REDACTED]"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "CLAUDE.md",
+        "line": 3,
+        "repo": "eats",
+        "snippet": "The restaurant-owner dashboard lives in the eats-admin repo."
+       }
+      ],
+      "hints": [],
+      "kind": "doc_mention",
+      "value": "eats-admin"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/.env.example",
+        "line": 1,
+        "repo": "eats",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "STRIPE_SECRET_KEY"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 10,
+        "repo": "eats",
+        "snippet": "\"@eats/ui\": \"workspace:*\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@eats/ui"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 9,
+        "repo": "eats",
+        "snippet": "\"@neondatabase/serverless\": \"0.10.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@neondatabase/serverless"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 8,
+        "repo": "eats",
+        "snippet": "\"drizzle-orm\": \"0.36.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:drizzle-orm"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 6,
+        "repo": "eats",
+        "snippet": "\"next\": \"15.0.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:next"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 7,
+        "repo": "eats",
+        "snippet": "\"react\": \"19.0.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:react"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 12,
+        "repo": "eats",
+        "snippet": "\"devDependencies\": { \"typescript\": \"5.6.0\" }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:typescript"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "my-app/db/migrations/0000_baseline.sql",
+        "line": 1,
+        "repo": "eats",
+        "snippet": "CREATE TABLE \"cook_profiles\" (id serial PRIMARY KEY, active boolean);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "cook_profiles"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/db/migrations/0000_baseline.sql",
+        "line": 2,
+        "repo": "eats",
+        "snippet": "CREATE TABLE \"listings\" (id serial PRIMARY KEY, cook_id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "listings"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/db/migrations/0000_baseline.sql",
+        "line": 3,
+        "repo": "eats",
+        "snippet": "CREATE TABLE \"orders\" (id serial PRIMARY KEY, status text);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/db/migrations/0000_baseline.sql",
+        "line": 4,
+        "repo": "eats",
+        "snippet": "CREATE TABLE \"users\" (id serial PRIMARY KEY);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "users"
+     },
+     {
+      "evidence": [
+       {
+        "file": "my-app/package.json",
+        "line": 2,
+        "repo": "eats",
+        "snippet": "\"name\": \"my-app\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:my-app"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "my-app/db/",
+     "purpose": "database"
+    },
+    {
+     "path": "my-app/lib/",
+     "purpose": "library code"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "typescript",
+    "nextjs",
+    "react",
+    "drizzle",
+    "neon"
+   ]
+  },
+  "eats-admin": {
+   "aliases": [
+    "eats-admin",
+    "admin",
+    "owner portal"
+   ],
+   "commands": [
+    {
+     "name": "dev",
+     "run": "cd eats-admin && npm run dev"
+    },
+    {
+     "name": "build",
+     "run": "cd eats-admin && npm run build"
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 9,
+        "repo": "eats-admin",
+        "snippet": "\"@neondatabase/serverless\": \"0.10.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "neon"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/lib/admin-queries.ts",
+        "line": 3,
+        "repo": "eats-admin",
+        "snippet": "export const cooks = sql`SELECT * FROM cook_profiles ORDER BY id`;"
+       },
+       {
+        "file": "eats-admin/lib/admin-queries.ts",
+        "line": 4,
+        "repo": "eats-admin",
+        "snippet": "export const live = sql`SELECT * FROM listings l JOIN cook_profiles c ON c.id = l.cook_id`;"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "cook_profiles"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/lib/admin-queries.ts",
+        "line": 4,
+        "repo": "eats-admin",
+        "snippet": "export const live = sql`SELECT * FROM listings l JOIN cook_profiles c ON c.id = l.cook_id`;"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "listings"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/lib/admin-queries.ts",
+        "line": 5,
+        "repo": "eats-admin",
+        "snippet": "export const admins = sql`SELECT * FROM users`;"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "users"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/README.md",
+        "line": 3,
+        "repo": "eats-admin",
+        "snippet": "Owner portal for the eats app."
+       }
+      ],
+      "hints": [],
+      "kind": "doc_mention",
+      "value": "eats"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 10,
+        "repo": "eats-admin",
+        "snippet": "\"@eats/ui\": \"workspace:*\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@eats/ui"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 9,
+        "repo": "eats-admin",
+        "snippet": "\"@neondatabase/serverless\": \"0.10.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@neondatabase/serverless"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 8,
+        "repo": "eats-admin",
+        "snippet": "\"drizzle-orm\": \"0.36.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:drizzle-orm"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 6,
+        "repo": "eats-admin",
+        "snippet": "\"next\": \"15.0.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:next"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 7,
+        "repo": "eats-admin",
+        "snippet": "\"react\": \"19.0.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:react"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 12,
+        "repo": "eats-admin",
+        "snippet": "\"devDependencies\": { \"typescript\": \"5.6.0\" }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:typescript"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/tsconfig.json",
+        "line": 1,
+        "repo": "eats-admin",
+        "snippet": "{ \"compilerOptions\": { \"paths\": { \"@ui/*\": [\"../../shared-ui/src/*\"] } } }"
+       }
+      ],
+      "hints": [],
+      "kind": "path_ref",
+      "value": "shared-ui/src"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/db/migrations/0001_platform_discounts.sql",
+        "line": 1,
+        "repo": "eats-admin",
+        "snippet": "CREATE TABLE platform_discounts (id serial PRIMARY KEY, pct int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "platform_discounts"
+     },
+     {
+      "evidence": [
+       {
+        "file": "eats-admin/package.json",
+        "line": 2,
+        "repo": "eats-admin",
+        "snippet": "\"name\": \"eats-admin\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:eats-admin"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "eats-admin/db/",
+     "purpose": "database"
+    },
+    {
+     "path": "eats-admin/lib/",
+     "purpose": "library code"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "typescript",
+    "nextjs",
+    "react",
+    "drizzle",
+    "neon"
+   ]
+  },
+  "notes": {
+   "aliases": [
+    "notes"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 4,
+        "repo": "notes",
+        "snippet": "dependencies = [\"pyyaml>=6\"]"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:pyyaml"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 2,
+        "repo": "notes",
+        "snippet": "name = \"notes\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:notes"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "notes/",
+     "purpose": null
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "python"
+   ]
+  },
+  "shared-ui": {
+   "aliases": [
+    "shared-ui",
+    "@eats/ui",
+    "ui"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "shared-ui",
+        "snippet": "{ \"name\": \"@eats/ui\", \"version\": \"0.1.0\", \"dependencies\": { \"react\": \"19.0.0\" } }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:react"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "shared-ui",
+        "snippet": "{ \"name\": \"@eats/ui\", \"version\": \"0.1.0\", \"dependencies\": { \"react\": \"19.0.0\" } }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@eats/ui"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "react"
+   ]
+  }
+ }
+}

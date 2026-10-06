@@ -17,11 +17,25 @@ uv run cairn --help
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright
-uv run pytest --cov=cairn --cov-fail-under=80
+uv run pytest -n auto --cov=cairn --cov-fail-under=80   # -n auto: all cores (pytest-xdist)
 ```
 
 CI runs the same checks on Linux, macOS, and Windows with Python 3.11–3.14. It also installs the
 built wheel into a clean environment.
+
+### How CI is set up
+
+- A pull request runs one job per OS and per Python version (4 jobs). Pushes to `main`, a
+  nightly run, and manual runs cover all 12 combinations.
+- When the only failures are jobs GitHub never started ("The job was not acquired by Runner"),
+  `rerun.yml` re-runs them once. If any job ran and failed, nothing is retried.
+- Tests that check something stays fast scale their limit on slow or busy machines
+  (`tests/timing.py`) instead of failing a healthy build.
+- We stay on GitHub-hosted runners: they are free and unlimited for public repos, cover all
+  three OSes, and keep PyPI trusted publishing. Checked in October 2026: Cirrus CI and BuildJet
+  have shut down; Blacksmith's free tier needs an organization; Ubicloud's free minutes are too
+  few for this matrix; Namespace, Depot, RunsOn and Buildkite aren't free for us; CircleCI would
+  need a rewrite and loses trusted publishing; self-hosted runners are unsafe for a public repo.
 
 ## How we work
 - **Test first.** Write a test that fails for the reason you expect, then make it pass.

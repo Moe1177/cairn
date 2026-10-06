@@ -65,6 +65,7 @@ _ENV_IN_EXPR = re.compile(r"""(?:process\.env|import\.meta\.env)\.([A-Z][A-Z0-9_
 _UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{1,63}")
 _TEMPLATE_BASE = re.compile(r"""\$?\{([^{}]{1,120})\}""")
 
+_CALL_GATE = ("fetch", "ky", "got", "axios", "requests", "httpx", "session", "aiohttp", "http")
 _LANGUAGE = {".py": "py", ".go": "go"}
 _ROUTES = {"js": _JS_ROUTE, "py": _PY_ROUTE, "go": _GO_ROUTE}
 _CALLS = {"js": _JS_CALL, "py": _PY_CALL, "go": _GO_CALL}
@@ -154,9 +155,11 @@ def _code(ctx: DetectorContext, path: Path, text: str) -> tuple[list[Fact], list
     called: list[Fact] = []
     lines = text.splitlines()
     env_of = _env_assignments(lines)
-    prefixes = {
-        m.group(1): m.group(2) for line in lines for m in _PY_PREFIX.finditer(line[:_LINE_MAX])
-    }
+    prefixes = (
+        {m.group(1): m.group(2) for line in lines for m in _PY_PREFIX.finditer(line[:_LINE_MAX])}
+        if "APIRouter" in text
+        else {}
+    )
     language = _LANGUAGE.get(path.suffix.lower(), "js")
     routes = _ROUTES[language]
     calls = _CALLS[language]
@@ -164,6 +167,8 @@ def _code(ctx: DetectorContext, path: Path, text: str) -> tuple[list[Fact], list
         if len(served) + len(called) >= MAX_FACTS_PER_FILE:
             break
         line = raw_line[:_LINE_MAX]
+        if "/" not in line and not any(key in line for key in _CALL_GATE):
+            continue  # every route needs a "/..." path; every call names a client
         for match in routes.finditer(line):
             route = match.group(match.lastindex or 1)
             if language == "py":
@@ -180,6 +185,8 @@ def _env_assignments(lines: list[str]) -> dict[str, str]:
     """`const API = process.env.TRIPS_URL` -> {"API": "TRIPS_URL"} (first assignment wins)."""
     found: dict[str, str] = {}
     for line in lines:
+        if "env" not in line:  # process.env, os.getenv, os.environ, os.Getenv
+            continue
         for match in _ENV_ASSIGN.finditer(line[:_LINE_MAX]):
             name = next(g for g in match.groups()[1:] if g)
             found.setdefault(match.group(1), name)

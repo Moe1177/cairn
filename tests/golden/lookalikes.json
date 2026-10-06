@@ -1,0 +1,713 @@
+{
+ "edges": [
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-a",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-b",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/.temp/project-ref",
+     "line": 1,
+     "repo": "linked-a",
+     "snippet": "abcdefghijklmnopqrst"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "db_project_ref:supabase-local:app",
+    "db_project_ref:supabase:abcdefghijklmnopqrst"
+   ],
+   "source": "linked-a",
+   "target": "linked-b",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-a",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-x",
+     "snippet": "project_id = \"app\""
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_project_ref:supabase-local:app"
+   ],
+   "source": "linked-a",
+   "target": "local-only-x",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-a",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-y",
+     "snippet": "project_id = \"app\""
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_project_ref:supabase-local:app"
+   ],
+   "source": "linked-a",
+   "target": "local-only-y",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-b",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-x",
+     "snippet": "project_id = \"app\""
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_project_ref:supabase-local:app"
+   ],
+   "source": "linked-b",
+   "target": "local-only-x",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-b",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-y",
+     "snippet": "project_id = \"app\""
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_project_ref:supabase-local:app"
+   ],
+   "source": "linked-b",
+   "target": "local-only-y",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-c",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-x",
+     "snippet": "project_id = \"app\""
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_project_ref:supabase-local:app"
+   ],
+   "source": "linked-c",
+   "target": "local-only-x",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "linked-c",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-y",
+     "snippet": "project_id = \"app\""
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_project_ref:supabase-local:app"
+   ],
+   "source": "linked-c",
+   "target": "local-only-y",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-x",
+     "snippet": "project_id = \"app\""
+    },
+    {
+     "file": "supabase/config.toml",
+     "line": 1,
+     "repo": "local-only-y",
+     "snippet": "project_id = \"app\""
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_project_ref:supabase-local:app"
+   ],
+   "source": "local-only-x",
+   "target": "local-only-y",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "db/001.sql",
+     "line": 2,
+     "repo": "resume-app",
+     "snippet": "CREATE TABLE products (id int);"
+    },
+    {
+     "file": "db/001.sql",
+     "line": 2,
+     "repo": "shop-app",
+     "snippet": "CREATE TABLE products (id int);"
+    },
+    {
+     "file": "db/001.sql",
+     "line": 1,
+     "repo": "resume-app",
+     "snippet": "CREATE TABLE profiles (id int);"
+    }
+   ],
+   "note": null,
+   "score": 0.936,
+   "signals": [
+    "db_table:products",
+    "db_table:profiles",
+    "db_table:stripe_webhook_events"
+   ],
+   "source": "resume-app",
+   "target": "shop-app",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "package.json",
+     "line": 1,
+     "repo": "shop-app",
+     "snippet": "{\"name\": \"shop-app\", \"dependencies\": {\"@acme/ui-kit\": \"1\"}}"
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "package:npm:@acme/ui-kit"
+   ],
+   "source": "shop-app",
+   "target": "ui-kit",
+   "type": "depends_on_package",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "package.json",
+     "line": 1,
+     "repo": "shop-app",
+     "snippet": "{\"name\": \"shop-app\", \"dependencies\": {\"@acme/ui-kit\": \"1\"}}"
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "package:npm:@acme/ui-kit"
+   ],
+   "source": "shop-app",
+   "target": "ui-kit-fork",
+   "type": "depends_on_package",
+   "why": null
+  }
+ ],
+ "repos": {
+  "linked-a": {
+   "aliases": [
+    "linked-a"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "supabase/config.toml",
+        "line": 1,
+        "repo": "linked-a",
+        "snippet": "project_id = \"app\""
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase-local:app"
+     },
+     {
+      "evidence": [
+       {
+        "file": "supabase/.temp/project-ref",
+        "line": 1,
+        "repo": "linked-a",
+        "snippet": "abcdefghijklmnopqrst"
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase:abcdefghijklmnopqrst"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "supabase/",
+     "purpose": "Supabase config"
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "linked-b": {
+   "aliases": [
+    "linked-b"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "supabase/config.toml",
+        "line": 1,
+        "repo": "linked-b",
+        "snippet": "project_id = \"app\""
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase-local:app"
+     },
+     {
+      "evidence": [
+       {
+        "file": "supabase/.temp/project-ref",
+        "line": 1,
+        "repo": "linked-b",
+        "snippet": "abcdefghijklmnopqrst"
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase:abcdefghijklmnopqrst"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "supabase/",
+     "purpose": "Supabase config"
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "linked-c": {
+   "aliases": [
+    "linked-c"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "supabase/config.toml",
+        "line": 1,
+        "repo": "linked-c",
+        "snippet": "project_id = \"app\""
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase-local:app"
+     },
+     {
+      "evidence": [
+       {
+        "file": "supabase/.temp/project-ref",
+        "line": 1,
+        "repo": "linked-c",
+        "snippet": "zyxwvutsrqponmlkjihg"
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase:zyxwvutsrqponmlkjihg"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "supabase/",
+     "purpose": "Supabase config"
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "local-only-x": {
+   "aliases": [
+    "local-only-x"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "supabase/config.toml",
+        "line": 1,
+        "repo": "local-only-x",
+        "snippet": "project_id = \"app\""
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase-local:app"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "supabase/",
+     "purpose": "Supabase config"
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "local-only-y": {
+   "aliases": [
+    "local-only-y"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "supabase/config.toml",
+        "line": 1,
+        "repo": "local-only-y",
+        "snippet": "project_id = \"app\""
+       }
+      ],
+      "hints": [],
+      "kind": "db_project_ref",
+      "value": "supabase-local:app"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "supabase/",
+     "purpose": "Supabase config"
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "resume-app": {
+   "aliases": [
+    "resume-app"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "db/001.sql",
+        "line": 2,
+        "repo": "resume-app",
+        "snippet": "CREATE TABLE products (id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "products"
+     },
+     {
+      "evidence": [
+       {
+        "file": "db/001.sql",
+        "line": 1,
+        "repo": "resume-app",
+        "snippet": "CREATE TABLE profiles (id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "profiles"
+     },
+     {
+      "evidence": [
+       {
+        "file": "db/001.sql",
+        "line": 3,
+        "repo": "resume-app",
+        "snippet": "CREATE TABLE stripe_webhook_events (id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "stripe_webhook_events"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "db/",
+     "purpose": "database"
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "shop-app": {
+   "aliases": [
+    "shop-app"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "shop-app",
+        "snippet": "{\"name\": \"shop-app\", \"dependencies\": {\"@acme/ui-kit\": \"1\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@acme/ui-kit"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "db/001.sql",
+        "line": 2,
+        "repo": "shop-app",
+        "snippet": "CREATE TABLE products (id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "products"
+     },
+     {
+      "evidence": [
+       {
+        "file": "db/001.sql",
+        "line": 1,
+        "repo": "shop-app",
+        "snippet": "CREATE TABLE profiles (id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "profiles"
+     },
+     {
+      "evidence": [
+       {
+        "file": "db/001.sql",
+        "line": 3,
+        "repo": "shop-app",
+        "snippet": "CREATE TABLE stripe_webhook_events (id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "stripe_webhook_events"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "shop-app",
+        "snippet": "{\"name\": \"shop-app\", \"dependencies\": {\"@acme/ui-kit\": \"1\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:shop-app"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "db/",
+     "purpose": "database"
+    },
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "ui-kit": {
+   "aliases": [
+    "ui-kit",
+    "@acme/ui-kit"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "ui-kit",
+        "snippet": "{\"name\": \"@acme/ui-kit\"}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@acme/ui-kit"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "ui-kit-fork": {
+   "aliases": [
+    "ui-kit-fork",
+    "@acme/ui-kit",
+    "ui-kit"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "ui-kit-fork",
+        "snippet": "{\"name\": \"@acme/ui-kit\"}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@acme/ui-kit"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  }
+ }
+}

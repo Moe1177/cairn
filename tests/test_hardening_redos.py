@@ -11,6 +11,7 @@ from cairn.detectors.identity import first_paragraph
 from cairn.detectors.manifests import parse_go_mod
 from cairn.security.redact import make_snippet, redact
 from tests.helpers import ctx_for, make_repo
+from tests.timing import time_limit
 
 MB = 1_000_000
 
@@ -18,7 +19,7 @@ MB = 1_000_000
 def _fast(fn: Callable[[], object], budget: float = 1.0) -> None:
     start = time.perf_counter()
     fn()
-    assert time.perf_counter() - start < budget
+    assert time.perf_counter() - start < time_limit(budget)
 
 
 ADVERSARIAL = {
@@ -57,13 +58,14 @@ def test_prisma_models_are_linear_and_still_parsed(tmp_path: Path) -> None:
     _fast(lambda: DatabaseDetector().run(ctx), budget=1.0)
     # A hostile schema can't make cairn build an unbounded number of facts.
     schema.write_text("".join(f"model m{i} {{\n" for i in range(60_000)), encoding="utf-8")
+    ctx = ctx_for(tmp_path, repo)  # a context is a snapshot: take a fresh one per rewrite
     _fast(lambda: DatabaseDetector().run(ctx), budget=1.0)
     assert len(DatabaseDetector().run(ctx).exposes) <= 2000
     schema.write_text(
         'model User {\n  id Int @id\n  @@map("app_users")\n}\n\nmodel Post {\n  id Int @id\n}\n',
         encoding="utf-8",
     )
-    tables = {f.value for f in DatabaseDetector().run(ctx).exposes}
+    tables = {f.value for f in DatabaseDetector().run(ctx_for(tmp_path, repo)).exposes}
     assert {"app_users", "post"} <= {t.lower() for t in tables}
 
 

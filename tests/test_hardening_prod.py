@@ -58,7 +58,7 @@ def test_large_workspaces_scan_repos_in_parallel(
     lock = threading.Lock()
     active = peak = 0
 
-    def slow_git(root: Path, timeout: float = 5.0) -> GitInfo:
+    def slow_git(root: Path, timeout: float = 10.0) -> tuple[GitInfo, str | None]:
         nonlocal active, peak
         with lock:
             active += 1
@@ -66,9 +66,9 @@ def test_large_workspaces_scan_repos_in_parallel(
         time.sleep(0.05)
         with lock:
             active -= 1
-        return GitInfo()
+        return GitInfo(), None
 
-    monkeypatch.setattr(scan_module, "git_info", slow_git)
+    monkeypatch.setattr(scan_module, "repo_state", slow_git)
     result = scan_workspace(tmp_path)
     assert len(result.workspace.repos) == 40
     assert peak >= 4

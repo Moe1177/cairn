@@ -17,6 +17,7 @@ from cairn.model.graph import Confidence, EdgeType, FactKind
 from cairn.paths import cards_dir, workspace_file
 from cairn.scan import scan_workspace
 from tests.helpers import ctx_for, make_repo, write
+from tests.timing import time_limit
 
 
 def _edges(ws: Path, kind: EdgeType) -> dict[tuple[str, str], Confidence]:
@@ -76,7 +77,7 @@ def test_compose_anchor_bombs_are_bounded(tmp_path: Path) -> None:
     repo = make_repo(tmp_path, "infra", {"docker-compose.yml": text[:250_000]})
     start = time.perf_counter()
     InfraDetector().run(ctx_for(tmp_path, repo))
-    assert time.perf_counter() - start < 1.5
+    assert time.perf_counter() - start < time_limit(1.5)
 
 
 def test_workspace_patterns_are_deduplicated_and_budgeted(tmp_path: Path) -> None:
@@ -88,7 +89,7 @@ def test_workspace_patterns_are_deduplicated_and_budgeted(tmp_path: Path) -> Non
             (root / f"d{i}" / f"e{j}").mkdir(parents=True)
     start = time.perf_counter()
     workspace_packages(root)
-    assert time.perf_counter() - start < 2.0
+    assert time.perf_counter() - start < time_limit(2.0)
 
 
 # --- I3 + M2: generated gRPC code and generic service names -------------------------------

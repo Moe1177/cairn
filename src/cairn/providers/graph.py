@@ -139,7 +139,8 @@ def rank(graph: Graph, question: str, limit: int) -> list[Hit]:
 
 def hubs(graph: Graph, top: int) -> list[str]:
     """The most connected code symbols: where a newcomer should start reading."""
-    candidates = [n for n in graph.nodes.values() if not n.is_file]
+    # Symbols with a source file: an import node (`numpy`) has no place in the repo to read.
+    candidates = [n for n in graph.nodes.values() if n.file and not n.is_file]
     candidates.sort(key=lambda n: (-graph.degree(n.id), n.label))
     return [n.label for n in candidates[:top] if graph.degree(n.id) > 0]
 
