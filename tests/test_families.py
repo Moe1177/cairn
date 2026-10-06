@@ -80,8 +80,8 @@ def test_cards_and_index_name_the_copies(tmp_path: Path) -> None:
 
 
 def test_copies_share_a_schema_not_a_database(tmp_path: Path) -> None:
-    """Per-event copies define the same models because they're copies: that overlap is no
-    evidence of a shared database, so no shares_db/shares_env link is made between them."""
+    """Per-event copies define the same models because they're copies: that overlap is weak
+    evidence of a shared database, so the link between them is only a suggestion."""
     ws = tmp_path / "ws"
     original = ws / "registration"
     (original / "models").mkdir(parents=True)
@@ -105,5 +105,11 @@ def test_copies_share_a_schema_not_a_database(tmp_path: Path) -> None:
     pairs = {(frozenset((e.source, e.target)), e.type) for e in edges}
     copies = frozenset(("registration", "registration-2026"))
     assert (copies, EdgeType.MIRRORS) in pairs
-    assert (copies, EdgeType.SHARES_DB) not in pairs and (copies, EdgeType.SHARES_ENV) not in pairs
+    confident = {
+        (frozenset((e.source, e.target)), e.type)
+        for e in edges
+        if e.confidence.rank >= Confidence.INFERRED.rank
+    }
+    assert (copies, EdgeType.SHARES_DB) not in confident
+    assert (copies, EdgeType.SHARES_ENV) not in confident
     assert (frozenset(("checkin", "registration")), EdgeType.SHARES_DB) in pairs

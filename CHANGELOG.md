@@ -13,11 +13,15 @@ All notable changes to cairn are documented here. The format follows
 - **Copies of one app.** Repos that share their first commit (a registration site cloned for each
   event, say) are linked as one family (`mirrors`): cards say "copy of the same app: change one,
   check the other" and INDEX lines list the copies. The same package name only suggests a copy
-  (unconfirmed). Copies get no shared-database, shared-env or docs-mention link just for sharing
-  a schema or copied docs: per-event copies often use a database each.
-- **MongoDB.** Mongoose models (collection named the way Mongoose names it, or the explicit
-  third argument) and driver `.collection("x")` calls are database tables, so apps on the same
-  collections link. Only files that import mongoose/mongodb count (Firestore looks alike).
+  (unconfirmed). Between copies, a shared schema, env names or copied docs are only suggestions
+  (per-event copies often use a database each; a service split from a monolith may really share
+  one, so confirm it with `annotate-edge`), and a relation you declare always stands. Only
+  first-parent history counts, so a subtree merged in later isn't "a copy"; shallow clones don't
+  find their family.
+- **MongoDB.** Mongoose models and driver `.collection("x")` calls are database tables, so apps
+  on the same collections link. Collections are named exactly as Mongoose does (its pluraliser,
+  ported), or by the third argument or a lone schema's `collection` option; models split across
+  lines count. Only files that import mongoose/mongodb do (Firestore looks alike).
 - **Git trust.** When git refuses a repo owned by another user ("dubious ownership"), the scan
   says so with the `safe.directory` command instead of quietly losing its HEAD, remote and
   cache; `cairn doctor` lists every such repo.

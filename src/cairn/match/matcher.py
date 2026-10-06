@@ -87,8 +87,10 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
         by_pair.setdefault(frozenset((edge.source, edge.target)), []).append(edge)
     # Copies of one app (a shared first commit) define the same tables and env vars, and their
     # copied docs name the original, because they're copies; they often run against a
-    # different database per event. That overlap says nothing about shared data or a
-    # dependency, so it makes no link.
+    # different database per event. That overlap is weak evidence of shared data, so the link
+    # becomes a suggestion (ambiguous, confirm with annotate-edge). A service split out of a
+    # monolith also shares its first commit and may really share its database: demoting keeps
+    # that link findable instead of dropping it. A relation the user declared stands.
     copies = {
         pair
         for pair, pair_edges in by_pair.items()
@@ -97,14 +99,30 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
         )
     }
     kept = [
-        e
-        for e in items
-        if not (
+        _as_suggestion(e)
+        if (
             e.type in (EdgeType.SHARES_DB, EdgeType.SHARES_ENV, EdgeType.MENTIONS)
             and frozenset((e.source, e.target)) in copies
+            and "manual" not in e.signals
         )
+        else e
+        for e in items
     ]
-    return tuple(_corroborated(e, by_pair[frozenset((e.source, e.target))]) for e in kept)
+    # Corroborate against the demoted set: a copy's (now unconfirmed) mention must not lift the
+    # copy's database link straight back up.
+    kept_by_pair: dict[frozenset[str], list[Edge]] = {}
+    for edge in kept:
+        kept_by_pair.setdefault(frozenset((edge.source, edge.target)), []).append(edge)
+    return tuple(_corroborated(e, kept_by_pair[frozenset((e.source, e.target))]) for e in kept)
+
+
+def _as_suggestion(edge: Edge) -> Edge:
+    if edge.confidence is Confidence.AMBIGUOUS:
+        return edge
+    signals = (*edge.signals, "between copies")
+    return edge.model_copy(
+        update={"confidence": Confidence.AMBIGUOUS, "score": 0.2, "signals": signals}
+    )
 
 
 def _corroborated(edge: Edge, same_pair: list[Edge]) -> Edge:

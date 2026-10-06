@@ -13,6 +13,7 @@ ONE_LINER_MAX = 60
 _LANGUAGES = frozenset({"typescript", "javascript", "python", "go", "rust", "java"})
 _PREVIEW = 8
 _USED_BY_PREVIEW = 3
+_COPIES_PREVIEW = 2  # a family kept per event can grow to many copies
 # Links where the source uses the target. Shared databases/env are mutual, a topic has no
 # user, and a docs mention isn't use.
 _USES = frozenset(
@@ -53,8 +54,8 @@ def repo_line(
         users = f" · used by {shown}" + (f" +{more}" if more > 0 else "")
     twins = ""
     if copies:
-        shown = ", ".join(clean_inline(c, 40) for c in copies[:_USED_BY_PREVIEW])
-        more = len(copies) - _USED_BY_PREVIEW
+        shown = ", ".join(clean_inline(c, 40) for c in copies[:_COPIES_PREVIEW])
+        more = len(copies) - _COPIES_PREVIEW
         twins = f" · copies: {shown}" + (f" +{more}" if more > 0 else "")
     line = f"- {clean_inline(repo.id, 80)}{alias_part}: {one_liner(repo, authored)}{stack}"
     return line + twins + users

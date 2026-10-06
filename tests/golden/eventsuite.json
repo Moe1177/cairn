@@ -111,6 +111,60 @@
    "target": "registration-site-2026",
    "type": "mirrors",
    "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "lib/models/application.ts",
+     "line": 2,
+     "repo": "registration-site",
+     "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+    },
+    {
+     "file": "lib/models/application.ts",
+     "line": 2,
+     "repo": "registration-site-2026",
+     "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+    },
+    {
+     "file": "lib/models/checkin.ts",
+     "line": 2,
+     "repo": "registration-site",
+     "snippet": "const CheckIn = mongoose.models.CheckIn || mongoose.model(\"CheckIn\", schema);"
+    }
+   ],
+   "note": null,
+   "score": 0.72,
+   "signals": [
+    "db_table:applications",
+    "db_table:checkins"
+   ],
+   "source": "registration-site",
+   "target": "registration-site-2026",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "README.md",
+     "line": 1,
+     "repo": "registration-site-2026",
+     "snippet": "# registration-site"
+    }
+   ],
+   "note": null,
+   "score": 0.2,
+   "signals": [
+    "doc_mention",
+    "between copies"
+   ],
+   "source": "registration-site-2026",
+   "target": "registration-site",
+   "type": "mentions",
+   "why": null
   }
  ],
  "repos": {
