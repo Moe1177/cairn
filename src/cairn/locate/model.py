@@ -12,6 +12,8 @@ class LocateHit:
     symbol: str | None = None
     score: float = 0.0
     repo: str | None = None
+    defines: bool = False  # the line defines a searched term (`def X`, `const X =`)
+    also: tuple[str, ...] = ()  # copies of this repo with the same place (same file and line)
 
 
 @dataclass(frozen=True)
