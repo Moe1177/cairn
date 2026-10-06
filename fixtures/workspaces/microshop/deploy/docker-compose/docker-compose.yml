@@ -1,0 +1,15 @@
+services:
+  storefront:
+    image: acme/storefront:1.4.0
+  catalogue:
+    image: acme/catalogue:0.9.1
+  catalogue-db:
+    image: acme/catalogue-db:0.9.0
+  basket:
+    image: acme/basket:2.0.0
+  basket-db:
+    image: mongo:3.4
+  checkout:
+    image: acme/checkout:1.1.0
+  rabbitmq:
+    image: rabbitmq:3.12

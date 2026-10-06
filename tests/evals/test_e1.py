@@ -26,6 +26,7 @@ REMOTES = {
     "polyglot": {},
     "lookalikes": {},
     "servicemesh": {},
+    "microshop": {},
 }
 SECRETS = ("sk_live_FAKE", "sk_test_FAKEreadme", "SuperSecretPw123", "ghp_FAKEfake", REMOTE_TOKEN)
 
@@ -219,3 +220,17 @@ def test_service_links_are_exact(scanned) -> None:
 
 def test_read_only_evals_share_one_scan_per_workspace(scanned) -> None:
     assert scanned("mini-eats") is scanned("mini-eats")
+
+
+def test_real_world_service_links_are_exact(scanned) -> None:
+    """Spec §24: Sock Shop's coupling styles (service DNS, host literals, Spring AMQP, deploy
+    repos) with their look-alikes (localhost, a public API, a comment, mongo:3.4, catalogue-db,
+    a repo that only declares a queue) that must not link."""
+    _, result = scanned("microshop")
+    predicted = {
+        (e.source, e.target, e.type.value, e.confidence.value) for e in result.workspace.edges
+    }
+    expected = {
+        (e["from"], e["to"], e["type"], e["confidence"]) for e in _expect("microshop")["edges"]
+    }
+    assert predicted == expected, (sorted(predicted - expected), sorted(expected - predicted))

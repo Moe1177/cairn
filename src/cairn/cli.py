@@ -414,6 +414,10 @@ def bench(
     out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
         "bench/results"
     ),
+    resume: Annotated[
+        Path | None,
+        typer.Option("--resume", help="Continue a run's .jsonl log: only missing/failed runs."),
+    ] = None,
 ) -> None:
     """Measure what cairn saves: run a suite headlessly in Claude Code under each condition."""
     from cairn.bench.conditions import CONDITIONS
@@ -438,21 +442,28 @@ def bench(
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     runner = ClaudeRunner(model=model)
     meta = {"model": model, "claude_version": runner.version()}
-    with _isolated_cairn_homes():
-        records = run_bench(
-            suite_dir.resolve(),
-            conditions=chosen,
-            runs=runs,
-            task_ids=task_ids,
-            runner=runner,
-            out_dir=out,
-            now=stamp,
-            meta=meta,
-        )
+    if resume is not None and not resume.is_file():
+        _fail(f"no run log at {resume}.")
+    try:
+        with _isolated_cairn_homes():
+            records = run_bench(
+                suite_dir.resolve(),
+                conditions=chosen,
+                runs=runs,
+                task_ids=task_ids,
+                runner=runner,
+                out_dir=out,
+                now=stamp,
+                meta=meta,
+                resume=resume,
+            )
+    except CairnError as exc:  # BenchStopped (a usage limit) or a suite that can't be fetched
+        _fail(str(exc))
     from cairn.bench.report import render_markdown
 
+    stem = resume.with_suffix("") if resume else out / stamp
     typer.echo(render_markdown(records, meta=meta))
-    typer.echo(f"Reports: {out / (stamp + '.md')} and {out / (stamp + '.json')}")
+    typer.echo(f"Reports: {stem}.md and {stem}.json")
 
 
 @app.command()

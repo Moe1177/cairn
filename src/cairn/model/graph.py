@@ -32,6 +32,8 @@ class FactKind(StrEnum):
     DOC_MENTION = "doc_mention"
     CLI = "cli"
     DB_PROVIDER = "db_provider"
+    SERVICE_HOST = "service_host"
+    DEPLOYS_IMAGE = "deploys_image"
 
 
 class EdgeType(StrEnum):
@@ -44,6 +46,7 @@ class EdgeType(StrEnum):
     PATH_REF = "path_ref"
     MENTIONS = "mentions"
     SHARES_ENV = "shares_env"
+    DEPLOYS = "deploys"
     MANUAL = "manual"
 
 

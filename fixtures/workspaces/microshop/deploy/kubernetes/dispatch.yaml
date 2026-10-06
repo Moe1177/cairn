@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  template:
+    spec:
+      containers:
+      - name: dispatch
+        image: acme/dispatch:1.0.0
+      - name: dispatch-worker
+        image: acme/dispatch-worker:1.0.0

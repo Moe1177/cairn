@@ -1,0 +1,6 @@
+jobs:
+  b:
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: acme/storefront

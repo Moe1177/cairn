@@ -205,7 +205,10 @@ def _describe(edge: Edge) -> str:
     if edge.type is EdgeType.PATH_REF:
         return "references path " + _join(_signal_values(edge, "path_ref:"))
     if edge.type is EdgeType.CALLS_HTTP:
-        return "calls " + _join(_signal_values(edge, "http_route:"), _ROUTE_PREVIEW)
+        routes = _signal_values(edge, "http_route:")
+        if routes:
+            return "calls " + _join(routes, _ROUTE_PREVIEW)
+        return "calls http://" + _join(_signal_values(edge, "host:"))
     if edge.type is EdgeType.GRPC:
         return "gRPC " + _join(_signal_values(edge, "grpc:"))
     if edge.type is EdgeType.PUBSUB:
@@ -214,6 +217,8 @@ def _describe(edge: Edge) -> str:
         return "compose: depends on"
     if edge.type is EdgeType.SHARES_ENV:
         return "shares env " + _join(_signal_values(edge, "env:"))
+    if edge.type is EdgeType.DEPLOYS:
+        return "deploys image " + _join(_signal_values(edge, "image:"))
     if edge.type is EdgeType.MENTIONS:
         return "docs mention"
     if edge.type is EdgeType.MANUAL:

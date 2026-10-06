@@ -9,6 +9,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from cairn.bench.sources import fetch_sources, remotes
 from cairn.bench.suite import Suite
 from cairn.bench.workspace import materialize
 from cairn.emit import write_outputs
@@ -28,8 +29,14 @@ class Prepared:
     mcp_config: Path | None
 
 
-def prepare(condition: str, suite: Suite, suite_dir: Path, run_dir: Path) -> Prepared:
-    ws = materialize(suite_dir / suite.workspace, run_dir / "ws")
+def prepare(
+    condition: str, suite: Suite, suite_dir: Path, run_dir: Path, source: Path | None = None
+) -> Prepared:
+    """`source`: the fixture tree (fetched once per benchmark for an OSS suite)."""
+    tree = source or fetch_sources(suite_dir, suite)
+    # A fetched upstream tree keeps its own names: renaming dot-git to .git would let it plant
+    # hooks or config that the fixture commit would run.
+    ws = materialize(tree, run_dir / "ws", remotes=remotes(suite), rename_dots=not suite.sources)
     if condition in ("A", "B"):
         shutil.rmtree(cairn_dir(ws), ignore_errors=True)  # no authored summaries either
         if condition == "B":

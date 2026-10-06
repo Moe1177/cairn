@@ -92,7 +92,7 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
 
     @server.tool()
     def related(repo: str, edge_type: str | None = None, include_unconfirmed: bool = False) -> str:
-        """Repos related to `repo`, with evidence. edge_type: calls_http, grpc, pubsub, compose_link, shares_db, depends_on_package, path_ref, shares_env, mentions, manual."""
+        """Repos related to `repo`, with evidence. edge_type: calls_http, grpc, pubsub, compose_link, deploys, shares_db, depends_on_package, path_ref, shares_env, mentions, manual."""
         return _safe(lambda: tools.related_text(ws_root, repo, edge_type, include_unconfirmed))
 
     @server.tool()

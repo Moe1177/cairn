@@ -738,6 +738,19 @@
       "evidence": [
        {
         "file": "docker-compose.yml",
+        "line": 17,
+        "repo": "infra",
+        "snippet": "image: bitnami/kafka:3.7"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "bitnami/kafka"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
         "line": 15,
         "repo": "infra",
         "snippet": "build: ../billing"

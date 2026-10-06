@@ -1,0 +1,19 @@
+edges:
+  - {from: storefront, to: catalogue, type: calls_http, confidence: inferred}
+  - {from: storefront, to: basket, type: calls_http, confidence: inferred}
+  - {from: checkout, to: payments, type: calls_http, confidence: inferred}
+  - {from: checkout, to: dispatch, type: calls_http, confidence: inferred}
+  - {from: dispatch, to: dispatch-worker, type: pubsub, confidence: inferred}
+  - {from: deploy, to: storefront, type: deploys, confidence: inferred}
+  - {from: deploy, to: catalogue, type: deploys, confidence: inferred}
+  - {from: deploy, to: basket, type: deploys, confidence: inferred}
+  - {from: deploy, to: checkout, type: deploys, confidence: inferred}
+  - {from: deploy, to: payments, type: deploys, confidence: inferred}
+  - {from: deploy, to: dispatch, type: deploys, confidence: inferred}
+  - {from: deploy, to: dispatch-worker, type: deploys, confidence: inferred}
+phrasings:
+  - {query: "storefront", repo: storefront}
+  - {query: "catalogue", repo: catalogue}
+  - {query: "checkout", repo: checkout}
+  - {query: "dispatch-worker", repo: dispatch-worker}
+  - {query: "payments", repo: payments}

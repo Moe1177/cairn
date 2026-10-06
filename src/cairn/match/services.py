@@ -128,6 +128,49 @@ def _resolve(
     return [(o, Confidence.AMBIGUOUS) for o in owners]
 
 
+def deploy_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Spec §24: a repo whose deploy files run another repo's image (`org/<repo>:tag`).
+
+    An image counts when its name is exactly one sibling repo and its org runs at least one
+    other sibling in the same deployer: `weaveworksdemos/catalogue` beside
+    `weaveworksdemos/carts` links, a lone `grafana/grafana` doesn't.
+    """
+    found: dict[tuple[str, str], _Link] = {}
+    for deployer in repos:
+        by_org: dict[str, dict[str, list]] = {}  # org -> target repo id -> facts
+        for fact in deployer.contracts.consumes:
+            if fact.kind is not FactKind.DEPLOYS_IMAGE or "/" not in fact.value:
+                continue
+            org, name = fact.value.rsplit("/", 1)
+            named = [r for r in repos if name in {n.lower() for n in (r.id, *r.aliases)}]
+            if len(named) != 1 or named[0].id == deployer.id:
+                continue
+            by_org.setdefault(org, {}).setdefault(named[0].id, []).append(fact)
+        for targets in by_org.values():
+            if len(targets) < 2:
+                continue
+            for target, facts in targets.items():
+                link = found.setdefault((deployer.id, target), _Link(EdgeType.DEPLOYS))
+                for fact in facts:
+                    link.add(Confidence.INFERRED, f"image:{fact.value}", fact.evidence)
+    return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
+def host_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Spec §24: a call addressed to a host named exactly like another repo (service DNS)."""
+    found: dict[tuple[str, str], _Link] = {}
+    for caller in repos:
+        for fact in caller.contracts.consumes:
+            if fact.kind is not FactKind.SERVICE_HOST:
+                continue
+            named = [r for r in repos if fact.value in {n.lower() for n in (r.id, *r.aliases)}]
+            if len(named) != 1 or named[0].id == caller.id:
+                continue
+            link = found.setdefault((caller.id, named[0].id), _Link(EdgeType.CALLS_HTTP))
+            link.add(Confidence.INFERRED, f"host:{fact.value}", fact.evidence)
+    return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
 def compose_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
     """Spec §21.2: `depends_on` between two services built from (or named after) repos."""
     found: dict[tuple[str, str], _Link] = {}
