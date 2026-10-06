@@ -19,6 +19,7 @@ class GrepResult:
     hits: tuple[LocateHit, ...]
     files_matched: int
     truncated: bool  # more files matched than were kept
+    partial: bool = False  # the search stopped early (time or size limit): some files unseen
 
 
 @dataclass(frozen=True)
@@ -27,3 +28,4 @@ class LocateResult:
     route: str  # which locator answered: "grep", "graph" or "grep+graph"
     reason: str  # why that locator, in a few words
     truncated: bool = False
+    partial: bool = False  # a search stopped early

@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +26,68 @@ class Completed:
     returncode: int
     stdout: str
     stderr: str
+
+
+@dataclass(frozen=True)
+class Capped:
+    returncode: int | None  # None when the program was stopped (capped or timed out)
+    stdout: bytes
+    capped: bool  # stopped after max_bytes of output
+    timed_out: bool
+
+
+def run_bytes_capped(
+    args: Sequence[str],
+    *,
+    max_bytes: int,
+    cwd: Path | None = None,
+    timeout: float = 10.0,
+    env: Mapping[str, str] | None = None,
+) -> Capped | None:
+    """At most `max_bytes` of stdout, read as it comes: a program that prints more, or runs past
+    `timeout`, is stopped and what it printed so far is kept. None when it couldn't start."""
+    try:
+        process = subprocess.Popen(
+            list(args),
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=dict(env) if env is not None else None,
+            creationflags=_NO_WINDOW,
+        )
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    chunks: list[bytes] = []
+    state = {"size": 0, "capped": False}
+
+    def pump() -> None:
+        stream = process.stdout
+        assert stream is not None
+        while chunk := stream.read(65536):
+            room = max_bytes - state["size"]
+            chunks.append(chunk[:room])
+            state["size"] += min(len(chunk), room)
+            if len(chunk) >= room:
+                state["capped"] = True
+                process.kill()
+                return
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    reader.join(timeout)
+    timed_out = reader.is_alive()
+    if timed_out:
+        process.kill()
+        reader.join(5)
+    try:
+        code: int | None = process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        code = None
+    with contextlib.suppress(OSError):
+        if process.stdout is not None:
+            process.stdout.close()
+    stopped = timed_out or bool(state["capped"])
+    return Capped(None if stopped else code, b"".join(chunks), bool(state["capped"]), timed_out)
 
 
 def run_bytes(

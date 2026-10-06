@@ -290,3 +290,33 @@ def test_a_stale_index_adds_no_symbols_to_grep_hits(tmp_path: Path) -> None:
     result = hybrid_locate(repo, "where is getOrderById defined", graph, graph_stale=True)
     assert result.hits and all(h.symbol is None for h in result.hits)
     assert result.route == "grep"
+
+
+def test_a_huge_result_is_capped_and_said_to_be_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path / "big", {f"src/m{i}.py": "import logging\n" * 20 for i in range(40)})
+    monkeypatch.setattr(grep_module, "GREP_MAX_BYTES", 600)
+    result = grep_locate(repo, ("logging",), limit=5)
+    assert result.hits and result.partial
+
+
+def test_a_git_timeout_is_partial_and_does_not_search_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cairn.discover.proc import Capped
+
+    repo = _repo(tmp_path / "shop", SHOP)
+    monkeypatch.setattr(
+        grep_module, "run_bytes_capped", lambda *a, **k: Capped(None, b"", False, True)
+    )
+    monkeypatch.setattr(grep_module, "_python_grep", lambda *a: pytest.fail("searched twice"))
+    assert grep_locate(repo, ("getOrderById",), limit=5, names=False).partial
+
+
+def test_the_fallback_says_when_it_stopped_early(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path / "shop", SHOP, git=False)
+    monkeypatch.setattr(grep_module, "_FALLBACK_FILES", 1)
+    assert grep_locate(repo, ("getOrderById",), limit=5).partial
