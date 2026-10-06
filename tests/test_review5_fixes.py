@@ -134,8 +134,7 @@ def test_a_warm_refresh_sees_new_git_ignored_live_files(tmp_path: Path) -> None:
 
 
 def test_the_file_index_is_compact(tmp_path: Path) -> None:
-    import tracemalloc
-
+    """Measured on the structure itself: allocator-level numbers vary by platform."""
     repo = tmp_path / "big"
     for d in range(20):
         (repo / f"d{d}").mkdir(parents=True)
@@ -144,13 +143,16 @@ def test_the_file_index_is_compact(tmp_path: Path) -> None:
     ctx = base_module.DetectorContext(
         tmp_path, RepoLocation(id="big", root=repo, app_roots=(repo,)), CairnConfig()
     )
-    tracemalloc.start()
-    before = tracemalloc.take_snapshot()
     count = sum(1 for _ in ctx.files(lambda name: name.endswith(".py")))
-    after = tracemalloc.take_snapshot()
-    tracemalloc.stop()
-    retained = sum(s.size_diff for s in after.compare_to(before, "filename"))
-    assert count == 3000 and retained / count < 300, retained / count
+    groups = ctx._files.groups
+    assert groups is not None and count == 3000
+    size = sys.getsizeof(groups) + sum(
+        sys.getsizeof(group) + sys.getsizeof(names) + sum(sys.getsizeof(n) for n in names)
+        for group in groups
+        for names in (group[1],)
+    )
+    folders = sum(sys.getsizeof(folder) for folder, _ in groups)  # one Path per folder
+    assert (size + folders) / count < 150, (size + folders) / count
 
 
 def test_the_read_cache_counts_memory_not_characters(

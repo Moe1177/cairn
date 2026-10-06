@@ -87,5 +87,8 @@ def test_doctor_warns_when_there_is_no_map(tmp_path: Path) -> None:
 
 
 def test_shell_completion_is_available() -> None:
-    result = CliRunner().invoke(app, ["--help"])
-    assert "--install-completion" in result.output
+    from typer.main import get_command
+
+    # The registered options, not rendered help: CI colours help text, splitting the words.
+    options = {opt for param in get_command(app).params for opt in param.opts}
+    assert {"--install-completion", "--show-completion"} <= options

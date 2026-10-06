@@ -130,6 +130,8 @@ def test_executable_discovery_prefers_the_running_install(
     beside.write_text("", encoding="utf-8")
     monkeypatch.setattr(module.sys, "executable", str(bin_dir / "python"))
     monkeypatch.setattr(module.shutil, "which", lambda name: "/elsewhere/graphify")
+    # The interpreter's own scripts folders may hold a real graphify (the CI `deep` job).
+    monkeypatch.setattr(module.sysconfig, "get_path", lambda *args, **kwargs: None)
     assert GraphifyProvider().executable == str(beside)
     beside.unlink()
     assert GraphifyProvider().executable == "/elsewhere/graphify"
