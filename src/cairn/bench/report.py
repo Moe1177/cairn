@@ -193,7 +193,7 @@ def _uncertainty(records: Sequence["RunRecord"]) -> list[str]:
 
 def _paired(records: Sequence["RunRecord"]) -> list[str]:
     lines = [
-        "| Comparison | Tasks | Δ success | p | Δ cost (USD) | p | Δ fresh tokens | p |",
+        "| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |",
         "|---|---|---|---|---|---|---|---|",
     ]
     conditions = _conditions(records)

@@ -59,3 +59,8 @@ def test_run_logs_load_back_and_combine(tmp_path: Path) -> None:
     assert loaded == _records()
     combined = render_combined({"suite-x / sonnet": loaded, "suite-y / haiku": loaded[:4]})
     assert "## suite-x / sonnet" in combined and "## suite-y / haiku" in combined
+
+
+def test_reports_are_plain_ascii_for_any_console() -> None:
+    md = render_markdown(_records())
+    assert md.isascii(), sorted({c for c in md if not c.isascii()})
