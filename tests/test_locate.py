@@ -320,3 +320,24 @@ def test_the_fallback_says_when_it_stopped_early(
     repo = _repo(tmp_path / "shop", SHOP, git=False)
     monkeypatch.setattr(grep_module, "_FALLBACK_FILES", 1)
     assert grep_locate(repo, ("getOrderById",), limit=5).partial
+
+
+@pytest.mark.parametrize("term", ["real-time", "up-to-date", "end-to-end", "APIs", "IDs"])
+def test_hyphenated_english_and_plural_acronyms_are_weak_literals(term: str) -> None:
+    from cairn.locate.terms import is_weak
+
+    assert is_weak(term)
+    assert not is_weak("shipping_task") and not is_weak("getOrderById") and not is_weak("v2-api")
+
+
+def test_a_weak_literal_does_not_hide_the_question_s_words(tmp_path: Path) -> None:
+    repo = _repo(
+        tmp_path / "app",
+        {
+            "src/ui.py": "# real-time updates are shown here\nrender()\n",
+            "docs/overview.md": "The real-time pipeline.\n",
+            "src/order_sync.py": "def sync_orders(order):\n    return order\n",
+        },
+    )
+    result = hybrid_locate(repo, "where is the real-time order sync handled?", None)
+    assert "src/order_sync.py" in [h.file for h in result.hits[:3]]
