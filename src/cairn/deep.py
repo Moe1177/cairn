@@ -1,5 +1,6 @@
 """Build, inspect and clear per-repo deep indexes (spec §23). The CLI wires these up."""
 
+import json
 import os
 import shutil
 import subprocess
@@ -8,15 +9,21 @@ import time
 from pathlib import Path
 
 from cairn import providers
+from cairn.discover.git import head_sha
 from cairn.errors import CairnError
 from cairn.model.graph import Repo, Workspace
 from cairn.providers.base import BuildResult
 from cairn.providers.graphify import INSTALL_HINT
 from cairn.providers.meta import deep_dir, deep_root, indexed_repos
+from cairn.scan_cache import worktree_fingerprint
+from cairn.store.atomic import atomic_write_text
 
 DEFAULT_TIMEOUT = 900.0
 GRAPHIFY_REQUIREMENT = "graphifyy>=0.9.77,<0.10"
 BUILD_LOCK = ".building"  # a build in progress (a git hook's background refresh, say)
+# The repo state a build failed on. Refresh (and so every commit's hook) doesn't retry it until
+# the repo changes; `cairn deep build` always does.
+FAILED_FILE = "failed.json"
 
 
 def graphify_install_command() -> list[str]:
@@ -54,7 +61,7 @@ def select_repos(
     kept = []
     for repo in repos:
         status = provider.status(ws_root, repo.id, ws_root / repo.path)
-        if status.present and status.stale:
+        if status.present and status.stale and not failed_unchanged(ws_root, repo):
             kept.append(repo)
     return kept
 
@@ -86,9 +93,48 @@ def _build_one(provider, ws_root: Path, repo: Repo, timeout: float) -> BuildResu
         fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     os.close(fd)
     try:
-        return provider.build(ws_root, repo.id, ws_root / repo.path, timeout=timeout)
+        result = provider.build(ws_root, repo.id, ws_root / repo.path, timeout=timeout)
+        _note_outcome(ws_root, repo, ok=result.ok)
+        return result
     finally:
         lock.unlink(missing_ok=True)
+
+
+def failed_unchanged(ws_root: Path, repo: Repo) -> bool:
+    """The last build failed, and the repo hasn't changed since: retrying would fail again."""
+    seen = _failed_state(ws_root, repo.id)
+    return seen is not None and seen == _repo_state(ws_root, repo)
+
+
+def last_build_failed(ws_root: Path, repo_id: str) -> bool:
+    return _failed_state(ws_root, repo_id) is not None
+
+
+def _note_outcome(ws_root: Path, repo: Repo, *, ok: bool) -> None:
+    marker = deep_dir(ws_root, repo.id) / FAILED_FILE
+    if ok:
+        marker.unlink(missing_ok=True)
+        return
+    head, fingerprint = _repo_state(ws_root, repo)
+    atomic_write_text(marker, json.dumps({"head_sha": head, "fingerprint": fingerprint}) + "\n")
+
+
+def _failed_state(ws_root: Path, repo_id: str) -> tuple[str | None, str | None] | None:
+    try:
+        data = json.loads((deep_dir(ws_root, repo_id) / FAILED_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    head, fingerprint = data.get("head_sha"), data.get("fingerprint")
+    if not all(v is None or isinstance(v, str) for v in (head, fingerprint)):
+        return None
+    return head, fingerprint
+
+
+def _repo_state(ws_root: Path, repo: Repo) -> tuple[str | None, str | None]:
+    root = ws_root / repo.path
+    return head_sha(root), worktree_fingerprint(root)
 
 
 def status_lines(ws_root: Path, workspace: Workspace) -> list[str]:
@@ -106,6 +152,8 @@ def status_lines(ws_root: Path, workspace: Workspace) -> list[str]:
         version = f" {status.version}" if status.version else ""
         built = f" · built at {status.built_sha[:7]}" if status.built_sha else ""
         state = "stale" if status.stale else "fresh"
+        if last_build_failed(ws_root, repo_id):
+            state += f" · last build failed (`cairn deep build {repo_id}` retries)"
         lines.append(
             f"{repo_id}: {status.nodes} symbols · {status.provider}{version}{built} · {state}"
         )
