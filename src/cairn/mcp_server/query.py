@@ -16,7 +16,7 @@ from cairn.discover.git import head_sha
 from cairn.locate.hybrid import hybrid_locate
 from cairn.locate.model import LocateHit, LocateResult
 from cairn.locate.workspace import fan_out, scoped_locate
-from cairn.model.graph import EdgeType, Repo, Workspace
+from cairn.model.graph import Confidence, EdgeType, Repo, Workspace
 from cairn.providers.graph import Graph, load_graph_cached
 from cairn.providers.graphify import GraphifyProvider
 from cairn.providers.meta import read_deep_meta
@@ -43,7 +43,8 @@ def answer(
     notes = _incomplete(ws_root, [repo, *named, *related])
     if any(result.partial for result in results.values()):
         notes.append("(a search stopped early at its time or size limit: ask a narrower question)")
-    hits = collapse_copies(fan_out(results, limit=HITS * 2), workspace, asked=repo.id)[:HITS]
+    every = sum(len(result.hits) for result in results.values())  # collapse first, then cap
+    hits = collapse_copies(fan_out(results, limit=every), workspace, asked=repo.id)[:HITS]
     searched = ", ".join(r.id for r in [repo, *named, *related])
     if not hits:
         if read_deep_meta(ws_root, repo.id) is None:
@@ -130,22 +131,25 @@ def collapse_copies(
     shared first commit): the asked repo's, naming the others. The freed places go to the
     next hits."""
     family = _copy_families(workspace)
-    kept: dict[tuple[str, str, int | None], LocateHit] = {}  # keeps fan_out's order
-    for hit in hits:
+    kept: dict[tuple[object, ...], LocateHit] = {}  # keeps fan_out's order
+    for index, hit in enumerate(hits):
         repo = hit.repo or asked
-        key = (family.get(repo, repo), hit.file, hit.line)
+        key: tuple[object, ...] = (family.get(repo, repo), hit.file, hit.line)
         first = kept.get(key)
-        if first is None:
-            kept[key] = hit
+        first_repo = (first.repo or asked) if first is not None else None
+        if first is None or hit.line is None or first_repo == repo:
+            # No line to compare, or a second hit of the same repo: never merged.
+            kept[key if first is None else (*key, index)] = hit
         elif repo == asked:  # the asked repo speaks for its copies, in the same place
-            kept[key] = replace(hit, also=(*first.also, first.repo or asked))
+            kept[key] = replace(hit, also=tuple(sorted({*first.also, first_repo or asked})))
         else:
-            kept[key] = replace(first, also=(*first.also, repo))
+            kept[key] = replace(first, also=tuple(sorted({*first.also, repo})))
     return tuple(kept.values())
 
 
 def _copy_families(workspace: Workspace) -> dict[str, str]:
-    """repo id -> a family id shared by every repo linked to it as a copy (`mirrors`)."""
+    """repo id -> a family id shared by every repo linked to it as a copy (a confirmed `mirrors`
+    link: a shared package name alone only suggests one)."""
     parent: dict[str, str] = {}
 
     def root(repo: str) -> str:
@@ -154,7 +158,7 @@ def _copy_families(workspace: Workspace) -> dict[str, str]:
         return repo
 
     for edge in workspace.edges:
-        if edge.type is EdgeType.MIRRORS:
+        if edge.type is EdgeType.MIRRORS and edge.confidence is not Confidence.AMBIGUOUS:
             a, b = root(edge.source), root(edge.target)
             if a != b:
                 parent[max(a, b)] = min(a, b)

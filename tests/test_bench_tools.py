@@ -127,3 +127,35 @@ def test_the_combined_report_shows_tools_too() -> None:
     records = [_record("E", (("mcp__cairn__query", 1),)), _record("E", (("Grep", 1),))]
     text = render_combined({"All suites / haiku": records})
     assert "### Tools used" in text and "| E | 2 | 1 (50%) |" in text
+
+
+def test_a_no_result_run_keeps_stderr_and_drops_the_stream() -> None:
+    """The init event is often several KB: stderr must survive, and the JSON stream (tool
+    results quoting the benchmark repo's code) must not be graded or matched as a limit."""
+    from cairn.bench.run import usage_limit
+
+    init = json.dumps({"type": "system", "subtype": "init", "tools": ["x" * 3000]})
+    tool_output = json.dumps(
+        {"type": "user", "message": {"content": "raise RateLimitError('rate limit')"}}
+    )
+    result = parse_result(init + "\n" + tool_output, "Claude AI usage limit reached|1760000000")
+    assert result.is_error and "usage limit reached" in result.result_text
+    assert "RateLimitError" not in result.result_text and usage_limit(result)
+    quiet = parse_result(init + "\n" + tool_output, "")
+    assert quiet.is_error and not usage_limit(quiet)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "You've hit your limit · resets 3pm",
+        "5-hour limit reached ∙ resets 3am",
+        "Request was rate limited",
+        "usage limits exceeded",
+        'API Error: 429 {"type":"error","error":{"type":"rate_limit_error"}}',
+    ],
+)
+def test_more_limit_wordings_are_detected(text: str) -> None:
+    from cairn.bench.run import usage_limit
+
+    assert usage_limit(RunResult(result_text=text, is_error=True))
