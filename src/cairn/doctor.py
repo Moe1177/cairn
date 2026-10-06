@@ -133,9 +133,7 @@ def _harnesses(root: Path) -> Check:
 def _graphify(root: Path) -> list[Check]:
     provider = providers.default_provider()
     if not provider.available():
-        return [
-            Check(INFO, "graphify", "not installed (optional: pip install 'cairnmap[graphify]')")
-        ]
+        return [Check(INFO, "graphify", "not installed (optional): `cairn deep enable` sets it up")]
     checks = [Check(OK, "graphify", provider.version() or "version unknown")]
     workspace = None
     with contextlib.suppress(CairnError, OSError, ValueError):  # _map() reported it already
@@ -145,8 +143,17 @@ def _graphify(root: Path) -> list[Check]:
         repo = workspace.repo(repo_id) if workspace else None
         if repo is not None and provider.status(root, repo_id, root / repo.path).stale:
             stale.append(repo_id)
+    total = len(workspace.repos) if workspace else 0
+    indexed = len(indexed_repos(root))
     if stale:
         checks.append(
-            Check(WARN, "deep indexes", f"stale: {', '.join(stale)}; run `cairn refresh --deep`")
+            Check(
+                WARN,
+                "deep indexes",
+                f"{indexed} of {total} repos; stale: {', '.join(stale)}; run `cairn refresh`",
+            )
         )
+    elif total:
+        hint = "" if indexed == total else "; `cairn deep enable` indexes the rest"
+        checks.append(Check(OK, "deep indexes", f"{indexed} of {total} repos{hint}"))
     return checks

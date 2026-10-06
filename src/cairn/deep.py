@@ -1,6 +1,10 @@
 """Build, inspect and clear per-repo deep indexes (spec §23). The CLI wires these up."""
 
+import os
 import shutil
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 from cairn import providers
@@ -8,9 +12,30 @@ from cairn.errors import CairnError
 from cairn.model.graph import Repo, Workspace
 from cairn.providers.base import BuildResult
 from cairn.providers.graphify import INSTALL_HINT
-from cairn.providers.meta import deep_root, indexed_repos
+from cairn.providers.meta import deep_dir, deep_root, indexed_repos
 
 DEFAULT_TIMEOUT = 900.0
+GRAPHIFY_REQUIREMENT = "graphifyy>=0.9.77,<0.10"
+BUILD_LOCK = ".building"  # a build in progress (a git hook's background refresh, say)
+
+
+def graphify_install_command() -> list[str]:
+    """How to install graphify beside cairn: as its own tool (uv, else pipx) so cairn's own
+    environment isn't touched while it runs (Windows can't replace a running cairn.exe); else
+    into the interpreter running cairn."""
+    if shutil.which("uv"):
+        return ["uv", "tool", "install", GRAPHIFY_REQUIREMENT]
+    if shutil.which("pipx"):
+        return ["pipx", "install", GRAPHIFY_REQUIREMENT]
+    return [sys.executable, "-m", "pip", "install", GRAPHIFY_REQUIREMENT]
+
+
+def run_installer(command: list[str]) -> int:
+    """Run an install command with the user's console (no shell); its exit code."""
+    try:
+        return subprocess.run(command, check=False).returncode  # noqa: S603 - fixed argv
+    except OSError:
+        return 127
 
 
 def select_repos(
@@ -40,9 +65,30 @@ def build(ws_root: Path, repos: list[Repo], *, timeout: float) -> list[BuildResu
     provider = providers.default_provider()
     if not provider.available():
         raise CairnError(f"graphify isn't installed: {INSTALL_HINT}")
-    return [
-        provider.build(ws_root, repo.id, ws_root / repo.path, timeout=timeout) for repo in repos
-    ]
+    return [_build_one(provider, ws_root, repo, timeout) for repo in repos]
+
+
+def _build_one(provider, ws_root: Path, repo: Repo, timeout: float) -> BuildResult:  # type: ignore[no-untyped-def]
+    """One build at a time per repo: two quick commits must not run graphify twice at once.
+    A lock older than the timeout is a crashed build's and is taken over."""
+    lock = deep_dir(ws_root, repo.id) / BUILD_LOCK
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        try:
+            age = time.time() - lock.stat().st_mtime
+        except OSError:
+            age = 0.0
+        if age < timeout:
+            return BuildResult(True, f"{repo.id}: already being built; skipped")
+        lock.unlink(missing_ok=True)
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    os.close(fd)
+    try:
+        return provider.build(ws_root, repo.id, ws_root / repo.path, timeout=timeout)
+    finally:
+        lock.unlink(missing_ok=True)
 
 
 def status_lines(ws_root: Path, workspace: Workspace) -> list[str]:
