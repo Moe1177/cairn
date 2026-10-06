@@ -7,6 +7,8 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0]
+
 ### Added
 - **`query` finds the place in any repo, no install needed.** It searches with grep first: the
   question's identifiers, routes and quoted messages, else its words, through cairn's hardened
