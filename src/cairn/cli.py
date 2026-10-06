@@ -37,7 +37,7 @@ from cairn.store.workspace_store import load_workspace
 
 app = typer.Typer(
     no_args_is_help=True,
-    add_completion=False,
+    add_completion=True,
     pretty_exceptions_enable=False,
     help="cairn: a workspace map for coding agents.",
 )
@@ -288,6 +288,17 @@ def status(path: PathArg = Path(".")) -> None:
             "Confirm or reject with: cairn annotate-edge <key> --confirm|--reject [--why TEXT]"
         )
     typer.echo("\n".join(lines))
+
+
+@app.command()
+def doctor(path: PathArg = Path(".")) -> None:
+    """Check git, Python, the map, write access, harnesses and graphify; say what to fix."""
+    from cairn.doctor import FAIL, run_checks
+
+    checks = run_checks(path.resolve())
+    typer.echo("\n".join(check.line() for check in checks))
+    if any(check.status == FAIL for check in checks):
+        raise typer.Exit(1)
 
 
 @app.command("annotate-edge")
