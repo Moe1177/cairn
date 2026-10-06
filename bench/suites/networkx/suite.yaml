@@ -1,0 +1,7 @@
+name: networkx
+workspace: fetched
+related_repos_doc: related_repos.md
+# Held-out, locate-only (plan B2): one large Python library, BSD-3-Clause, pinned to 3.4.2.
+sources:
+  - {name: networkx, url: "https://github.com/networkx/networkx.git", sha: 2acf1590f82757c01a57b81b8c5dfb79e60aa416}
+tasks: []

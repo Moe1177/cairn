@@ -263,6 +263,15 @@ cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
 cairn bench bench/suites/sockshop --resume bench/results/<stamp>.jsonl   # after a usage limit
 ```
 
+The locate benchmark is offline and free: no agent runs. Each locator (grep, the code graph, and
+the hybrid of both) answers every question in a suite's `locate.yaml`, and is scored on where the
+answer file lands, how much text it returns and how long it takes.
+
+```bash
+cairn bench-locate bench/suites/sockshop bench/suites/networkx   # builds code graphs with graphify
+cairn bench-locate bench/suites/shopverse --no-build --locators grep
+```
+
 ## Performance
 
 cairn walks each repo once, reads each file once, and scans repos in parallel. A refresh
@@ -293,8 +302,10 @@ It also:
 - **keeps README text out** of always-loaded context. Repo names that do appear are flattened and
   capped, so they can't inject instructions or break cairn's blocks.
 
-cairn makes **no network calls and collects no telemetry**. `cairn bench` is the only feature that
-runs another program that does (the `claude` CLI).
+cairn makes **no network calls and collects no telemetry**. Three commands start programs that
+do, and only when you run them: `cairn deep enable` runs your package installer (uv, pipx or pip)
+to add graphify; `cairn bench` and `cairn bench-locate` fetch their pinned benchmark repos with
+git, and `cairn bench` runs the `claude` CLI.
 
 See [SECURITY.md](https://github.com/Moe1177/cairn/blob/main/SECURITY.md) for the threat model and
 how to report a vulnerability.
@@ -318,6 +329,7 @@ how to report a vulnerability.
 | `cairn hooks install\|uninstall` | Opt-in git hooks that refresh after commits and merges |
 | `cairn serve` | The MCP server (harnesses start it for you) |
 | `cairn bench SUITE` | Run the benchmark harness |
+| `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
 | `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
 | `cairn --install-completion` | Tab completion for your shell (bash, zsh, fish, PowerShell) |
 | `cairn --version` | Versions of cairn, Python, the platform, and mcp |

@@ -1,0 +1,109 @@
+split: held
+queries:
+  - id: networkx-literal-1
+    category: literal
+    repo: networkx
+    question: "Where is PowerIterationFailedConvergence defined?"
+    answers: [networkx/networkx/exception.py]
+    note: exception class defined once in exception.py
+  - id: networkx-literal-2
+    category: literal
+    repo: networkx
+    question: "Where is greedy_modularity_communities implemented?"
+    answers: [networkx/networkx/algorithms/community/modularity_max.py]
+    note: def greedy_modularity_communities lives in modularity_max.py
+  - id: networkx-literal-3
+    category: literal
+    repo: networkx
+    question: "Where is is_valid_degree_sequence_erdos_gallai defined?"
+    answers: [networkx/networkx/algorithms/graphical.py]
+    note: defined once in graphical.py
+  - id: networkx-literal-4
+    category: literal
+    repo: networkx
+    question: "Where is strongly_connected_components defined?"
+    answers: [networkx/networkx/algorithms/components/strongly_connected.py]
+    note: def strongly_connected_components in components/strongly_connected.py
+  - id: networkx-vocabulary-1
+    category: vocabulary
+    repo: networkx
+    question: "Where is the cheapest route between two vertices found using a priority queue of tentative distances?"
+    answers: [networkx/networkx/algorithms/shortest_paths/weighted.py]
+    note: Dijkstra search with heapq in shortest_paths/weighted.py
+  - id: networkx-vocabulary-2
+    category: vocabulary
+    repo: networkx
+    question: "Which code assigns one of a few shades to each vertex so that no two adjacent vertices match, using a heuristic ordering of vertices?"
+    answers: [networkx/networkx/algorithms/coloring/greedy_coloring.py]
+    note: greedy_color with ordering strategies in coloring/greedy_coloring.py
+  - id: networkx-vocabulary-3
+    category: vocabulary
+    repo: networkx
+    question: "Where are importance scores computed from a random surfer model with teleportation damping?"
+    answers: [networkx/networkx/algorithms/link_analysis/pagerank_alg.py]
+    note: pagerank power iteration with damping alpha in link_analysis/pagerank_alg.py
+  - id: networkx-vocabulary-4
+    category: vocabulary
+    repo: networkx
+    question: "Which function orders tasks so that every prerequisite comes before the things that depend on it?"
+    answers: [networkx/networkx/algorithms/dag.py]
+    note: topological_sort in algorithms/dag.py
+  - id: networkx-chain-1
+    category: chain
+    repo: networkx
+    question: "Who calls reverse_cuthill_mckee_ordering?"
+    answers:
+      - networkx/networkx/algorithms/centrality/current_flow_betweenness.py
+      - networkx/networkx/algorithms/centrality/current_flow_betweenness_subset.py
+      - networkx/networkx/algorithms/centrality/current_flow_closeness.py
+      - networkx/networkx/linalg/algebraicconnectivity.py
+    note: all four non-test files that call it; defined in utils/rcm.py
+  - id: networkx-chain-2
+    category: chain
+    repo: networkx
+    question: "What code uses number_of_selfloops, i.e. what breaks if it changes?"
+    answers:
+      - networkx/networkx/algorithms/chordal.py
+      - networkx/networkx/algorithms/core.py
+      - networkx/networkx/algorithms/richclub.py
+      - networkx/networkx/algorithms/tournament.py
+      - networkx/networkx/drawing/nx_agraph.py
+      - networkx/networkx/drawing/nx_pydot.py
+      - networkx/networkx/generators/line.py
+    note: all non-test callers outside classes/function.py (definition)
+  - id: networkx-chain-3
+    category: chain
+    repo: networkx
+    question: "Where is build_flow_dict called?"
+    answers: [networkx/networkx/algorithms/flow/maxflow.py]
+    note: only real call is in maxflow.py (flow_dict = build_flow_dict(flowG, R)); disjoint_paths only mentions it in a comment
+  - id: networkx-chain-4
+    category: chain
+    repo: networkx
+    question: "Where is chordal_graph_cliques used by other modules?"
+    answers: [networkx/networkx/algorithms/tree/decomposition.py]
+    note: tree/decomposition.py imports and calls it; defined in chordal.py
+  - id: networkx-broad-1
+    category: broad
+    repo: networkx
+    question: "How does a graph get loaded from a GML file?"
+    answers: [networkx/networkx/readwrite/gml.py]
+    note: read_gml in readwrite/gml.py; non-test .py files containing "graph" via grep -ril -> 262
+  - id: networkx-broad-2
+    category: broad
+    repo: networkx
+    question: "How can I rename every node of a graph so the labels become consecutive integers?"
+    answers: [networkx/networkx/relabel.py]
+    note: convert_node_labels_to_integers in relabel.py; grep -ril "node" non-test .py -> 250
+  - id: networkx-broad-3
+    category: broad
+    repo: networkx
+    question: "Where is a graph's edge list turned into a pandas table with source and target columns?"
+    answers: [networkx/networkx/convert_matrix.py]
+    note: to_pandas_edgelist in convert_matrix.py; grep -ril "edge" non-test .py -> 239
+  - id: networkx-broad-4
+    category: broad
+    repo: networkx
+    question: "How is a graph exported as a nested dictionary keyed by node and neighbor?"
+    answers: [networkx/networkx/convert.py]
+    note: to_dict_of_dicts in convert.py; grep -ril "graph" non-test .py -> 262

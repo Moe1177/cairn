@@ -117,3 +117,34 @@ def _merge(
     shorter = min(len(grep_only), len(graph_only))
     rest.extend(grep_only[shorter:] or graph_only[shorter:])
     return tuple([*both, *rest][:limit])
+
+
+MODES = ("grep", "graph", "hybrid")
+
+
+def run_locator(
+    mode: str,
+    repo_root: Path,
+    question: str,
+    graph: Graph | None,
+    *,
+    graph_stale: bool = False,
+    limit: int = 10,
+) -> LocateResult:
+    """One locator on its own (`grep`, `graph`) or the router (`hybrid`): what the locate
+    benchmark compares."""
+    if mode == "hybrid":
+        return hybrid_locate(repo_root, question, graph, graph_stale=graph_stale, limit=limit)
+    if mode == "graph":
+        hits = _graph_hits(repo_root, graph, question, limit) if graph is not None else ()
+        return LocateResult(hits, "graph", "graph only")
+    if mode == "grep":
+        literal = literal_terms(question)
+        if literal:
+            found = grep_locate(repo_root, literal, limit=limit)
+            if found.hits:
+                return LocateResult(found.hits, "grep", "literal", found.truncated)
+        words = concept_terms(question)
+        loose = grep_locate(repo_root, words, limit=limit)
+        return LocateResult(loose.hits, "grep", "words", loose.truncated)
+    raise ValueError(f"unknown locator {mode!r} (choose from {', '.join(MODES)})")

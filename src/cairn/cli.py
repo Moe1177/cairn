@@ -611,3 +611,61 @@ def deep_clear(repos: Repos = None, workspace: WorkspaceOpt = Path(".")) -> None
     except (CairnError, OSError) as exc:
         _fail(str(exc))
     typer.echo(f"Cleared: {', '.join(cleared)}" if cleared else "No deep indexes to clear.")
+
+
+@app.command("bench-locate")
+def bench_locate(
+    suites: Annotated[
+        list[Path], typer.Argument(help="Suite folders, each with a locate.yaml key.")
+    ],
+    modes: Annotated[
+        str, typer.Option("--locators", help="Comma list of grep,graph,hybrid.")
+    ] = "grep,graph,hybrid",
+    build: Annotated[
+        bool, typer.Option("--build/--no-build", help="Build missing code graphs with graphify.")
+    ] = True,
+    graphify: Annotated[
+        str | None, typer.Option("--graphify", help="graphify executable (default: on PATH).")
+    ] = None,
+    cache: Annotated[
+        Path, typer.Option("--cache", help="Where the materialised repos and graphs are kept.")
+    ] = Path("bench/.locate-cache"),
+    out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
+        "bench/results"
+    ),
+) -> None:
+    """Offline: which locator finds the answer file, per kind of question (no agent, no cost)."""
+    from cairn.bench.locate_eval import (
+        evaluate,
+        key_problems,
+        load_locate_set,
+        outcomes_json,
+        prepare_locate_workspace,
+        summarize,
+    )
+    from cairn.locate.hybrid import MODES
+    from cairn.providers.graphify import GraphifyProvider
+
+    chosen = _comma_list(modes)
+    if not chosen or any(m not in MODES for m in chosen):
+        _fail(f"unknown locator in {modes!r} (choose from {', '.join(MODES)}).")
+    provider = GraphifyProvider(executable=graphify) if build else None
+    if provider is not None and not provider.available():
+        _fail("graphify isn't on PATH: pass --graphify PATH, or --no-build to use only grep.")
+    outcomes = []
+    try:
+        for suite_dir in suites:
+            locate_set = load_locate_set(suite_dir)
+            ws, graphs = prepare_locate_workspace(suite_dir, cache.resolve(), provider=provider)
+            problems = key_problems(ws, locate_set)
+            if problems:
+                _fail(f"the key of {suite_dir} doesn't match its code:\n" + "\n".join(problems))
+            outcomes += evaluate(ws, graphs, locate_set, chosen)
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    report = summarize(outcomes)
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    (out / f"locate-{stamp}.md").write_text(report, encoding="utf-8")
+    (out / f"locate-{stamp}.json").write_text(outcomes_json(outcomes), encoding="utf-8")
+    typer.echo(report)
