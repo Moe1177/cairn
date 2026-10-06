@@ -7,6 +7,19 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1]
+
+### Fixed
+- A deep index whose rebuild fails or times out is no longer rebuilt by every `cairn refresh`
+  (and so by every commit's hook), for up to 15 minutes each time. The failure is recorded
+  against the repo's state, and refresh retries only once the repo changes. `cairn deep build`
+  always retries, and `cairn deep status` shows "last build failed".
+
+### Changed
+- Benchmark runs record which tools the agent called (`--output-format stream-json`), and reports
+  gain a "Tools used" table: how many runs called cairn's MCP tools, and Grep and Read calls per
+  run. Older run logs still load.
+
 ## [0.7.0]
 
 ### Added
