@@ -66,6 +66,7 @@ _UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{1,63}")
 _TEMPLATE_BASE = re.compile(r"""\$?\{([^{}]{1,120})\}""")
 
 _CALL_GATE = ("fetch", "ky", "got", "axios", "requests", "httpx", "session", "aiohttp", "http")
+_CALL_GATE_RE = re.compile("|".join(re.escape(key) for key in _CALL_GATE))
 _LANGUAGE = {".py": "py", ".go": "go"}
 _ROUTES = {"js": _JS_ROUTE, "py": _PY_ROUTE, "go": _GO_ROUTE}
 _CALLS = {"js": _JS_CALL, "py": _PY_CALL, "go": _GO_CALL}
@@ -167,7 +168,7 @@ def _code(ctx: DetectorContext, path: Path, text: str) -> tuple[list[Fact], list
         if len(served) + len(called) >= MAX_FACTS_PER_FILE:
             break
         line = raw_line[:_LINE_MAX]
-        if "/" not in line and not any(key in line for key in _CALL_GATE):
+        if "/" not in line and not _CALL_GATE_RE.search(line):
             continue  # every route needs a "/..." path; every call names a client
         for match in routes.finditer(line):
             route = match.group(match.lastindex or 1)
