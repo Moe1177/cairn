@@ -44,6 +44,8 @@ def answer(
         related = _related(workspace, repo, exclude={repo.id, *(r.id for r in named)})
         results.update(_locate(ws_root, related, question))
     notes = _incomplete(ws_root, [repo, *named, *related])
+    if any(result.partial for result in results.values()):
+        notes.append("(a search stopped early at its time or size limit: ask a narrower question)")
     hits = fan_out(results, limit=HITS)
     searched = ", ".join(r.id for r in [repo, *named, *related])
     if not hits:

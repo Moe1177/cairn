@@ -4,6 +4,7 @@ import functools
 import threading
 from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 from cairn.discover.git import head_sha
 from cairn.emit import write_outputs
@@ -32,7 +33,31 @@ def rescan(ws_root: Path) -> ScanResult:
 
 
 LOCK_WAIT = 5.0
+T = TypeVar("T")
 _NO_RESCAN = threading.local()
+
+
+_BUSY_NOTE = (
+    "\n(note: another cairn process is updating this workspace; this answer may be slightly stale)"
+)
+
+
+def _under_lock(ws_root: Path, call: Callable[[], T]) -> tuple[T, str]:
+    """`call()` under the workspace lock, so reads never race a concurrent rescan, and a note
+    to append to the answer ("" normally)."""
+    try:
+        with workspace_lock(ws_root, timeout=LOCK_WAIT):
+            return call(), ""
+    except CairnError as exc:
+        if "still updating" not in str(exc):
+            raise
+    # Another scan holds the lock: answer from the map on disk (atomically written, so
+    # never half-updated) rather than leaving the agent waiting up to a minute.
+    _NO_RESCAN.active = True
+    try:
+        return call(), _BUSY_NOTE
+    finally:
+        _NO_RESCAN.active = False
 
 
 def locked(func: Callable[..., str]) -> Callable[..., str]:
@@ -40,23 +65,8 @@ def locked(func: Callable[..., str]) -> Callable[..., str]:
 
     @functools.wraps(func)
     def wrapper(ws_root: Path, *args: object, **kwargs: object) -> str:
-        try:
-            with workspace_lock(ws_root, timeout=LOCK_WAIT):
-                return func(ws_root, *args, **kwargs)
-        except CairnError as exc:
-            if "still updating" not in str(exc):
-                raise
-        # Another scan holds the lock: answer from the map on disk (atomically written, so
-        # never half-updated) rather than leaving the agent waiting up to a minute.
-        _NO_RESCAN.active = True
-        try:
-            text = func(ws_root, *args, **kwargs)
-        finally:
-            _NO_RESCAN.active = False
-        return (
-            f"{text}\n(note: another cairn process is updating this workspace; "
-            "this answer may be slightly stale)"
-        )
+        text, note = _under_lock(ws_root, lambda: func(ws_root, *args, **kwargs))
+        return text + note
 
     return wrapper
 
@@ -212,13 +222,20 @@ def refresh_text(ws_root: Path) -> str:
     )
 
 
-@locked
 def query_text(ws_root: Path, repo: str, question: str) -> str:
-    """Where in the code `question` is answered: grep first, the code graph as a backstop."""
-    _, found, message = _find(ws_root, repo)
-    if found is None:
-        return message
-    workspace = _fresh(ws_root, found)
-    found = workspace.repo(found.id) or found
+    """Where in the code `question` is answered: grep first, the code graph as a backstop. Only
+    loading the map holds the workspace lock: a slow search never blocks a hook's refresh."""
+
+    def target() -> tuple[Workspace, Repo] | str:
+        _, found, message = _find(ws_root, repo)
+        if found is None:
+            return message
+        workspace = _fresh(ws_root, found)
+        return workspace, workspace.repo(found.id) or found
+
+    resolved, note = _under_lock(ws_root, target)
+    if isinstance(resolved, str):
+        return resolved + note
+    workspace, found = resolved
     header, lines, notes = query_answer(ws_root, workspace, found, question)
-    return "\n".join([header, *_cap(lines), *notes])
+    return "\n".join([header, *_cap(lines), *notes]) + note

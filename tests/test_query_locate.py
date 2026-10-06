@@ -124,3 +124,40 @@ def test_query_never_reads_a_secret_file(ws: Path) -> None:
     for guess in ("sk_live_abc123XYZ", "sk_live_abc", "STRIPE_SECRET_KEY"):
         answer = tools.query_text(ws, "app", f'where is "{guess}" read?')
         assert ".env" not in answer and "sk_live" not in answer.split(":", 1)[1]
+
+
+def test_query_searches_outside_the_workspace_lock(
+    ws: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A slow search must not block a hook's refresh."""
+    import threading
+
+    from cairn.store.lock import workspace_lock
+
+    free: list[bool] = []
+    real = tools.query_answer
+
+    def probe(*args, **kwargs):  # type: ignore[no-untyped-def]
+        def other_thread() -> None:
+            try:
+                with workspace_lock(ws, timeout=0.5):
+                    free.append(True)
+            except Exception:
+                free.append(False)
+
+        thread = threading.Thread(target=other_thread)
+        thread.start()
+        thread.join()
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(tools, "query_answer", probe)
+    tools.query_text(ws, "app", "where is login defined?")
+    assert free == [True]
+
+
+def test_query_says_when_a_search_stopped_early(ws: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from cairn.locate import grep as grep_module
+
+    monkeypatch.setattr(grep_module, "GREP_MAX_BYTES", 10)
+    answer = tools.query_text(ws, "app", "where is login defined?")
+    assert "stopped early" in answer

@@ -33,16 +33,18 @@ def hybrid_locate(
         hits = _users_first(hits)
         reason = f"chain question; {reason}"
     if graph is None:
-        return LocateResult(hits, "grep" if hits else "none", reason, found.truncated)
+        return LocateResult(
+            hits, "grep" if hits else "none", reason, found.truncated, found.partial
+        )
     if not hits:
         graph_hits = _graph_hits(repo_root, graph, question, limit)
         if graph_hits:
             stale = "; deep index may be stale" if graph_stale else ""
             return LocateResult(graph_hits, "graph", f"grep found nothing ({reason}){stale}")
-        return LocateResult((), "none", reason)
+        return LocateResult((), "none", reason, partial=found.partial)
     if graph_stale:  # its symbols may have moved or gone: grep's lines stand alone
-        return LocateResult(hits, "grep", reason, found.truncated)
-    return LocateResult(_agree(hits, graph), "grep", reason, found.truncated)
+        return LocateResult(hits, "grep", reason, found.truncated, found.partial)
+    return LocateResult(_agree(hits, graph), "grep", reason, found.truncated, found.partial)
 
 
 def _grep(root: Path, question: str, limit: int) -> tuple[GrepResult, str]:

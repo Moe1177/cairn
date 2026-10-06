@@ -17,11 +17,12 @@ import pathspec
 
 from cairn.discover.files import iter_files, read_text
 from cairn.discover.git import git_command, git_env
-from cairn.discover.proc import run_bytes
+from cairn.discover.proc import run_bytes, run_bytes_capped
 from cairn.locate.model import GrepResult, LocateHit
 from cairn.security.policy import is_forbidden, never_open_globs
 
 GREP_TIMEOUT = 10.0
+GREP_MAX_BYTES = 2_000_000  # git grep output kept; past that the search stops (partial)
 MAX_LINE = 400  # longer lines are minified or generated: never a place to read
 _LINES_PER_FILE = 50
 _FALLBACK_FILES = 20_000
@@ -76,17 +77,19 @@ def grep_locate(
     with ThreadPoolExecutor(max_workers=1) as pool:
         # The file listing doesn't depend on the search: list while git greps.
         listing = pool.submit(lambda: list(_list_files(repo_root))) if wants_names else None
-        matches = _git_grep(repo_root, terms)
-        if matches is None:
-            matches = _python_grep(repo_root, terms)
+        searched = _git_grep(repo_root, terms)
+        if searched is None:  # git can't search here at all (not a timeout): read the files
+            searched = _python_grep(repo_root, terms)
+        matches, partial = searched
         scored = [_score_file(rel, found, terms) for rel, found in matches.items()]
         if listing is not None:
             scored = _with_name_hits(listing.result(), scored, terms)
     scored.sort(key=lambda hit: (-hit.score, hit.file))
-    return GrepResult(tuple(scored[:limit]), len(scored), len(scored) > limit)
+    return GrepResult(tuple(scored[:limit]), len(scored), len(scored) > limit, partial)
 
 
-def _git_grep(root: Path, terms: Sequence[str]) -> dict[str, _FileMatch] | None:
+def _git_grep(root: Path, terms: Sequence[str]) -> tuple[dict[str, _FileMatch], bool] | None:
+    """(matches, partial), or None when git can't search this folder (not a repo, no git)."""
     patterns = [arg for term in terms for arg in ("-e", term)]
     # Secret files are excluded so git never opens them (spec §20.1), not just filtered after.
     excludes = [f":(exclude,glob){pattern}" for pattern in NOISE]
@@ -108,26 +111,31 @@ def _git_grep(root: Path, terms: Sequence[str]) -> dict[str, _FileMatch] | None:
         ".",
         *excludes,
     ]
-    done = run_bytes(command, cwd=root, timeout=GREP_TIMEOUT, env=git_env())
-    if done is None or done[0] not in (0, 1):
-        return None  # not a repo, git missing or refused: search the files directly
+    done = run_bytes_capped(
+        command, cwd=root, timeout=GREP_TIMEOUT, env=git_env(), max_bytes=GREP_MAX_BYTES
+    )
+    if done is None:
+        return None
+    partial = done.capped or done.timed_out
+    if not partial and done.returncode not in (0, 1):
+        return None  # not a repo, or git refused it: search the files directly
     found: dict[str, _FileMatch] = {}
-    for record in done[1].split(b"\n"):
+    for record in done.stdout.split(b"\n"):
         parts = record.split(b"\0", 2)
         if len(parts) != 3 or not parts[1].isdigit():
             continue
         rel = os.fsdecode(parts[0]).replace("\\", "/")
         _record(found, rel, int(parts[1]), parts[2].decode("utf-8", "replace"))
-    return found
+    return found, partial
 
 
-def _python_grep(root: Path, terms: Sequence[str]) -> dict[str, _FileMatch]:
+def _python_grep(root: Path, terms: Sequence[str]) -> tuple[dict[str, _FileMatch], bool]:
     lowered = [t.lower() for t in terms]
     found: dict[str, _FileMatch] = {}
     deadline = time.monotonic() + _FALLBACK_SECONDS
     for count, path in enumerate(iter_files(root)):
         if count >= _FALLBACK_FILES or time.monotonic() > deadline:
-            break
+            return found, True  # stopped early: say so
         rel = path.relative_to(root).as_posix()
         if _NOISE_SPEC.match_file(rel):
             continue
@@ -137,7 +145,7 @@ def _python_grep(root: Path, terms: Sequence[str]) -> dict[str, _FileMatch]:
         for number, line in enumerate(text.splitlines(), start=1):
             if any(t in line.lower() for t in lowered):
                 _record(found, rel, number, line)
-    return found
+    return found, False
 
 
 def _record(found: dict[str, _FileMatch], rel: str, number: int, line: str) -> None:
