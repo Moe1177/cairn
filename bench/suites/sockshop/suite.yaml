@@ -1,0 +1,122 @@
+name: sockshop
+workspace: fetched
+related_repos_doc: related_repos.md
+# Sock Shop (Weaveworks microservices demo), Apache-2.0, archived upstream; pinned final commits.
+sources:
+  - {name: front-end, url: "https://github.com/microservices-demo/front-end.git", sha: 52dee656f4423be041619bbb090205f912e00113}
+  - {name: catalogue, url: "https://github.com/microservices-demo/catalogue.git", sha: 925e08ee17c28b94b87160e1ae5e03da7f61cf84}
+  - {name: carts, url: "https://github.com/microservices-demo/carts.git", sha: f4e80051668c6a83359c41b03a27baefa590adc8}
+  - {name: orders, url: "https://github.com/microservices-demo/orders.git", sha: 546a10c92d1ff9998c21f3849f5b95a0f14430a0}
+  - {name: payment, url: "https://github.com/microservices-demo/payment.git", sha: 384e33447dda5334187517dda09566c9a17fd6af}
+  - {name: user, url: "https://github.com/microservices-demo/user.git", sha: e1a79e77860734cacc3f64cabff1487e22a442a4}
+  - {name: shipping, url: "https://github.com/microservices-demo/shipping.git", sha: 9c0fbfa31895dd029d44d3434de93f64cd71f87b}
+  - {name: queue-master, url: "https://github.com/microservices-demo/queue-master.git", sha: 7dc33721c765e5af415c9d244d84637ff2d510cd}
+  - {name: microservices-demo, url: "https://github.com/microservices-demo/microservices-demo.git", sha: 9dff06fae4981921caec6a62393a6ebfce4b3e3f}
+tasks:
+  # front-end/api/endpoints.js is the single place the backend base URLs are built (catalogue,
+  # carts, orders, user). The front-end never calls payment or shipping directly.
+  - id: frontend-backends
+    category: orientation
+    repo: catalogue
+    prompt: >-
+      Which backend services does the front-end call directly, and in which file are the base
+      URLs for those services configured? Give the file path as repo/path.
+    expect_files: [front-end/api/endpoints.js]
+    expect_keywords: [catalogue, carts, orders, user]
+  # Orders builds its payment (/paymentAuth) and shipping (/shipping) URIs in
+  # OrdersConfigurationProperties.java; shipping then publishes to the RabbitMQ queue
+  # "shipping-task", which queue-master consumes.
+  - id: order-to-shipping
+    category: orientation
+    repo: front-end
+    prompt: >-
+      After the front-end submits a new order, which other services does the orders service call
+      to complete it, and at which URL paths? How does the resulting shipment then reach the
+      queue-master service (name the transport and the queue)? Give the file in which the orders
+      service defines those downstream service URLs, as repo/path.
+    expect_files: [orders/src/main/java/works/weave/socks/orders/config/OrdersConfigurationProperties.java]
+    expect_keywords: [payment, paymentAuth, shipping, rabbitmq, shipping-task]
+  # The 4.99 literal appears exactly three times: the charged total (orders calculateTotal) and
+  # the two front-end pages that recompute the total for display. The static theme pages
+  # front-end/public/checkout1-4.html show a placeholder "$10.00" (not 4.99, and not wired to
+  # any data), so they are out.
+  - id: shipping-fee
+    category: localization
+    repo: microservices-demo
+    prompt: >-
+      We are raising the flat shipping charge from $4.99 to $5.99. It must change both where the
+      order total is actually charged and wherever the shop UI computes the shipping line and
+      grand total for display. List the existing files that must change, as repo/path. Do not
+      edit anything.
+    expect_files:
+      - orders/src/main/java/works/weave/socks/orders/controllers/OrdersController.java
+      - front-end/public/basket.html
+      - front-end/public/customer-order.html
+  # Shipment is duplicated in orders, shipping and queue-master (queue-master's copy lives in the
+  # works.weave.socks.shipping.entities package so the JSON type header resolves). OrdersController
+  # constructs Shipment(customerId) and must pass the postcode; ShippingTaskHandler is where
+  # queue-master logs a received task. ShippingController forwards the object unchanged, and the
+  # orders api-spec shipment schema does not forbid extra properties, so neither is required.
+  - id: shipment-postcode
+    category: localization
+    repo: shipping
+    prompt: >-
+      We are adding a postcode field to shipments end to end: the orders service must set it from
+      the order's delivery address when it requests a shipment, the shipping service must accept
+      it and pass it on through the queue, and the queue-master must log it when it receives a
+      shipment task. List the existing files that must change, as repo/path. Do not edit anything.
+    expect_files:
+      - orders/src/main/java/works/weave/socks/orders/entities/Shipment.java
+      - orders/src/main/java/works/weave/socks/orders/controllers/OrdersController.java
+      - shipping/src/main/java/works/weave/socks/shipping/entities/Shipment.java
+      - queue-master/src/main/java/works/weave/socks/shipping/entities/Shipment.java
+      - queue-master/src/main/java/works/weave/socks/queuemaster/ShippingTaskHandler.java
+  # Workspace-wide grep for "shipping-task": outside shipping it appears only in queue-master's
+  # RabbitMqConfiguration (queue bean) and ShippingConsumerConfiguration (listener container).
+  # No deploy manifest references the queue name.
+  - id: rename-shipping-queue
+    category: impact
+    repo: shipping
+    prompt: >-
+      We are renaming the RabbitMQ queue that this service publishes shipment tasks to. Which
+      files in OTHER repositories hard-code that queue name and must change? List them as
+      repo/path.
+    expect_files:
+      - queue-master/src/main/java/works/weave/socks/queuemaster/configuration/RabbitMqConfiguration.java
+      - queue-master/src/main/java/works/weave/socks/queuemaster/configuration/ShippingConsumerConfiguration.java
+    expect_keywords: [shipping-task]
+  # Workspace-wide grep for MONGO_HOST outside user/: these four files set it. The helm template
+  # also passes -mongo-host (which wins over the env var), but it still sets MONGO_HOST and would
+  # be left stale, so it is in. deploy/kubernetes/manifests/25-user-dep.yaml and complete-demo.yaml
+  # pass an env var named "mongo" (not MONGO_HOST) and rely on the image default, so they are out.
+  - id: rename-mongo-host
+    category: impact
+    repo: user
+    prompt: >-
+      This service reads its MongoDB host from the MONGO_HOST environment variable, and we are
+      renaming that variable to USER_DB_HOST. Which files in OTHER repositories set MONGO_HOST for
+      this service and must be updated? List them as repo/path.
+    expect_files:
+      - front-end/test/docker-compose.yml
+      - microservices-demo/deploy/docker-compose/docker-compose.yml
+      - microservices-demo/deploy/kubernetes/helm-chart/templates/user-dep.yaml
+      - microservices-demo/deploy/kubernetes/manifests-jaeger/user-dep.yaml
+  - id: payment-decline
+    category: control
+    repo: payment
+    prompt: >-
+      In this repository, where is the decision to authorise or decline a payment made, and where
+      is the default decline threshold set? What is the default threshold? Give paths as
+      repo/path.
+    expect_files: [payment/service.go, payment/cmd/paymentsvc/main.go]
+    expect_keywords: ["105"]
+  - id: catalogue-routes-sql
+    category: control
+    repo: catalogue
+    prompt: >-
+      In this repository, which file registers the HTTP routes (such as /catalogue and /tags), and
+      which file contains the SQL queries the service runs at request time against the sock and
+      tag tables? List them as repo/path.
+    # docker/catalogue-db/data/dump.sql is schema + seed data, not runtime queries; citing it as
+    # well is harmless (grading is recall-based) but it is not required.
+    expect_files: [catalogue/transport.go, catalogue/service.go]

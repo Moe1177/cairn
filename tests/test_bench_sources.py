@@ -80,3 +80,21 @@ def test_suite_sources_are_validated(tmp_path: Path, source: dict) -> None:
 def test_suites_without_sources_use_their_fixture_folder(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1] / "bench" / "suites" / "fleetline"
     assert fetch_sources(root, load_suite(root)) == root / "fixtures"
+
+
+SUITES = Path(__file__).resolve().parents[1] / "bench" / "suites"
+
+
+@pytest.mark.parametrize("name", ["sockshop", "supabase-js"])
+def test_oss_suite_keys_exist_in_the_pinned_tree(name: str) -> None:
+    suite_dir = SUITES / name
+    suite = load_suite(suite_dir)
+    assert suite.sources and len(suite.tasks) >= 6
+    fetched = [p for p in (suite_dir / ".sources").glob("*") if (p / ".complete").is_file()]
+    if not fetched:
+        pytest.skip("sources not fetched (run the benchmark once, or fetch_sources)")
+    tree = fetch_sources(suite_dir, suite)
+    missing = [f for t in suite.tasks for f in t.expect_files if not (tree / f).is_file()]
+    assert not missing
+    repos = {t.repo for t in suite.tasks}
+    assert repos <= {s.name for s in suite.sources}

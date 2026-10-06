@@ -1,0 +1,97 @@
+name: supabase-js
+workspace: fetched
+related_repos_doc: related_repos.md
+# Held-out suite: never used to tune detectors or prompts. Supabase JS client family before the 2025 monorepo merge (MIT/Apache-2.0).
+sources:
+  - {name: supabase-js, url: "https://github.com/supabase/supabase-js.git", sha: e6bc2ae90ed305dc64f5973575278824d3506dd0}
+  - {name: postgrest-js, url: "https://github.com/supabase/postgrest-js.git", sha: 4fe9bda2f4f9d6ce94cdaf18ea53ff1f235b45bc}
+  - {name: auth-js, url: "https://github.com/supabase/auth-js.git", sha: 52ef4d7b68a32ed9713628d37a9328b56018b8d6}
+  - {name: storage-js, url: "https://github.com/supabase/storage-js.git", sha: cc4911877ef43cfc514a8a1b902d2fadfed282fb}
+  - {name: realtime-js, url: "https://github.com/supabase/realtime-js.git", sha: 41705ea3b947f4f1ddf0c817a6ec9bff17abe119}
+  - {name: functions-js, url: "https://github.com/supabase/functions-js.git", sha: 4cba85909f65bc0a72b6fb0aae2e2ccb00b2e79a}
+tasks:
+  - id: auth-signin-trace
+    category: orientation
+    repo: supabase-js
+    prompt: >-
+      When an app calls supabase.auth.signInWithPassword(...), which class is supabase.auth an
+      instance of, which file in this repository defines it, and which repository and file
+      actually implement signInWithPassword? Name the implementing class and give file paths
+      as repo/path.
+    expect_files:
+      - supabase-js/src/lib/SupabaseAuthClient.ts
+      - auth-js/src/GoTrueClient.ts
+    expect_keywords: [auth-js, GoTrueClient]
+  # helpers.ts is required: applySettingDefaults builds a Required<SupabaseClientOptions>, so a new
+  # top-level `functions` key fails to compile until it is added there. functions-js/src/types.ts is
+  # not required (the constructor options type is declared inline in FunctionsClient.ts);
+  # supabase-js/src/lib/constants.ts is optional (a default can live in functions-js).
+  - id: functions-timeout
+    category: localization
+    repo: functions-js
+    prompt: >-
+      We want a client-level request timeout (in milliseconds) for Edge Function calls: the
+      functions client in this repository should accept it as a constructor option and apply it
+      to every invoke, and supabase-js users should be able to set it via a new top-level
+      `functions` group in the options passed to createClient. List the existing files across the
+      workspace that must change, as repo/path. Do not edit anything.
+    expect_files:
+      - functions-js/src/FunctionsClient.ts
+      - supabase-js/src/lib/types.ts
+      - supabase-js/src/SupabaseClient.ts
+      - supabase-js/src/lib/helpers.ts
+  # supabase-js/src/lib/types.ts is required: SupabaseClientOptions.auth lists its keys explicitly
+  # (it is not derived from the auth-js options type), and SupabaseClient.ts forwards an explicit
+  # list of auth keys. GoTrueClient.ts is required: DEFAULT_OPTIONS is typed as
+  # Required<GoTrueClientOptions> minus a few keys, and the constructor/listener live there.
+  # supabase-js/src/lib/constants.ts is optional (auth-js supplies the default).
+  - id: auth-visibility-option
+    category: localization
+    repo: supabase-js
+    prompt: >-
+      Add a new boolean auth option, listenToVisibilityChange (default true), that lets apps turn
+      off the auth client's browser tab-visibility listener, and make it settable through
+      createClient(url, key, { auth: { listenToVisibilityChange: false } }). The auth library
+      must define, default and honor the option, and supabase-js must accept and forward it.
+      List the existing files across the workspace that must change, as repo/path. Do not edit
+      anything.
+    expect_files:
+      - auth-js/src/lib/types.ts
+      - auth-js/src/GoTrueClient.ts
+      - supabase-js/src/lib/types.ts
+      - supabase-js/src/SupabaseClient.ts
+  # supabase-js/src/index.ts does `export * from '@supabase/realtime-js'`, which keeps compiling
+  # (it just re-exports the new name), so it is not a breakage. supabase-js/docs/v1 is generated
+  # typedoc output and is excluded.
+  - id: realtime-options-rename
+    category: impact
+    repo: realtime-js
+    prompt: >-
+      This repository is renaming its exported type RealtimeClientOptions to RealtimeClientConfig,
+      with no deprecated alias. Which files in OTHER repositories reference the old name and
+      must change? List them as repo/path.
+    expect_files:
+      - supabase-js/src/SupabaseClient.ts
+      - supabase-js/src/lib/types.ts
+      - supabase-js/src/lib/constants.ts
+  # supabase-js/src/index.ts re-exports auth-js with `export *`, which keeps compiling (it simply
+  # stops re-exporting AuthClient), so it is not listed. supabase-js tests only use the
+  # SupabaseAuthClient subclass, and supabase-js/docs/v1 is generated output. Usages inside auth-js
+  # itself (e.g. its example app) are excluded by the prompt.
+  - id: auth-client-alias-drop
+    category: impact
+    repo: auth-js
+    prompt: >-
+      This repository is removing its AuthClient export (an alias kept for compatibility);
+      consumers must import GoTrueClient instead. Which files in OTHER repositories import
+      AuthClient and would fail to compile? List them as repo/path.
+    expect_files:
+      - supabase-js/src/lib/SupabaseAuthClient.ts
+      - supabase-js/src/lib/types.ts
+  - id: signed-upload-url
+    category: control
+    repo: storage-js
+    prompt: >-
+      In this repository, which file implements creating a signed upload URL and uploading a file
+      with the resulting token? Give its path as repo/path.
+    expect_files: [storage-js/src/packages/StorageFileApi.ts]
