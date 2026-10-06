@@ -27,8 +27,8 @@ built wheel into a clean environment.
 
 - A pull request runs one job per OS and per Python version (4 jobs). Pushes to `main`, a
   nightly run, and manual runs cover all 12 combinations.
-- Jobs that GitHub never started ("The job was not acquired by Runner") are re-run once by
-  `rerun.yml`. Jobs that ran and failed are never retried.
+- When the only failures are jobs GitHub never started ("The job was not acquired by Runner"),
+  `rerun.yml` re-runs them once. If any job ran and failed, nothing is retried.
 - Tests that check something stays fast scale their limit on slow or busy machines
   (`tests/timing.py`) instead of failing a healthy build.
 - We stay on GitHub-hosted runners: they are free and unlimited for public repos, cover all

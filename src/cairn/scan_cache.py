@@ -48,6 +48,8 @@ class CacheEntry(Frozen):
     errors: tuple[DetectorError, ...] = ()
     # Repo-relative files the live detectors' filters match (None: walk on a warm refresh).
     live_files: tuple[str, ...] | None = None
+    # (folder, mtime) of every folder the walk saw: checks live_files without walking.
+    live_dirs: tuple[tuple[str, int], ...] | None = None
 
 
 def to_cached(result: DetectorResult) -> CachedResult:
@@ -58,7 +60,14 @@ def from_cached(cached: CachedResult) -> DetectorResult:
     return DetectorResult(**{name: getattr(cached, name) for name in CachedResult.model_fields})
 
 
-_STATUS = ["status", "--porcelain=v1", "-z", "--untracked-files=all"]
+# Untracked files inside a submodule are its business: `-uno` never reported them as dirty.
+_STATUS = [
+    "status",
+    "--porcelain=v1",
+    "-z",
+    "--untracked-files=all",
+    "--ignore-submodules=untracked",
+]
 
 
 def _changed_paths(raw: bytes) -> list[str]:

@@ -21,10 +21,13 @@ All notable changes to cairn are documented here. The format follows
 - **Much faster scans.** Each repo is walked once and each file read once (detectors used to
   walk six times and read files four times), repos' live detectors run in parallel, and cheap
   keyword checks skip lines no detector pattern can match. On 200 repos and 50,000 files
-  (Windows): first scan 156 s -> 48 s, refresh 15 s -> 4.9 s.
-- **A refresh asks git one question per unchanged repo** (was five): HEAD and config answers
-  are remembered by the stamp of the `.git` files that decide them (never for worktrees,
-  reftable repos or configs with includes), in `.cairn/cache/git-memo.json`.
+  (Windows): first scan 156 s -> 53 s, refresh 15 s -> 5.4 s.
+- **A refresh asks git one question per unchanged repo** (was five): HEAD and the origin
+  remote are remembered by the stamp of the `.git` files that decide them, in
+  `.cairn/cache/git-memo.json` (never for worktrees, reftable repos, symbolic refs, or configs
+  with includes or per-worktree config). `cairn scan --full` ignores it.
+- A refresh notices new git-ignored config and compose files: cached file lists are checked
+  against each folder's modification time.
 - `refresh --deep` re-scans after building; `--quiet` really is quiet; `deep build --stale` says
   when nothing is stale; `deep status` also takes `-w`. A half-written deep index says
   "incomplete, rebuild" instead of "no index". Hubs only list symbols in the repo, and graphify
@@ -36,7 +39,8 @@ All notable changes to cairn are documented here. The format follows
 
 ### Security
 - Remote URLs are normalised (credentials stripped) where they are read, so no cache can hold
-  them. A tampered git memo can only switch filters off, never configure git.
+  them. A repo's own git filters are always neutralised from its current config: the git memo
+  never decides them, so a tampered memo can't switch that protection off.
 
 ### Project
 - CI: pull requests run one job per OS and per Python version (main, nightly and manual runs

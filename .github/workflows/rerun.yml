@@ -1,9 +1,9 @@
 name: rerun
 
 # GitHub-hosted runners sometimes never pick a job up ("The job was not acquired by Runner").
-# Such a job fails before any step runs, so nothing inside it can retry. This re-runs the
-# failed jobs of a ci run once, and only when a job never started: real failures stand.
-# It checks out no code and only reads run metadata, so it is safe for pull requests.
+# Such a job fails before any step runs, so nothing inside it can retry. This re-runs a ci
+# run's failed jobs once, and only when every failed job is one of those: when any job ran
+# and failed, nothing is retried. It checks out no code and reads only run metadata.
 
 on:
   workflow_run:
@@ -12,6 +12,7 @@ on:
 
 permissions:
   actions: write
+  checks: read
 
 jobs:
   rerun:
@@ -30,18 +31,27 @@ jobs:
           WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
         run: |
           set -euo pipefail
-          # A newer run of this branch supersedes this one (it was cancelled for a reason).
+          # A newer run of this branch supersedes this one.
           latest=$(gh api "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs?branch=$BRANCH&per_page=1" --jq '.workflow_runs[0].id')
           if [ "$latest" != "$RUN_ID" ]; then
             echo "A newer run ($latest) exists; nothing to do."
             exit 0
           fi
-          # A job GitHub never started has no steps; any other failure is real.
-          unstarted=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
-            --jq '[.jobs[] | select(.conclusion != "success" and .conclusion != "skipped" and (.steps | length) == 0)] | length')
-          if [ "$unstarted" -gt 0 ]; then
-            echo "$unstarted job(s) never started; re-running the failed jobs once."
+          failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '.jobs[] | select(.conclusion != "success" and .conclusion != "skipped") | .id')
+          unacquired=0
+          real=0
+          for job in $failed; do
+            # The job id is also its check run id; GitHub annotates runner-capacity failures.
+            if gh api "repos/$REPO/check-runs/$job/annotations" --jq '.[].message' | grep -q "not acquired by Runner"; then
+              unacquired=$((unacquired + 1))
+            else
+              real=$((real + 1))
+            fi
+          done
+          if [ "$unacquired" -gt 0 ] && [ "$real" -eq 0 ]; then
+            echo "$unacquired job(s) were never picked up by a runner; re-running them once."
             gh run rerun "$RUN_ID" --repo "$REPO" --failed
           else
-            echo "Every failed job ran; not retrying."
+            echo "Not retrying: $real job(s) failed for a real reason, $unacquired never started."
           fi

@@ -20,7 +20,7 @@ from cairn.detectors.base import (
 )
 from cairn.detectors.identity import clean_aliases
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists
-from cairn.discover.git import GitInfo, summary_is_stale
+from cairn.discover.git import GitInfo, forget_git_memo, summary_is_stale
 from cairn.discover.repos import RepoLocation, discover_repos
 from cairn.errors import CairnError
 from cairn.load import load_authored, load_config, load_relations
@@ -87,7 +87,9 @@ def scan_workspace(
     enclosing = next((p for p in root.parents if safe_exists(p / ".git")), None)
     if not locations and enclosing is not None:
         raise _inside_repo_error(root, enclosing)
-    if locations:
+    if not use_cache:
+        forget_git_memo()  # --full: ask git everything afresh (also clears a bad memo)
+    elif locations:
         load_git_memo(root)
     # Per-repo work is mostly waiting on git subprocesses and disk: run it in parallel.
     with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
@@ -175,10 +177,7 @@ def _read_repo(
     entry = load_entry(root, loc.id, key) if key and use_cache else None
     if entry is not None:
         relation = (from_cached(entry.relation), entry.errors)
-        live = (
-            None if entry.live_files is None else tuple(loc.root / rel for rel in entry.live_files)
-        )
-        return _RepoRead((from_cached(entry.identity), ()), relation, True, live)
+        return _RepoRead((from_cached(entry.identity), ()), relation, True, _known_live(loc, entry))
     ctx = DetectorContext(root, loc, config)  # one walk and one read per file for both
     identity = _run_all(IDENTITY_DETECTORS, ctx)
     relation = _run_all(_detectors(live=False), ctx)
@@ -190,9 +189,27 @@ def _read_repo(
             identity=to_cached(identity[0]),
             relation=to_cached(relation[0]),
             live_files=tuple(path.relative_to(loc.root).as_posix() for path in live),
+            live_dirs=ctx.folder_stamps(),
         )
         save_entry(root, loc.id, entry)
     return _RepoRead(identity, relation, False, live)
+
+
+def _known_live(loc: RepoLocation, entry: CacheEntry) -> tuple[Path, ...] | None:
+    """The live detectors' files from the cache, if no walked folder gained or lost a file.
+
+    The cache key (HEAD + `git status`) can't see files git ignores, which cairn still reads
+    (a git-ignored `scripts/dev.sh`); a folder's mtime moves when one appears or goes.
+    """
+    if entry.live_files is None or entry.live_dirs is None:
+        return None
+    for rel, mtime in entry.live_dirs:
+        try:
+            if (loc.root / rel).stat().st_mtime_ns != mtime:
+                return None
+        except OSError:
+            return None
+    return tuple(loc.root / rel for rel in entry.live_files)
 
 
 def _live_context(

@@ -177,7 +177,7 @@ def test_jobs_no_runner_picked_up_are_retried_once_and_safely() -> None:
     text, rerun = _workflow("rerun.yml")
     triggers = rerun[True] if True in rerun else rerun["on"]
     assert triggers["workflow_run"]["workflows"] == ["ci"]
-    assert rerun["permissions"] == {"actions": "write"}
+    assert rerun["permissions"] == {"actions": "write", "checks": "read"}
     assert "actions/checkout" not in text and "run_attempt == 1" in text
     assert "${{ github.event" not in rerun["jobs"]["rerun"]["steps"][0]["run"]
     assert rerun["jobs"]["rerun"]["timeout-minutes"] <= 10

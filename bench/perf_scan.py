@@ -8,6 +8,7 @@ process start-up dominates a warm refresh on Windows. Nothing here runs in CI.
 """
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,7 @@ from cairn.emit import write_outputs
 from cairn.scan import scan_workspace
 
 _FILLER = "x = 1\n" * 40
+_GENERATED = re.compile(r"svc-\d{3}")
 
 
 def generate(root: Path, repos: int, files: int) -> None:
@@ -58,6 +60,21 @@ def generate(root: Path, repos: int, files: int) -> None:
             subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
 
 
+def _refuse_real_workspace(out: Path) -> None:
+    """Each run deletes `<out>/.cairn`: never let that be a real workspace's map and notes."""
+    authored = [out / ".cairn" / "relations.yaml", out / ".cairn" / "authored"]
+    foreign = [
+        p.name
+        for p in (out.iterdir() if out.is_dir() else ())
+        if p.is_dir() and not p.name.startswith(".") and not _GENERATED.fullmatch(p.name)
+    ]
+    if any(p.exists() for p in authored) or foreign:
+        raise SystemExit(
+            f"{out} looks like a real workspace (it has your notes or repos other than svc-NNN); "
+            "pick an empty folder: this script deletes <out>/.cairn on every run"
+        )
+
+
 def measure(root: Path) -> tuple[float, float]:
     shutil.rmtree(root / ".cairn", ignore_errors=True)
     start = time.perf_counter()
@@ -74,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--files", type=int, default=250, help="Python files per repo")
     parser.add_argument("--out", type=Path, required=True, help="where the workspace lives")
     args = parser.parse_args(argv)
+    _refuse_real_workspace(args.out)
     args.out.mkdir(parents=True, exist_ok=True)
     generate(args.out, args.repos, args.files)
     cold, warm = measure(args.out.resolve())

@@ -247,8 +247,8 @@ unchanged repo. On a synthetic workspace of 200 repos and 50,000 files (Windows 
 
 | | 0.3 | 0.4 |
 |---|---|---|
-| First scan | 156 s | 48 s |
-| Refresh, nothing changed | 15 s | 4.9 s |
+| First scan | 156 s | 53 s |
+| Refresh, nothing changed | 15 s | 5.4 s |
 
 Most of a refresh on Windows is git process start-up; Linux and macOS start processes faster.
 Reproduce with `uv run python bench/perf_scan.py --out <dir>`.

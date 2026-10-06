@@ -1,13 +1,14 @@
 """Shared detector types and helpers."""
 
 import re
+import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
 from cairn.config import CairnConfig
-from cairn.discover.files import DEFAULT_IGNORE_DIRS, crosses_link, iter_files, read_text
+from cairn.discover.files import DEFAULT_IGNORE_DIRS, crosses_link, read_text, walk_groups
 from cairn.discover.repos import RepoLocation
 from cairn.model.graph import (
     MAX_EVIDENCE,
@@ -51,8 +52,10 @@ class _RepoFiles:
     """One walk and one read per file, shared by every detector using the same context."""
 
     def __init__(self) -> None:
-        self.index: tuple[Path, ...] | None = None
-        self.indexed: frozenset[Path] = frozenset()
+        # Folder -> file names: one Path per folder, not per file (a 500k-file monorepo
+        # would otherwise hold ~0.5 GB of Path objects per worker).
+        self.groups: tuple[tuple[Path, tuple[str, ...]], ...] | None = None
+        self.dirs: frozenset[Path] = frozenset()
         self.text: dict[Path, str | None] = {}
         self.bytes = 0
 
@@ -90,34 +93,52 @@ class DetectorContext:
         """The repo's files whose name `match`es, in walk order. The repo is walked once."""
         cache = self._files
         known = self.known_files
-        if cache.index is None and known is not None and match in known.matchers:
+        if cache.groups is None and known is not None and match in known.matchers:
             return (path for path in known.paths if match(path.name))
-        if cache.index is None:
+        groups = self._groups()
+        return (folder / name for folder, names in groups for name in names if match(name))
+
+    def _groups(self) -> tuple[tuple[Path, tuple[str, ...]], ...]:
+        cache = self._files
+        if cache.groups is None:
             ignore = DEFAULT_IGNORE_DIRS | NOISE_DIRS | frozenset(self.config.ignore_dirs)
-            cache.index = tuple(
-                iter_files(
+            cache.groups = tuple(
+                (folder, tuple(names))
+                for folder, names in walk_groups(
                     self.repo.root,
                     ignore_dirs=ignore,
                     max_bytes=self.config.max_file_bytes,
                     match=lambda name: not _TEST_FILE.search(name),
                 )
             )
-            cache.indexed = frozenset(cache.index)
-        return (path for path in cache.index if match(path.name))
+            cache.dirs = frozenset(folder for folder, _ in cache.groups)
+        return cache.groups
+
+    def folder_stamps(self) -> tuple[tuple[str, int], ...]:
+        """(repo-relative folder, mtime) for every walked folder: a file created or deleted in
+        one changes its mtime, so a cached file list can be checked without walking."""
+        stamps = []
+        for folder, _ in self._groups():
+            try:
+                mtime = folder.stat().st_mtime_ns
+            except OSError:
+                mtime = -1
+            stamps.append((folder.relative_to(self.repo.root).as_posix(), mtime))
+        return tuple(stamps)
 
     def read(self, path: Path) -> str | None:
         cache = self._files
         if path in cache.text:
             return cache.text[path]
-        # The walk never enters links, so indexed paths need no per-component check.
-        if path not in cache.indexed:
+        # The walk never enters links, so a file in a walked folder needs no per-component check.
+        if path.parent not in cache.dirs:
             try:
                 if crosses_link(self.repo.root, path):
                     return None  # e.g. `supabase/.temp` -> a folder outside the repo
             except ValueError:
                 pass  # not below this repo (a sibling path ref); read_text still refuses links
         text = read_text(path, self.config.max_file_bytes)
-        size = len(text) if text else 0
+        size = sys.getsizeof(text) if text is not None else 0  # memory, not characters
         if cache.bytes + size <= READ_CACHE_BYTES:
             cache.text[path] = text
             cache.bytes += size

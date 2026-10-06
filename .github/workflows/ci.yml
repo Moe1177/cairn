@@ -13,7 +13,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # A new push to a pull request supersedes the old run; main and nightly runs always finish.
+  # A new push to a pull request cancels its running run. On main, a run already in progress
+  # finishes; GitHub still drops a queued run when a newer one for main arrives.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -90,6 +91,7 @@ jobs:
 
   package:
     # What users install: build, check metadata, install the wheel into a clean venv, run it.
+    name: package (${{ matrix.os }})
     timeout-minutes: 15
     strategy:
       fail-fast: false

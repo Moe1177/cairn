@@ -124,31 +124,36 @@ class _LocalConfig:
 
 
 # Answers that only change when files under .git/ change, keyed by (repo, stamp of those
-# files). Shared by threads (dict get/set is atomic) and persisted between runs by the scan.
-_CONFIGS: dict[tuple[str, str], _LocalConfig] = {}
+# files) and shared by worker threads. Only HEAD shas and normalised remotes are persisted
+# between runs (git-memo.json). Filter overrides are never taken from disk: a memo file can't
+# be trusted to say a repo has no filters, so a config that mentions one is always asked.
+_CONFIGS: dict[tuple[str, str], _LocalConfig] = {}  # this process only
+_REMOTES: dict[tuple[str, str], str | None] = {}
 _HEADS: dict[tuple[str, str], str] = {}
 _MEMO_MAX = 4096
 _IN_PROCESS = "mtime:"
-_EMPTY_FILTER = re.compile(r"filter\.[^=\n]{1,200}\.(?:clean|smudge|process)=")
 _STAMP_READ_MAX = 1_000_000
+_SHA = re.compile(r"[0-9a-f]{4,64}")
+# What normalize_remote() returns: host[/path], no scheme, no credentials, no spaces.
+_NORMALISED_REMOTE = re.compile(r"[A-Za-z0-9.-]{1,253}(?:/[^\s@:]{1,500})?")
 
 
 def forget_git_memo() -> None:
     _CONFIGS.clear()
+    _REMOTES.clear()
     _HEADS.clear()
 
 
 def export_git_memo(roots: Iterable[Path]) -> dict[str, dict]:
-    """The remembered answers for `roots`, as JSON-ready data."""
+    """The remembered HEADs and remotes for `roots`, as JSON-ready data."""
     wanted = {str(root) for root in roots}
-    configs = {k: v for k, v in _CONFIGS.items() if k[0] in wanted}
-    heads = {k: v for k, v in _HEADS.items() if k[0] in wanted}
     out: dict[str, dict] = {}
-    for (root, stamp), config in configs.items():
-        if config.listed and not stamp.startswith(_IN_PROCESS):
-            out.setdefault(root, {})["config"] = [stamp, list(config.overrides), config.remote]
-    for (root, stamp), sha in heads.items():
-        out.setdefault(root, {})["head"] = [stamp, sha]
+    for (root, stamp), remote in list(_REMOTES.items()):
+        if root in wanted and not stamp.startswith(_IN_PROCESS):
+            out.setdefault(root, {})["remote"] = [stamp, remote]
+    for (root, stamp), sha in list(_HEADS.items()):
+        if root in wanted:
+            out.setdefault(root, {})["head"] = [stamp, sha]
     return out
 
 
@@ -159,32 +164,21 @@ def import_git_memo(data: object) -> None:
     for root, entry in list(data.items())[:_MEMO_MAX]:
         if not isinstance(root, str) or not isinstance(entry, dict):
             continue
-        config, head = entry.get("config"), entry.get("head")
+        remote, head = entry.get("remote"), entry.get("head")
         if (
-            isinstance(config, list)
-            and len(config) == 3
-            and isinstance(config[0], str)
-            and isinstance(config[1], list)
-            and _neutralising(config[1])
-            and (config[2] is None or isinstance(config[2], str))
+            isinstance(remote, list)
+            and len(remote) == 2
+            and isinstance(remote[0], str)
+            and (remote[1] is None or _NORMALISED_REMOTE.fullmatch(str(remote[1])))
         ):
-            _CONFIGS[(root, config[0])] = _LocalConfig(tuple(config[1]), config[2], listed=True)
+            _REMOTES[(root, remote[0])] = remote[1]
         if (
             isinstance(head, list)
             and len(head) == 2
             and all(isinstance(x, str) for x in head)
-            and re.fullmatch(r"[0-9a-f]{4,64}", head[1])
+            and _SHA.fullmatch(head[1])
         ):
             _HEADS[(root, head[0])] = head[1]
-
-
-def _neutralising(args: list) -> bool:
-    """Only `-c filter.<name>.<clean|smudge|process>=` pairs with empty values: a memo can
-    switch filters off, never configure git to run anything."""
-    return len(args) % 2 == 0 and all(
-        isinstance(a, str) and (a == "-c" if i % 2 == 0 else _EMPTY_FILTER.fullmatch(a) is not None)
-        for i, a in enumerate(args)
-    )
 
 
 def _remember(memo: dict, key: tuple[str, str], value: object) -> None:
@@ -193,20 +187,33 @@ def _remember(memo: dict, key: tuple[str, str], value: object) -> None:
     memo[key] = value
 
 
-def config_stamp(root: Path) -> str | None:
-    """A hash of .git/config, or None when it can't vouch for the answer (includes, no file)."""
+def _config_bytes(root: Path) -> bytes | None:
+    """.git/config when a hash of it alone decides the answer: no includes, no per-worktree
+    config, not oversized. None otherwise (or when there's no such file)."""
+    git = root / ".git"
     try:
-        data = (root / ".git" / "config").read_bytes()[: _STAMP_READ_MAX + 1]
+        data = (git / "config").read_bytes()[: _STAMP_READ_MAX + 1]
     except OSError:
         return None
-    if len(data) > _STAMP_READ_MAX or b"[include" in data.lower():
+    lowered = data.lower()
+    if (
+        len(data) > _STAMP_READ_MAX
+        or b"[include" in lowered
+        or b"worktreeconfig" in lowered
+        or (git / "config.worktree").exists()
+    ):
         return None
-    return hashlib.sha1(data).hexdigest()
+    return data
+
+
+def config_stamp(root: Path) -> str | None:
+    data = _config_bytes(root)
+    return None if data is None else hashlib.sha1(data).hexdigest()
 
 
 def head_stamp(root: Path) -> str | None:
     """A hash of what decides HEAD's commit, or None for layouts it can't vouch for: a `.git`
-    file (worktrees, submodules), the reftable backend, or an unusual ref."""
+    file (worktrees, submodules), the reftable backend, a symbolic ref chain, an unusual ref."""
     git = root / ".git"
     try:
         if not git.is_dir() or (git / "reftable").exists():
@@ -218,9 +225,12 @@ def head_stamp(root: Path) -> str | None:
             if not re.fullmatch(r"refs/[A-Za-z0-9._/-]{1,200}", ref) or ".." in ref:
                 return None
             try:
-                parts.append((git / ref).read_bytes()[:512])
+                target = (git / ref).read_bytes()[:512]
             except FileNotFoundError:
-                parts.append(b"-")
+                target = b"-"
+            if target.startswith(b"ref:"):
+                return None  # HEAD -> alias -> branch: the branch's moves wouldn't show here
+            parts.append(target)
             try:
                 packed = (git / "packed-refs").stat()
                 parts.append(f"{packed.st_mtime_ns}:{packed.st_size}".encode())
@@ -235,8 +245,10 @@ def head_sha(root: Path, timeout: float = 5.0) -> str | None:
     """`git rev-parse --short HEAD`, remembered until HEAD or its ref changes."""
     stamp = head_stamp(root)
     key = (str(root), stamp or "")
-    if stamp is not None and key in _HEADS:
-        return _HEADS[key]
+    if stamp is not None:
+        found = _HEADS.get(key)
+        if found is not None:
+            return found
     sha = _git(root, ["rev-parse", "--short", "HEAD"], timeout) or None
     if stamp is not None and sha:
         _remember(_HEADS, key, sha)
@@ -244,18 +256,28 @@ def head_sha(root: Path, timeout: float = 5.0) -> str | None:
 
 
 def _local_config(root: Path) -> _LocalConfig | None:
-    stamp = config_stamp(root)
-    if stamp is None:
+    data = _config_bytes(root)
+    if data is None:
         try:
             mtime = (root / ".git" / "config").stat().st_mtime_ns
         except OSError:
             return None
-        stamp = f"{_IN_PROCESS}{mtime}"  # includes: remembered for this process only
+        stamp = f"{_IN_PROCESS}{mtime}"  # includes, worktree config: this process only
+    else:
+        stamp = hashlib.sha1(data).hexdigest()
     key = (str(root), stamp)
     found = _CONFIGS.get(key)
-    if found is None:
+    if found is not None:
+        return found
+    # A remembered remote may stand in for git only when this exact config defines no filter:
+    # then there is nothing to neutralise, whatever the memo file says.
+    if data is not None and b"filter" not in data.lower() and key in _REMOTES:
+        found = _LocalConfig((), _REMOTES.get(key), listed=True)
+    else:
         found = _read_config(str(root))
-        _remember(_CONFIGS, key, found)
+    _remember(_CONFIGS, key, found)
+    if found.listed:
+        _remember(_REMOTES, key, found.remote)
     return found
 
 

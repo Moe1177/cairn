@@ -59,15 +59,17 @@ def _git() -> Check:
             "remotes, HEADs, staleness checks or scan cache",
         )
     done = run_text([git, "--version"], timeout=10)
-    version = done.stdout.strip() if done and done.returncode == 0 else "version unknown"
-    return Check(OK, "git", version)
+    if not done or done.returncode != 0:
+        return Check(WARN, "git", f"{git} didn't report a version; is it a working git?")
+    return Check(OK, "git", done.stdout.strip())
 
 
 def _map(root: Path) -> list[Check]:
     try:
         workspace = load_workspace(root)
-    except (CairnError, OSError) as exc:
-        return [Check(FAIL, "map", f"unreadable ({exc}); run `cairn scan --full`")]
+    except (CairnError, OSError, ValueError) as exc:  # ValueError: not UTF-8 / not JSON
+        detail = type(exc).__name__ if isinstance(exc, ValueError) else str(exc)
+        return [Check(FAIL, "map", f"unreadable ({detail}); run `cairn scan --full`")]
     if workspace is None:
         return [Check(WARN, "map", f"none in {root}; run `cairn scan` from the folder of repos")]
     errors = sum(len(r.detector_errors) for r in workspace.repos)
@@ -109,7 +111,7 @@ def _graphify(root: Path) -> list[Check]:
         ]
     checks = [Check(OK, "graphify", provider.version() or "version unknown")]
     workspace = None
-    with contextlib.suppress(CairnError, OSError):  # _map() already reported an unreadable map
+    with contextlib.suppress(CairnError, OSError, ValueError):  # _map() reported it already
         workspace = load_workspace(root)
     stale = []
     for repo_id in indexed_repos(root):
