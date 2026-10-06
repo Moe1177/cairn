@@ -7,6 +7,8 @@ shown, and sizes are capped.
 
 import json
 import re
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path, PurePosixPath
@@ -84,13 +86,89 @@ class Hit:
     neighbours: tuple[str, ...]
 
 
+class _WordIndex:
+    """Which nodes carry each label word, and (remembered across queries) which label words
+    each question word matches: rank() then scores only nodes that can score at all."""
+
+    _SIMILAR_MAX = 4096
+
+    def __init__(self, nodes: dict[str, Node]) -> None:
+        self.by_token: dict[str, list[str]] = {}
+        self.by_joined: dict[str, list[str]] = {}
+        for node in nodes.values():
+            for token in node.tokens:
+                self.by_token.setdefault(token, []).append(node.id)
+            if node.joined:
+                self.by_joined.setdefault(node.joined, []).append(node.id)
+        self._similar: dict[str, dict[str, float]] = {}
+        self._lock = threading.Lock()
+
+    def similar(self, word: str) -> dict[str, float]:
+        """The label words `word` matches, with how well (see _similarity)."""
+        with self._lock:
+            found = self._similar.get(word)
+        if found is None:
+            found = {t: weight for t in self.by_token if (weight := _similarity(t, word))}
+            with self._lock:
+                if len(self._similar) >= self._SIMILAR_MAX:
+                    self._similar.clear()
+                self._similar[word] = found
+        return found
+
+
 @dataclass
 class Graph:
     nodes: dict[str, Node] = field(default_factory=dict)
     adjacency: dict[str, list[tuple[bool, str]]] = field(default_factory=dict)  # (outgoing, other)
+    _index: _WordIndex | None = field(default=None, init=False, repr=False, compare=False)
 
     def degree(self, node_id: str) -> int:
         return len(self.adjacency.get(node_id, ()))
+
+    def word_index(self) -> _WordIndex:
+        # Built on first use; a cached graph keeps it, so later queries skip the work.
+        if self._index is None:
+            self._index = _WordIndex(self.nodes)
+        return self._index
+
+
+GRAPH_CACHE_SIZE = 8  # graphs kept in memory by a long-running MCP server
+_CACHE: "OrderedDict[str, tuple[tuple[int, int], Graph]]" = OrderedDict()
+_CACHE_LOCK = threading.Lock()
+
+
+def load_graph_cached(path: Path) -> Graph | None:
+    """load_graph(), reused until the file's size or mtime changes (a rebuild): parsing a large
+    graph takes ~0.4 s, a cache hit microseconds. Bounded LRU; thread-safe."""
+    try:
+        info = path.stat()
+    except OSError:
+        return None
+    stamp = (info.st_mtime_ns, info.st_size)
+    key = str(path)
+    with _CACHE_LOCK:
+        hit = _CACHE.get(key)
+        if hit is not None and hit[0] == stamp:
+            _CACHE.move_to_end(key)
+            return hit[1]
+    graph = load_graph(path)
+    if graph is None:
+        return None
+    with _CACHE_LOCK:
+        _CACHE[key] = (stamp, graph)
+        _CACHE.move_to_end(key)
+        while len(_CACHE) > GRAPH_CACHE_SIZE:
+            _CACHE.popitem(last=False)
+    return graph
+
+
+def clear_graph_cache() -> None:
+    with _CACHE_LOCK:
+        _CACHE.clear()
+
+
+def cached_graphs() -> int:
+    return len(_CACHE)
 
 
 def load_graph(path: Path, *, max_bytes: int = MAX_GRAPH_BYTES) -> Graph | None:
@@ -127,9 +205,21 @@ def rank(graph: Graph, question: str, limit: int) -> list[Hit]:
     words = _query_tokens(question)
     if not words:
         return []
-    scored: list[tuple[float, int, str, str]] = []
+    index = graph.word_index()
+    # Label word -> the question words it answers. Only nodes holding one of those label words,
+    # or whose whole label is a question word, can score above zero.
     memo: dict[str, dict[str, float]] = {}
-    for node in graph.nodes.values():
+    candidates: set[str] = set()
+    for word in words:
+        candidates.update(index.by_joined.get(word, ()))
+        for token, weight in index.similar(word).items():
+            memo.setdefault(token, {})[word] = weight
+            candidates.update(index.by_token[token])
+    scored: list[tuple[float, int, str, str]] = []
+    for node_id in candidates:
+        node = graph.nodes[node_id]
+        for token in node.tokens:
+            memo.setdefault(token, {})  # answers none of the question's words
         score = _score(node, words, memo)
         if score >= _MIN_SCORE:
             scored.append((-score, -graph.degree(node.id), node.label, node.id))
@@ -214,7 +304,7 @@ def _score(node: Node, words: frozenset[str], memo: dict[str, dict[str, float]])
 def _matches(
     token: str, words: frozenset[str], memo: dict[str, dict[str, float]]
 ) -> dict[str, float]:
-    """The question words this label word answers, with how well; cached per rank() call."""
+    """The question words this label word answers, with how well; rank() fills `memo`."""
     found = memo.get(token)
     if found is None:
         found = {w: weight for w in words if (weight := _similarity(token, w))}
@@ -235,8 +325,11 @@ def _similarity(token: str, word: str) -> float:
         prefix += 1
     if prefix >= max(4, 0.75 * short):
         return 0.75
-    fuzzy = short >= 5 and 2 * short / (short + long) >= 0.8
-    return 0.6 if fuzzy and SequenceMatcher(None, token, word).ratio() >= 0.8 else 0.0
+    if short < 5 or 2 * short / (short + long) < 0.8:
+        return 0.0
+    matcher = SequenceMatcher(None, token, word)
+    # quick_ratio() bounds ratio() from above and is far cheaper: most pairs stop there.
+    return 0.6 if matcher.quick_ratio() >= 0.8 and matcher.ratio() >= 0.8 else 0.0
 
 
 def _hit(graph: Graph, node: Node) -> Hit:
