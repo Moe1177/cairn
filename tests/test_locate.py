@@ -341,3 +341,17 @@ def test_a_weak_literal_does_not_hide_the_question_s_words(tmp_path: Path) -> No
     )
     result = hybrid_locate(repo, "where is the real-time order sync handled?", None)
     assert "src/order_sync.py" in [h.file for h in result.hits[:3]]
+
+
+def test_a_graph_answer_after_grep_stopped_early_is_still_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cairn.discover.proc import Capped
+
+    repo = _repo(tmp_path / "shop", SHOP)
+    monkeypatch.setattr(
+        grep_module, "run_bytes_capped", lambda *a, **k: Capped(None, b"", False, True)
+    )
+    graph = _graph(tmp_path, [*SHOP_GRAPH, ("orderCancelled()", "src/api/routes.py", 1)])
+    result = hybrid_locate(repo, "anything cancelled", graph)
+    assert result.route == "graph" and result.partial

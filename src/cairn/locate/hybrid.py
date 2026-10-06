@@ -40,7 +40,8 @@ def hybrid_locate(
         graph_hits = _graph_hits(repo_root, graph, question, limit)
         if graph_hits:
             stale = "; deep index may be stale" if graph_stale else ""
-            return LocateResult(graph_hits, "graph", f"grep found nothing ({reason}){stale}")
+            why = f"grep found nothing ({reason}){stale}"
+            return LocateResult(graph_hits, "graph", why, partial=found.partial)
         return LocateResult((), "none", reason, partial=found.partial)
     if graph_stale:  # its symbols may have moved or gone: grep's lines stand alone
         return LocateResult(hits, "grep", reason, found.truncated, found.partial)
