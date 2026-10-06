@@ -85,7 +85,25 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
     by_pair: dict[frozenset[str], list[Edge]] = {}
     for edge in items:
         by_pair.setdefault(frozenset((edge.source, edge.target)), []).append(edge)
-    return tuple(_corroborated(e, by_pair[frozenset((e.source, e.target))]) for e in items)
+    # Copies of one app (a shared first commit) define the same tables and env vars because
+    # they're copies, and often run against different databases (one per event): that
+    # overlap says nothing about shared data, so it makes no link.
+    copies = {
+        pair
+        for pair, pair_edges in by_pair.items()
+        if any(
+            e.type is EdgeType.MIRRORS and e.confidence is Confidence.EXTRACTED for e in pair_edges
+        )
+    }
+    kept = [
+        e
+        for e in items
+        if not (
+            e.type in (EdgeType.SHARES_DB, EdgeType.SHARES_ENV)
+            and frozenset((e.source, e.target)) in copies
+        )
+    ]
+    return tuple(_corroborated(e, by_pair[frozenset((e.source, e.target))]) for e in kept)
 
 
 def _corroborated(edge: Edge, same_pair: list[Edge]) -> Edge:
@@ -96,7 +114,7 @@ def _corroborated(edge: Edge, same_pair: list[Edge]) -> Edge:
     others = [
         o
         for o in same_pair
-        if o.type not in (edge.type, EdgeType.SHARES_ENV)
+        if o.type not in (edge.type, EdgeType.SHARES_ENV, EdgeType.MIRRORS)
         and o.confidence.rank >= Confidence.INFERRED.rank
     ]
     if edge.type is EdgeType.SHARES_ENV:

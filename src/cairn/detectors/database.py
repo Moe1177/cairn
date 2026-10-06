@@ -21,7 +21,26 @@ _IDENT = r'"?(?:[A-Za-z_]\w*"?\.)?"?([A-Za-z_]\w*)"?'
 CREATE_TABLE = re.compile(r"(?i)\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?" + _IDENT)
 SQL_REF = re.compile(r"\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:ONLY\s+)?" + _IDENT)
 SQL_REF_ANYCASE = re.compile(SQL_REF.pattern, re.IGNORECASE)
-_CODE_GATE = ("Table(", "FROM", "JOIN", "INTO", "UPDATE")
+_CODE_GATE = ("Table(", "FROM", "JOIN", "INTO", "UPDATE", "model", "ollection(")
+# MongoDB (only in files that import mongoose/mongodb: Firestore's v8 API also has
+# `db.collection("x")`). A Mongoose model owns its collection, named by mongoose_collection()
+# unless a third argument names it; driver `.collection("x")` calls use one.
+_MONGO_MARKERS = ("mongoose", "mongodb", "MongoClient")
+_MONGOOSE_MODEL = re.compile(
+    r"""\b(?:mongoose\.)?model(?:<[^>\n]{0,200}>)?\(\s*['"`]([A-Za-z_][\w-]{0,99})['"`]\s*,"""
+    r"""\s*[\w.]{1,100}\s*(?:,\s*['"`]([A-Za-z_][\w.-]{0,99})['"`])?"""
+)
+_MONGO_COLLECTION = re.compile(
+    r"""\.(?:collection|getCollection)\(\s*['"`]([A-Za-z_][\w.-]{0,99})['"`]\s*\)"""
+)
+_IRREGULAR = {
+    "person": "people",
+    "child": "children",
+    "man": "men",
+    "woman": "women",
+    "mouse": "mice",
+}
+_UNCOUNTABLE = frozenset({"info", "data", "news", "equipment", "information", "money", "series"})
 ORM_TABLE = re.compile(r"\b(?:pgTable|mysqlTable|sqliteTable)\(\s*['\"`]([A-Za-z_]\w*)['\"`]")
 SUPABASE_REF = re.compile(
     r"\.from\(\s*['\"`]([A-Za-z_]\w*)['\"`]\s*\)\s*\.\s*(?:select|insert|update|upsert|delete)\b"
@@ -119,6 +138,21 @@ def _scan(ctx: DetectorContext, path: Path, text: str) -> Found:
     return _scan_code(ctx, path, text)
 
 
+def mongoose_collection(model: str) -> str:
+    """The collection Mongoose stores a model in: lowercased and pluralised like its own
+    (simplified) rules. "User" -> users, "CheckIn" -> checkins, "Category" -> categories."""
+    name = model.lower()
+    if name in _UNCOUNTABLE or name.endswith("s"):
+        return name
+    if name in _IRREGULAR:
+        return _IRREGULAR[name]
+    if name.endswith("y") and len(name) > 1 and name[-2] not in "aeiou":
+        return name[:-1] + "ies"
+    if name.endswith(("x", "ch", "sh")):
+        return name + "es"
+    return name + "s"
+
+
 def _table(ctx: DetectorContext, path: Path, line_no: int, line: str, name: str) -> Fact:
     return Fact(
         kind=FactKind.DB_TABLE, value=name.lower(), evidence=(ctx.evidence(path, line_no, line),)
@@ -178,6 +212,7 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     exposes: list[Fact] = []
     consumes: list[Fact] = []
     lines = text.splitlines()
+    mongo = any(marker in text for marker in _MONGO_MARKERS)
     for line_no, line in _code_lines(text):
         if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
             return exposes, consumes
@@ -186,6 +221,15 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
         refs = [m.group(1) for m in SQL_REF.finditer(line)]
         consumes += [_table(ctx, path, line_no, line, name) for name in refs if _is_table(name)]
+        if mongo:
+            exposes += [
+                _table(ctx, path, line_no, line, m.group(2) or mongoose_collection(m.group(1)))
+                for m in _MONGOOSE_MODEL.finditer(line)
+            ]
+            consumes += [
+                _table(ctx, path, line_no, line, m.group(1))
+                for m in _MONGO_COLLECTION.finditer(line)
+            ]
     # Query-builder chains are usually split across lines: supabase / .from('t') / .select().
     starts = [0, *(i + 1 for i, ch in enumerate(text) if ch == "\n")]
     for match in SUPABASE_REF.finditer(text):
