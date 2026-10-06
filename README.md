@@ -186,8 +186,9 @@ How it searches:
 - It runs grep first, through cairn's hardened `git grep`. It looks for the question's
   identifiers, routes and quoted messages, and failing those, its words.
 - For "who calls X", it lists the callers before the definition.
-- It also searches repos the question names. When nothing matches, it searches the repos the map
-  relates to the one asked about.
+- It also searches repos the question names, and the repos the map relates to the one asked
+  about, unless an identifier, route or message already answered.
+- It never searches files cairn never opens (`.env`, keys, `secrets.yaml`…).
 - Every answer says which search answered and why. It needs nothing installed.
 
 Deep indexes are optional, and built per repo with
