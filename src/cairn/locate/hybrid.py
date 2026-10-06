@@ -1,9 +1,12 @@
-"""Route a "where is X?" question to grep, the code graph, or both.
+"""Answer "where is X?" with grep first and the code graph as a backstop.
 
-grep when the question carries the code's own words (an identifier, a route, a message); the
-graph when it doesn't, when the answer is a chain (who calls, what breaks), or when grep finds
-too much. Each answer says which locator answered and why. Thresholds are tuned by the offline
-locate benchmark (plan B2).
+Measured by the offline locate benchmark (plan B2, `cairn bench-locate`): grep matched or beat
+the graph on every kind of question, and sending questions to the graph instead lost answers
+(graphify's code graph holds functions and classes, not routes, constants or messages, and ranks
+by name), and filling grep's empty places with graph hits added tokens but no answers. So grep
+answers; for a chain question (who calls X) the file defining X goes last; the graph names the
+symbol on grep hits it agrees with, and answers alone only when grep finds nothing. Every answer
+says which locator answered and why.
 """
 
 from pathlib import Path
@@ -14,8 +17,6 @@ from cairn.locate.model import GrepResult, LocateHit, LocateResult
 from cairn.locate.terms import concept_terms, is_chain_question, literal_terms
 from cairn.providers.graph import Graph, rank
 
-BROAD_FILES = 12  # grep matching more files than this is "too broad" when a graph can help
-
 
 def hybrid_locate(
     repo_root: Path,
@@ -25,40 +26,38 @@ def hybrid_locate(
     graph_stale: bool = False,
     limit: int = 10,
 ) -> LocateResult:
-    literal = literal_terms(question)
-    chain = is_chain_question(question)
-    grep = grep_locate(repo_root, literal, limit=limit) if literal else None
-    found = grep is not None and bool(grep.hits)
-    if found and grep is not None and not chain and grep.files_matched <= BROAD_FILES:
-        return LocateResult(grep.hits, "grep", f"literal: {', '.join(literal)}", grep.truncated)
-    if graph is not None:
-        graph_hits = _graph_hits(repo_root, graph, question, limit)
-        reason = _why_graph(literal, chain, grep) + (
-            "; deep index may be stale" if graph_stale else ""
-        )
-        if found and grep is not None:
-            return LocateResult(
-                _merge(grep.hits, graph_hits, limit), "grep+graph", reason, grep.truncated
-            )
+    found, reason = _grep(repo_root, question, limit)
+    hits = found.hits
+    if is_chain_question(question):
+        hits = _users_first(hits)
+        reason = f"chain question; {reason}"
+    if graph is None:
+        return LocateResult(hits, "grep" if hits else "none", reason, found.truncated)
+    graph_hits = _graph_hits(repo_root, graph, question, limit)
+    stale = "; deep index may be stale" if graph_stale else ""
+    if not hits:
         if graph_hits:
-            return LocateResult(graph_hits, "graph", reason)
-    if found and grep is not None:
-        return LocateResult(grep.hits, "grep", f"literal: {', '.join(literal)}", grep.truncated)
+            return LocateResult(graph_hits, "graph", f"grep found nothing ({reason}){stale}")
+        return LocateResult((), "none", reason)
+    return LocateResult(_agree(hits, graph_hits), "grep", reason, found.truncated)
+
+
+def _grep(root: Path, question: str, limit: int) -> tuple[GrepResult, str]:
+    """The question's literal terms; failing those (none, or none in the code), its words."""
+    literal = literal_terms(question)
+    if literal:
+        found = grep_locate(root, literal, limit=limit)
+        if found.hits:
+            return found, f"literal: {', '.join(literal)}"
     words = concept_terms(question)
     if not words:
-        return LocateResult((), "none", "nothing in the question to search for")
-    loose = grep_locate(repo_root, words, limit=limit)
-    return LocateResult(loose.hits, "grep", f"words: {', '.join(words)}", loose.truncated)
+        return GrepResult((), 0, False), "nothing in the question to search for"
+    return grep_locate(root, words, limit=limit), f"words: {', '.join(words)}"
 
 
-def _why_graph(literal: tuple[str, ...], chain: bool, grep: GrepResult | None) -> str:
-    if chain:
-        return "chain question"
-    if not literal:
-        return "no literal words in the question"
-    if grep is None or not grep.hits:
-        return f"grep found no {', '.join(literal)}"
-    return f"grep too broad ({grep.files_matched} files)"
+def _users_first(hits: tuple[LocateHit, ...]) -> tuple[LocateHit, ...]:
+    """Who calls X is answered by the files using X: the one defining it goes last."""
+    return tuple(sorted(hits, key=lambda hit: "(definition)" in hit.why))
 
 
 def _graph_hits(root: Path, graph: Graph, question: str, limit: int) -> tuple[LocateHit, ...]:
@@ -90,33 +89,25 @@ def _graph_hits(root: Path, graph: Graph, question: str, limit: int) -> tuple[Lo
     return tuple(hits)
 
 
-def _merge(
-    grep_hits: tuple[LocateHit, ...], graph_hits: tuple[LocateHit, ...], limit: int
+def _agree(
+    grep_hits: tuple[LocateHit, ...], graph_hits: tuple[LocateHit, ...]
 ) -> tuple[LocateHit, ...]:
-    """Places both locators found first (grep's line, the graph's symbol), then the rest of
-    each, alternating."""
+    """grep's hits as they are, each naming the graph's symbol where the graph agrees. The graph
+    adds no places of its own here: on bench-locate that added tokens and no answers."""
     by_file = {hit.file: hit for hit in reversed(graph_hits)}  # best graph hit per file
-    both = [
+    return tuple(
         LocateHit(
             file=hit.file,
             line=hit.line,
-            why=f"{hit.why}; {by_file[hit.file].why}",
+            why=hit.why,
             source="grep+graph",
             symbol=by_file[hit.file].symbol,
             score=hit.score,
         )
-        for hit in grep_hits
         if hit.file in by_file
-    ]
-    agreed = {hit.file for hit in both}
-    grep_only = [hit for hit in grep_hits if hit.file not in agreed]
-    graph_only = [hit for hit in graph_hits if hit.file not in agreed]
-    rest: list[LocateHit] = []
-    for pair in zip(grep_only, graph_only, strict=False):
-        rest.extend(pair)
-    shorter = min(len(grep_only), len(graph_only))
-    rest.extend(grep_only[shorter:] or graph_only[shorter:])
-    return tuple([*both, *rest][:limit])
+        else hit
+        for hit in grep_hits
+    )
 
 
 MODES = ("grep", "graph", "hybrid")

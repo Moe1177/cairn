@@ -173,18 +173,37 @@ def test_a_literal_question_is_answered_by_grep(tmp_path: Path) -> None:
     assert result.route == "grep" and result.hits[0].file == "src/orders/service.py"
 
 
-def test_a_question_in_other_words_goes_to_the_graph(tmp_path: Path) -> None:
+def test_grep_answers_first_and_the_graph_marks_agreement(tmp_path: Path) -> None:
     repo = _repo(tmp_path / "shop", SHOP)
     result = hybrid_locate(repo, "where do we charge the card", _graph(tmp_path, SHOP_GRAPH))
-    assert result.route == "graph" and result.hits[0].file == "src/billing/charge.py"
-    assert result.hits[0].symbol == "charge()"
+    assert result.hits[0].file == "src/billing/charge.py"
+    assert result.hits[0].source == "grep+graph" and result.hits[0].symbol == "charge()"
 
 
-def test_a_chain_question_consults_the_graph_and_marks_agreement(tmp_path: Path) -> None:
+def test_the_graph_answers_when_grep_finds_nothing(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "shop", SHOP)
+    result = hybrid_locate(repo, "where is cancelling handled", _graph(tmp_path, SHOP_GRAPH))
+    assert result.route == "graph" and result.hits[0].symbol == "cancel_order()"
+
+
+def test_the_graph_adds_no_places_when_grep_found_some(tmp_path: Path) -> None:
+    """bench-locate: filling grep's empty slots with graph hits added no answers, only tokens."""
+    repo = _repo(tmp_path / "shop", SHOP)
+    graph = _graph(tmp_path, [*SHOP_GRAPH, ("orderCancelled()", "src/api/routes.py", 1)])
+    assert hybrid_locate(repo, "anything cancelled", graph).route == "graph"  # grep finds nothing
+    for question in ("where is getOrderById defined", "who calls cancel_order"):
+        alone = hybrid_locate(repo, question, None, limit=10)
+        both = hybrid_locate(repo, question, graph, limit=10)
+        assert [h.file for h in both.hits] == [h.file for h in alone.hits]
+        assert both.route == "grep"
+
+
+def test_a_chain_question_puts_the_users_before_the_definition(tmp_path: Path) -> None:
     repo = _repo(tmp_path / "shop", SHOP)
     result = hybrid_locate(repo, "who calls getOrderById", _graph(tmp_path, SHOP_GRAPH))
-    assert result.route == "grep+graph" and "chain" in result.reason
-    assert result.hits[0].source == "grep+graph"
+    files = [h.file for h in result.hits]
+    assert files[0] == "src/api/routes.py" and "chain" in result.reason
+    assert files.index("src/orders/service.py") > files.index("tests/test_orders.py")
 
 
 def test_without_a_graph_plain_words_are_grepped(tmp_path: Path) -> None:
@@ -196,7 +215,7 @@ def test_without_a_graph_plain_words_are_grepped(tmp_path: Path) -> None:
 def test_a_stale_graph_is_said_so(tmp_path: Path) -> None:
     repo = _repo(tmp_path / "shop", SHOP)
     graph = _graph(tmp_path, SHOP_GRAPH)
-    result = hybrid_locate(repo, "where do we charge the card", graph, graph_stale=True)
+    result = hybrid_locate(repo, "where is cancelling handled", graph, graph_stale=True)
     assert "stale" in result.reason
 
 
