@@ -1,0 +1,719 @@
+{
+ "edges": [
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "src/models/application.ts",
+     "line": 2,
+     "repo": "admin-panel",
+     "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+    },
+    {
+     "file": "lib/models/application.ts",
+     "line": 2,
+     "repo": "registration-site",
+     "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_table:applications"
+   ],
+   "source": "admin-panel",
+   "target": "registration-site",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [
+    {
+     "file": "src/models/application.ts",
+     "line": 2,
+     "repo": "admin-panel",
+     "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+    },
+    {
+     "file": "lib/models/application.ts",
+     "line": 2,
+     "repo": "registration-site-2026",
+     "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+    }
+   ],
+   "note": null,
+   "score": 0.3,
+   "signals": [
+    "db_table:applications"
+   ],
+   "source": "admin-panel",
+   "target": "registration-site-2026",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "scripts/meals.ts",
+     "line": 2,
+     "repo": "checkin-app",
+     "snippet": "const meals = db.collection('meals');"
+    },
+    {
+     "file": "src/models/meal.ts",
+     "line": 2,
+     "repo": "admin-panel",
+     "snippet": "const Meal = mongoose.models.Meal || mongoose.model(\"Meal\", schema);"
+    },
+    {
+     "file": "scripts/meals.ts",
+     "line": 3,
+     "repo": "checkin-app",
+     "snippet": "const qr = db.collection('qrcodemappings');"
+    }
+   ],
+   "note": null,
+   "score": 0.84,
+   "signals": [
+    "db_table:meals",
+    "db_table:qrcodemappings"
+   ],
+   "source": "checkin-app",
+   "target": "admin-panel",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [],
+   "note": null,
+   "score": 0.2,
+   "signals": [
+    "package:npm:mailer-app"
+   ],
+   "source": "mailing-list",
+   "target": "mailing-list-old",
+   "type": "mirrors",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "root:<sha>",
+    "package:npm:registration-site"
+   ],
+   "source": "registration-site",
+   "target": "registration-site-2026",
+   "type": "mirrors",
+   "why": null
+  }
+ ],
+ "repos": {
+  "admin-panel": {
+   "aliases": [
+    "admin-panel"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "admin-panel",
+        "snippet": "{\"name\": \"admin-panel\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "mongodb"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "admin-panel",
+        "snippet": "{\"name\": \"admin-panel\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mongoose"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "src/models/application.ts",
+        "line": 2,
+        "repo": "admin-panel",
+        "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "applications"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/models/meal.ts",
+        "line": 2,
+        "repo": "admin-panel",
+        "snippet": "const Meal = mongoose.models.Meal || mongoose.model(\"Meal\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "meals"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/models/qr.ts",
+        "line": 2,
+        "repo": "admin-panel",
+        "snippet": "const QrCodeMapping = mongoose.models.QrCodeMapping || mongoose.model(\"QrCodeMapping\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "qrcodemappings"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/models/user.ts",
+        "line": 2,
+        "repo": "admin-panel",
+        "snippet": "const User = mongoose.models.User || mongoose.model(\"User\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "users"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "admin-panel",
+        "snippet": "{\"name\": \"admin-panel\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:admin-panel"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "checkin-app": {
+   "aliases": [
+    "checkin-app"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "checkin-app",
+        "snippet": "{\"name\": \"checkin-app\", \"dependencies\": {\"mongodb\": \"^6\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "mongodb"
+     },
+     {
+      "evidence": [
+       {
+        "file": "scripts/meals.ts",
+        "line": 2,
+        "repo": "checkin-app",
+        "snippet": "const meals = db.collection('meals');"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "meals"
+     },
+     {
+      "evidence": [
+       {
+        "file": "scripts/meals.ts",
+        "line": 3,
+        "repo": "checkin-app",
+        "snippet": "const qr = db.collection('qrcodemappings');"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "qrcodemappings"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "checkin-app",
+        "snippet": "{\"name\": \"checkin-app\", \"dependencies\": {\"mongodb\": \"^6\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mongodb"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "checkin-app",
+        "snippet": "{\"name\": \"checkin-app\", \"dependencies\": {\"mongodb\": \"^6\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:checkin-app"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "scripts/",
+     "purpose": "scripts"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "mailing-list": {
+   "aliases": [
+    "mailing-list",
+    "mailer-app"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "mailing-list",
+        "snippet": "{\"name\": \"mailer-app\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "mongodb"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "mailing-list",
+        "snippet": "{\"name\": \"mailer-app\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mongoose"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "lib/verified.ts",
+        "line": 2,
+        "repo": "mailing-list",
+        "snippet": "const VerifiedEmail = mongoose.models.Verified_Email || mongoose.model(\"Verified_Email\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "verified_emails"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "mailing-list",
+        "snippet": "{\"name\": \"mailer-app\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mailer-app"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "lib/",
+     "purpose": "library code"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "mailing-list-old": {
+   "aliases": [
+    "mailing-list-old",
+    "mailer-app"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "mailing-list-old",
+        "snippet": "{\"name\": \"mailer-app\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "mongodb"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "mailing-list-old",
+        "snippet": "{\"name\": \"mailer-app\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mongoose"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "mailing-list-old",
+        "snippet": "{\"name\": \"mailer-app\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mailer-app"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "photo-wall": {
+   "aliases": [
+    "photo-wall"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "photo-wall",
+        "snippet": "{\"name\": \"photo-wall\", \"dependencies\": {\"firebase\": \"^10\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:firebase"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "photo-wall",
+        "snippet": "{\"name\": \"photo-wall\", \"dependencies\": {\"firebase\": \"^10\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:photo-wall"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "registration-site": {
+   "aliases": [
+    "registration-site"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "registration-site",
+        "snippet": "{\"name\": \"registration-site\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "mongodb"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "registration-site",
+        "snippet": "{\"name\": \"registration-site\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mongoose"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "lib/models/application.ts",
+        "line": 2,
+        "repo": "registration-site",
+        "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "applications"
+     },
+     {
+      "evidence": [
+       {
+        "file": "lib/models/checkin.ts",
+        "line": 2,
+        "repo": "registration-site",
+        "snippet": "const CheckIn = mongoose.models.CheckIn || mongoose.model(\"CheckIn\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "checkins"
+     },
+     {
+      "evidence": [
+       {
+        "file": "lib/models/user.ts",
+        "line": 2,
+        "repo": "registration-site",
+        "snippet": "const User = mongoose.models.User || mongoose.model(\"User\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "users"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "registration-site",
+        "snippet": "{\"name\": \"registration-site\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:registration-site"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "lib/",
+     "purpose": "library code"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "registration-site-2026": {
+   "aliases": [
+    "registration-site-2026",
+    "registration-site"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "registration-site-2026",
+        "snippet": "{\"name\": \"registration-site\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "db_provider",
+      "value": "mongodb"
+     },
+     {
+      "evidence": [
+       {
+        "file": "README.md",
+        "line": 1,
+        "repo": "registration-site-2026",
+        "snippet": "# registration-site"
+       }
+      ],
+      "hints": [],
+      "kind": "doc_mention",
+      "value": "registration-site"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "registration-site-2026",
+        "snippet": "{\"name\": \"registration-site\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:mongoose"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "lib/models/application.ts",
+        "line": 2,
+        "repo": "registration-site-2026",
+        "snippet": "const Application = mongoose.models.Applications || mongoose.model(\"Applications\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "applications"
+     },
+     {
+      "evidence": [
+       {
+        "file": "lib/models/checkin.ts",
+        "line": 2,
+        "repo": "registration-site-2026",
+        "snippet": "const CheckIn = mongoose.models.CheckIn || mongoose.model(\"CheckIn\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "checkins"
+     },
+     {
+      "evidence": [
+       {
+        "file": "lib/models/user.ts",
+        "line": 2,
+        "repo": "registration-site-2026",
+        "snippet": "const User = mongoose.models.User || mongoose.model(\"User\", schema);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "users"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "registration-site-2026",
+        "snippet": "{\"name\": \"registration-site\", \"dependencies\": {\"mongoose\": \"^8\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:registration-site"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "lib/",
+     "purpose": "library code"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  }
+ }
+}
