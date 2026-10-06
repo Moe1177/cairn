@@ -36,7 +36,7 @@ def test_command_is_isolated_and_read_only(tmp_path: Path) -> None:
     joined = " ".join(cmd)
     assert Path(cmd[0]).stem.lower() == "claude" and cmd[1:3] == ["-p", "q?"]
     for flag in (
-        "--output-format json",
+        "--output-format stream-json --verbose",
         "--setting-sources project,local",
         "--no-session-persistence",
         "--permission-mode dontAsk",
