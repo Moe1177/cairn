@@ -119,3 +119,11 @@ def test_every_limit_wording_is_detected(text: str) -> None:
     from cairn.bench.run import usage_limit
 
     assert usage_limit(RunResult(result_text=text, is_error=True))
+
+
+def test_the_combined_report_shows_tools_too() -> None:
+    from cairn.bench.report import render_combined
+
+    records = [_record("E", (("mcp__cairn__query", 1),)), _record("E", (("Grep", 1),))]
+    text = render_combined({"All suites / haiku": records})
+    assert "### Tools used" in text and "| E | 2 | 1 (50%) |" in text
