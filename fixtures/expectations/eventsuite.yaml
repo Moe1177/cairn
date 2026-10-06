@@ -1,5 +1,8 @@
 edges:
   - {from: registration-site, to: registration-site-2026, type: mirrors, confidence: extracted}
+  # Between copies, a shared schema and a copied README are only suggestions:
+  - {from: registration-site, to: registration-site-2026, type: shares_db, confidence: ambiguous}
+  - {from: registration-site, to: registration-site-2026, type: mentions, confidence: ambiguous}
   - {from: mailing-list, to: mailing-list-old, type: mirrors, confidence: ambiguous}
   - {from: checkin-app, to: admin-panel, type: shares_db, confidence: extracted}
   - {from: admin-panel, to: registration-site, type: shares_db, confidence: ambiguous}

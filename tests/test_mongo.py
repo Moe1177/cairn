@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from cairn.detectors.database import DatabaseDetector, mongoose_collection
+from cairn.detectors.database import DatabaseDetector
+from cairn.detectors.mongo import mongoose_collection
 from cairn.model.graph import EdgeType, FactKind
 from cairn.scan import scan_workspace
 from tests.helpers import ctx_for, make_repo
@@ -33,7 +34,7 @@ const users = db.collection("qrcodemappings");
         ("Verified_Email", "verified_emails"),
         ("Category", "categories"),
         ("Person", "people"),
-        ("Info", "info"),
+        ("Info", "infos"),  # what Mongoose itself does
     ],
 )
 def test_mongoose_names_collections_like_mongoose(model: str, collection: str) -> None:

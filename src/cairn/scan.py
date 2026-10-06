@@ -149,7 +149,7 @@ def scan_workspace(
     unsafe = tuple(f"skipped {loc.root.name!r}: unusual characters in its path" for loc in skipped)
     warnings = (
         *_git_warning(locations),
-        *_trust_warning(root, locations, gits),
+        *_trust_warning(locations, prints),
         *unsafe,
         *overridden.warnings,
     )
@@ -157,15 +157,14 @@ def scan_workspace(
 
 
 def _trust_warning(
-    root: Path, locations: Sequence[RepoLocation], gits: Mapping[str, GitInfo]
+    locations: Sequence[RepoLocation], prints: Mapping[str, str | None]
 ) -> tuple[str, ...]:
-    """One warning naming the repos git refuses to read (only repos with no HEAD are asked)."""
+    """One warning naming the repos git refuses to read. Only repos whose `git status` failed
+    are asked: HEAD can still come from the git memo when git has started refusing a repo."""
     refused = [
         loc
         for loc in locations
-        if gits[loc.id].head_sha is None
-        and safe_exists(loc.root / ".git")
-        and git_refused(loc.root)
+        if prints[loc.id] is None and safe_exists(loc.root / ".git") and git_refused(loc.root)
     ]
     if not refused:
         return ()
@@ -174,7 +173,8 @@ def _trust_warning(
     return (
         f"git refuses {len(refused)} repo(s) owned by another user (dubious ownership): {names}. "
         f"cairn can't read their HEAD, remote or cache. Trust each one with "
-        f"`git config --global --add safe.directory {example}` (`cairn doctor` lists them all).",
+        f"`git config --global --add safe.directory '{example}'` (`cairn doctor` lists them "
+        "all).",
     )
 
 

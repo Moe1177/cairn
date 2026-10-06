@@ -5,6 +5,7 @@ import platform
 import shutil
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -104,17 +105,20 @@ def _git_trust(root: Path) -> list[Check]:
         workspace = load_workspace(root)
     if workspace is None:
         return []
-    refused = [root / r.path for r in workspace.repos if git_refused(root / r.path)]
+    with ThreadPoolExecutor(max_workers=8) as pool:  # one git call per repo
+        flags = list(pool.map(lambda r: git_refused(root / r.path), workspace.repos))
+    refused = [root / r.path for r, flag in zip(workspace.repos, flags, strict=True) if flag]
     if not refused:
         return [Check(OK, "git trust", "git reads every repo")]
-    commands = "; ".join(
-        f"git config --global --add safe.directory {p.as_posix()}" for p in refused
+    # One command per line, the path quoted (spaces), as git's own hint does.
+    commands = "".join(
+        f"\n       git config --global --add safe.directory '{p.as_posix()}'" for p in refused
     )
     return [
         Check(
             WARN,
             "git trust",
-            f"{len(refused)} repo(s) owned by another user, so git won't read them. Run: {commands}",
+            f"{len(refused)} repo(s) owned by another user, so git won't read them. Run:{commands}",
         )
     ]
 
