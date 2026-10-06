@@ -20,6 +20,10 @@ _ENV_REF = re.compile(
     rf"|(?:process\.env|os\.environ)\[\s*['\"]{_ENV_NAME}['\"]"
     rf"|(?:os\.environ\.get|os\.getenv|os\.Getenv|env::var|System\.getenv)\(\s*['\"]{_ENV_NAME}['\"]"
 )
+# Every _ENV_REF alternative starts with one of these: a file without any reads no env var.
+_ENV_PREFIX = re.compile(
+    r"process\.env|import\.meta\.env|os\.environ|os\.getenv|os\.Getenv|env::var|System\.getenv"
+)
 _TEMPLATE_LINE = re.compile(r"\s*(?:export\s+)?([A-Z][A-Z0-9_]{1,63})\s*=")
 
 # Names nearly every service sets: sharing one says nothing about a relationship.
@@ -81,6 +85,8 @@ def is_generic(template: str) -> bool:
 def env_names(text: str) -> list[tuple[int, str]]:
     """(line, NAME) for env vars read in code (JS/TS, Python, Go, Rust, Java)."""
     found: list[tuple[int, str]] = []
+    if not _ENV_PREFIX.search(text):
+        return found
     for line_no, line in enumerate(text.splitlines(), start=1):
         for match in _ENV_REF.finditer(line[:2000]):
             found.append((line_no, next(g for g in match.groups() if g)))

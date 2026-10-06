@@ -23,6 +23,7 @@ CREATE_TABLE = re.compile(r"(?i)\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?" + 
 SQL_REF = re.compile(r"\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:ONLY\s+)?" + _IDENT)
 SQL_REF_ANYCASE = re.compile(SQL_REF.pattern, re.IGNORECASE)
 _CODE_GATE = ("Table(", "FROM", "JOIN", "INTO", "UPDATE")
+_CODE_GATE_RE = re.compile("|".join(re.escape(key) for key in _CODE_GATE))
 ORM_TABLE = re.compile(r"\b(?:pgTable|mysqlTable|sqliteTable)\(\s*['\"`]([A-Za-z_]\w*)['\"`]")
 SUPABASE_REF = re.compile(
     r"\.from\(\s*['\"`]([A-Za-z_]\w*)['\"`]\s*\)\s*\.\s*(?:select|insert|update|upsert|delete)\b"
@@ -180,10 +181,11 @@ def _scan_code(ctx: DetectorContext, path: Path, text: str) -> Found:
     consumes: list[Fact] = []
     lines = text.splitlines()
     mongo = uses_mongo(text)
-    for line_no, line in _code_lines(text):
+    # A file with no gate word anywhere has no line with one: skip the per-line pass.
+    for line_no, line in _code_lines(text) if _CODE_GATE_RE.search(text) else ():
         if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
             return exposes, consumes
-        if not any(key in line for key in _CODE_GATE):
+        if not _CODE_GATE_RE.search(line):
             continue  # ORM_TABLE needs `Table(`; SQL_REF needs an upper-case keyword
         exposes += [_table(ctx, path, line_no, line, m.group(1)) for m in ORM_TABLE.finditer(line)]
         refs = [m.group(1) for m in SQL_REF.finditer(line)]
