@@ -51,7 +51,7 @@ def test_build_status_and_clear(ws: Path) -> None:
 def test_query_names_the_deep_index_symbol_on_grep_s_hit(ws: Path) -> None:
     _cli("deep", "build", "app", "-w", str(ws))
     answer = tools.query_text(ws, "app", "where is login handled?")
-    assert "auth.py:1 login()" in answer and "stale" not in answer
+    assert "auth.py:1 login() (graph)" in answer and "stale" not in answer
 
 
 def test_query_says_when_the_index_is_stale_or_missing(ws: Path) -> None:

@@ -273,3 +273,20 @@ def test_never_open_files_are_never_searched(tmp_path: Path, git: bool) -> None:
         assert {h.file for h in hits} <= {"src/pay.py"}  # never a secret file
     for name in (".env", "secrets.yaml", "prod.tfvars", "appsettings.Production.json"):
         assert grep_locate(repo, (name,), limit=10).hits == ()
+
+
+def test_a_grep_hit_names_the_symbol_that_encloses_its_line(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "shop", SHOP)
+    graph = _graph(tmp_path, SHOP_GRAPH)
+    message = hybrid_locate(repo, '"card declined by issuer"', graph).hits[0]
+    assert (message.line, message.symbol) == (7, "cancel_order()")  # line 7 is inside it
+    definition = hybrid_locate(repo, "where is getOrderById defined", graph).hits[0]
+    assert (definition.line, definition.symbol) == (3, "getOrderById()")
+
+
+def test_a_stale_index_adds_no_symbols_to_grep_hits(tmp_path: Path) -> None:
+    repo = _repo(tmp_path / "shop", SHOP)
+    graph = _graph(tmp_path, SHOP_GRAPH)
+    result = hybrid_locate(repo, "where is getOrderById defined", graph, graph_stale=True)
+    assert result.hits and all(h.symbol is None for h in result.hits)
+    assert result.route == "grep"
