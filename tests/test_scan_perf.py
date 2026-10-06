@@ -44,7 +44,7 @@ def test_scan_output_is_unchanged(tmp_path: Path, name: str) -> None:
     golden = GOLDEN / f"{name}.json"
     got = json.dumps(_facts(ws), indent=1, sort_keys=True)
     if os.environ.get("CAIRN_WRITE_GOLDEN"):
-        golden.write_text(got + "\n", encoding="utf-8")
+        golden.write_text(got + "\n", encoding="utf-8", newline="\n")
     assert got + "\n" == golden.read_text(encoding="utf-8")
 
 

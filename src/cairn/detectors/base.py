@@ -59,6 +59,9 @@ class _RepoFiles:
 
 @dataclass(frozen=True)
 class DetectorContext:
+    """One repo, one scan phase. Files are walked and read once, so a context is a snapshot:
+    take a new one to see later changes."""
+
     workspace_root: Path
     repo: RepoLocation
     config: CairnConfig
