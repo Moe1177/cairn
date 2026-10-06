@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 from cairn.providers.graph import hubs, load_graph, rank
+from tests.timing import time_limit
 
 
 def _graph(tmp_path: Path, nodes: list[dict], links: list[dict]) -> Path:
@@ -116,4 +117,4 @@ def test_ranking_is_fast_on_big_graphs_and_long_questions(tmp_path: Path) -> Non
     assert graph is not None
     start = time.perf_counter()
     rank(graph, "handler_12345 " + "word " * 50_000, 5)
-    assert time.perf_counter() - start < 2.0
+    assert time.perf_counter() - start < time_limit(2.0)

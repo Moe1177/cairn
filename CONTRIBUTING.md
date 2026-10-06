@@ -17,7 +17,7 @@ uv run cairn --help
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright
-uv run pytest --cov=cairn --cov-fail-under=80
+uv run pytest -n auto --cov=cairn --cov-fail-under=80   # -n auto: all cores (pytest-xdist)
 ```
 
 CI runs the same checks on Linux, macOS, and Windows with Python 3.11–3.14. It also installs the

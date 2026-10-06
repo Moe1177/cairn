@@ -10,6 +10,7 @@ from cairn.match.matcher import RepoFacts, match_edges
 from cairn.model.graph import Confidence, Contracts, EdgeType, Evidence, Fact, FactKind
 from cairn.scan import scan_workspace
 from tests.helpers import ctx_for, make_repo, write
+from tests.timing import time_limit
 
 
 def _routes(tmp_path: Path, files: dict[str, str], side: str = "exposes") -> set[str]:
@@ -158,4 +159,4 @@ def test_http_detector_is_linear(tmp_path: Path, name: str) -> None:
     write(repo, "big.ts", text[:999_000])
     start = time.perf_counter()
     HttpDetector().run(ctx_for(tmp_path, repo))
-    assert time.perf_counter() - start < 1.5
+    assert time.perf_counter() - start < time_limit(1.5)

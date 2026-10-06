@@ -19,6 +19,7 @@ from cairn.scan import scan_workspace
 from cairn.store import lock
 from cairn.store.atomic import atomic_write_text
 from tests.helpers import make_repo, write
+from tests.timing import time_limit
 
 
 def test_unsupported_locking_warns_and_proceeds(
@@ -33,7 +34,7 @@ def test_unsupported_locking_warns_and_proceeds(
     start = time.monotonic()
     with lock.workspace_lock(tmp_path, timeout=30):
         pass
-    assert time.monotonic() - start < 1
+    assert time.monotonic() - start < time_limit(1)
     assert "locking" in capsys.readouterr().err
 
 

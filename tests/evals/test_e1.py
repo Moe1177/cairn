@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from cairn.bench.workspace import materialize as materialize_tree
 from cairn.emit import write_outputs
 from cairn.integrations.claude import install_claude
 from cairn.load import load_authored
@@ -18,6 +19,7 @@ from tests.evals.metrics import check_faithfulness, edge_metrics
 
 EXPECTATIONS = Path(__file__).resolve().parents[2] / "fixtures" / "expectations"
 GOLDEN = Path(__file__).resolve().parent / "golden"
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "workspaces"
 REMOTE_TOKEN = "ghp_REMOTEFAKEfakeFAKEfake1234567890"
 REMOTES = {
     "mini-eats": {"eats": f"https://bot:{REMOTE_TOKEN}@github.com/acme/eats.git"},
@@ -39,10 +41,27 @@ def _scan(materialize, name: str):
     return ws, result
 
 
-def test_edge_detection_meets_calibration_gates(materialize) -> None:
+@pytest.fixture(scope="session")
+def scanned(tmp_path_factory: pytest.TempPathFactory):
+    """One scan per workspace for the evals that only read it (each xdist worker has its own)."""
+    cache: dict[str, tuple] = {}
+
+    def _get(name: str):
+        if name not in cache:
+            dest = tmp_path_factory.mktemp("e1") / name
+            ws = materialize_tree(FIXTURES / name, dest, remotes=REMOTES[name]).resolve()
+            result = scan_workspace(ws)
+            write_outputs(ws, result)
+            cache[name] = (ws, result)
+        return cache[name]
+
+    return _get
+
+
+def test_edge_detection_meets_calibration_gates(scanned) -> None:
     predicted, expected = [], []
     for name in REMOTES:
-        _, result = _scan(materialize, name)
+        _, result = scanned(name)
         predicted += [
             (e.source, e.target, e.type.value, e.confidence.value) for e in result.workspace.edges
         ]
@@ -56,11 +75,11 @@ def test_edge_detection_meets_calibration_gates(materialize) -> None:
     assert metrics.tier_accuracy >= 0.90, metrics.describe()
 
 
-def test_resolution_accuracy(materialize) -> None:
+def test_resolution_accuracy(scanned) -> None:
     total = top1 = top3 = 0
     misses = []
     for name in REMOTES:
-        ws, result = _scan(materialize, name)
+        ws, result = scanned(name)
         authored = load_authored(ws)
         for case in _expect(name)["phrasings"]:
             ids = [m.repo_id for m in resolve_repo(result.workspace, authored, case["query"])]
@@ -73,15 +92,15 @@ def test_resolution_accuracy(materialize) -> None:
     assert top3 / total >= 0.95, "\n".join(misses)
 
 
-def test_every_evidence_item_is_faithful(materialize) -> None:
+def test_every_evidence_item_is_faithful(scanned) -> None:
     for name in REMOTES:
-        ws, result = _scan(materialize, name)
+        ws, result = scanned(name)
         assert check_faithfulness(ws, result.workspace) == []
 
 
-def test_cards_and_index_respect_budgets(materialize) -> None:
+def test_cards_and_index_respect_budgets(scanned) -> None:
     for name in REMOTES:
-        ws, result = _scan(materialize, name)
+        ws, result = scanned(name)
         for card in (ws / ".cairn" / "cards").glob("*.md"):
             assert estimate_tokens(card.read_text(encoding="utf-8")) <= result.config.card_budget, (
                 card.name
@@ -111,8 +130,8 @@ def _normalize(text: str, ws: Path) -> str:
 
 
 @pytest.mark.parametrize("rel", ["INDEX.md", "cards/eats.md", "cards/eats-admin.md"])
-def test_golden_outputs(materialize, rel: str) -> None:
-    ws, _ = _scan(materialize, "mini-eats")
+def test_golden_outputs(scanned, rel: str) -> None:
+    ws, _ = scanned("mini-eats")
     actual = _normalize((ws / ".cairn" / rel).read_text(encoding="utf-8"), ws)
     golden = GOLDEN / "mini-eats" / rel
     if os.environ.get("CAIRN_UPDATE_GOLDEN") == "1":
@@ -122,8 +141,8 @@ def test_golden_outputs(materialize, rel: str) -> None:
     assert golden.read_text(encoding="utf-8") == actual
 
 
-def test_lookalikes_have_no_confident_false_positives(materialize) -> None:
-    _, result = _scan(materialize, "lookalikes")
+def test_lookalikes_have_no_confident_false_positives(scanned) -> None:
+    _, result = scanned("lookalikes")
     # A confident edge is wrong if it is unexpected OR expected only as `ambiguous`.
     confident_ok = {
         (*sorted((e["from"], e["to"])), e["type"])
@@ -159,11 +178,11 @@ def test_scan_never_opens_forbidden_files(materialize, monkeypatch) -> None:
     assert opened and [p for p in opened if is_forbidden(p)] == []
 
 
-def test_mcp_tool_outputs_respect_budgets(materialize) -> None:
+def test_mcp_tool_outputs_respect_budgets(scanned) -> None:
     from cairn.mcp_server import tools
 
     for name in REMOTES:
-        ws, result = _scan(materialize, name)
+        ws, result = scanned(name)
         for repo in result.workspace.repos:
             assert estimate_tokens(tools.card_text(ws, repo.id)) <= result.config.card_budget
             related = tools.related_text(ws, repo.id, include_unconfirmed=True)
@@ -171,21 +190,21 @@ def test_mcp_tool_outputs_respect_budgets(materialize) -> None:
         assert len(tools.find_across_text(ws, "a").splitlines()) <= tools.MAX_LINES + 1
 
 
-def test_mcp_resolve_top_hit_equals_resolver(materialize) -> None:
+def test_mcp_resolve_top_hit_equals_resolver(scanned) -> None:
     from cairn.mcp_server import tools
 
-    ws, result = _scan(materialize, "mini-eats")
+    ws, result = scanned("mini-eats")
     authored = load_authored(ws)
     for case in _expect("mini-eats")["phrasings"]:
         expected = resolve_repo(result.workspace, authored, case["query"])[0].repo_id
         assert tools.resolve_text(ws, case["query"]).startswith(f"- {expected} ")
 
 
-def test_service_links_are_exact(materialize) -> None:
+def test_service_links_are_exact(scanned) -> None:
     """Spec §21.6: HTTP, gRPC, pub/sub, compose, env and monorepo links, with look-alikes
     (shared /health, an external API, a vague topic, a proto with no implementer) that must
     not link at all."""
-    _, result = _scan(materialize, "servicemesh")
+    _, result = scanned("servicemesh")
     predicted = [
         (e.source, e.target, e.type.value, e.confidence.value) for e in result.workspace.edges
     ]
@@ -196,3 +215,7 @@ def test_service_links_are_exact(materialize) -> None:
     assert metrics.recall >= 0.9, metrics.describe()
     assert metrics.precision == 1.0, metrics.describe()
     assert metrics.tier_accuracy == 1.0, metrics.describe()
+
+
+def test_read_only_evals_share_one_scan_per_workspace(scanned) -> None:
+    assert scanned("mini-eats") is scanned("mini-eats")

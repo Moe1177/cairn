@@ -10,6 +10,7 @@ from cairn.detectors.http_paths import (
     normalize_route,
     template_env_names,
 )
+from tests.timing import time_limit
 
 
 @pytest.mark.parametrize(
@@ -91,4 +92,4 @@ def test_primitives_are_linear() -> None:
     env_names(text)
     template_env_names("A=" * 500_000)
     normalize_route("/" + "{" * 1_000_000)
-    assert time.perf_counter() - start < 1
+    assert time.perf_counter() - start < time_limit(1)

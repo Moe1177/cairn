@@ -11,6 +11,7 @@ from cairn.detectors.identity import first_paragraph
 from cairn.detectors.manifests import parse_go_mod
 from cairn.security.redact import make_snippet, redact
 from tests.helpers import ctx_for, make_repo
+from tests.timing import time_limit
 
 MB = 1_000_000
 
@@ -18,7 +19,7 @@ MB = 1_000_000
 def _fast(fn: Callable[[], object], budget: float = 1.0) -> None:
     start = time.perf_counter()
     fn()
-    assert time.perf_counter() - start < budget
+    assert time.perf_counter() - start < time_limit(budget)
 
 
 ADVERSARIAL = {
