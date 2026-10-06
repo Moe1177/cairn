@@ -1,0 +1,62 @@
+split: dev
+queries:
+  - id: shopverse-literal-1
+    category: literal
+    repo: payments-svc
+    question: "Where is the insertCharge SQL constant declared?"
+    answers: [payments-svc/internal/ledger.go]
+    note: insertCharge const is defined in ledger.go.
+  - id: shopverse-literal-2
+    category: literal
+    repo: orders-svc
+    question: "Where is the /orders/{order_id} route defined?"
+    answers: [orders-svc/app/main.py]
+    note: get_order is decorated with @app.get("/orders/{order_id}") in main.py.
+  - id: shopverse-vocabulary-1
+    category: vocabulary
+    repo: storefront
+    question: "How is the amount a shopper owes worked out from what is in their basket?"
+    answers: [storefront/lib/cart.ts]
+    note: cart.ts sums price times quantity over the line entries.
+  - id: shopverse-vocabulary-2
+    category: vocabulary
+    repo: orders-svc
+    question: "What happens in the database when a customer gets their money back?"
+    answers: [orders-svc/app/refunds.py]
+    note: refunds.py inserts a refund row and flips the order status.
+  - id: shopverse-chain-1
+    category: chain
+    repo: storefront
+    question: "Who uses cartTotal?"
+    answers: [storefront/app/checkout/page.tsx]
+    note: checkout page placeOrder calls cartTotal.
+  - id: shopverse-chain-2
+    category: chain
+    repo: admin
+    question: "What breaks if the listOrders export changes?"
+    answers: [admin/app/orders/page.tsx]
+    note: orders page imports and awaits listOrders.
+  - id: shopverse-broad-1
+    category: broad
+    repo: orders-svc
+    question: "Where is the Python pydantic model for an order declared?"
+    answers: [orders-svc/app/main.py]
+    note: "grep -ril order = 15 files (excluding dot-cairn); class Order(BaseModel) is in main.py."
+  - id: shopverse-broad-2
+    category: broad
+    repo: admin
+    question: "Where is the TypeScript type listing the possible statuses of an order declared?"
+    answers: [shared-types/src/order.ts]
+    note: "grep -ril order = 15 files (excluding dot-cairn); status union is in shared-types order.ts."
+  - id: shopverse-cross-repo-1
+    category: cross-repo
+    repo: storefront
+    question: "Which backend endpoint accepts the POST that checkout sends?"
+    answers: [orders-svc/app/main.py]
+    note: main.py defines the POST /orders handler create_order.
+  - id: shopverse-cross-repo-2
+    category: cross-repo
+    repo: admin
+    question: "Which service records each card charge in a database table?"
+    answers: [payments-svc/migrations/001_ledger.sql, payments-svc/internal/ledger.go]
+    note: ledger migration and ledger.go define/insert into payments_ledger.

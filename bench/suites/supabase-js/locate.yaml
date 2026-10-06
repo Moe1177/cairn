@@ -1,0 +1,122 @@
+split: held
+queries:
+  - id: supabase-literal-1
+    category: literal
+    repo: auth-js
+    question: "Where is AUTO_REFRESH_TICK_DURATION_MS defined?"
+    answers: [auth-js/src/lib/constants.ts]
+    note: constant declared in auth-js constants
+  - id: supabase-literal-2
+    category: literal
+    repo: storage-js
+    question: "Where is createSignedUploadUrl implemented?"
+    answers: [storage-js/src/packages/StorageFileApi.ts]
+    note: method defined on StorageFileApi
+  - id: supabase-literal-3
+    category: literal
+    repo: functions-js
+    question: "Where is the FunctionsRelayError class declared?"
+    answers: [functions-js/src/types.ts]
+    note: error classes live in functions-js types.ts
+  - id: supabase-literal-4
+    category: literal
+    repo: postgrest-js
+    question: "Where is textSearch defined for filtering rows?"
+    answers: [postgrest-js/src/PostgrestFilterBuilder.ts]
+    note: textSearch method on the filter builder
+  - id: supabase-vocabulary-1
+    category: vocabulary
+    repo: realtime-js
+    question: "How long does the socket layer wait between retries to re-establish a dropped connection, and how does the delay step up?"
+    answers: [realtime-js/src/RealtimeClient.ts, realtime-js/src/lib/timer.ts]
+    note: RECONNECT_INTERVALS steps [1000,2000,5000,10000] in RealtimeClient; Timer implements the scheduling
+  - id: supabase-vocabulary-2
+    category: vocabulary
+    repo: auth-js
+    question: "How are raw bytes turned into the padding-free, web-safe text form used for tokens and challenges?"
+    answers: [auth-js/src/lib/base64url.ts]
+    note: base64url encode/decode helpers
+  - id: supabase-vocabulary-3
+    category: vocabulary
+    repo: storage-js
+    question: "What max-age is applied to stored objects when the caller does not specify one?"
+    answers: [storage-js/src/packages/StorageFileApi.ts]
+    note: DEFAULT_FILE_OPTIONS cacheControl '3600' used for cache-control header
+  - id: supabase-vocabulary-4
+    category: vocabulary
+    repo: functions-js
+    question: "How does the library pick which geographic area runs the serverless function when the caller sets nothing?"
+    answers: [functions-js/src/types.ts, functions-js/src/FunctionsClient.ts]
+    note: FunctionRegion enum in types.ts; default Any applied in FunctionsClient constructor
+  - id: supabase-chain-1
+    category: chain
+    repo: auth-js
+    question: "Where is isAuthSessionMissingError used?"
+    answers: [auth-js/src/GoTrueClient.ts]
+    note: only consumer outside errors.ts is GoTrueClient
+  - id: supabase-chain-2
+    category: chain
+    repo: storage-js
+    question: "What code calls isStorageError?"
+    answers: [storage-js/src/packages/BlobDownloadBuilder.ts, storage-js/src/packages/StorageBucketApi.ts, storage-js/src/packages/StorageFileApi.ts, storage-js/src/packages/StreamDownloadBuilder.ts]
+    note: four package files import and call it in catch blocks
+  - id: supabase-chain-3
+    category: chain
+    repo: realtime-js
+    question: "What uses WebSocketFactory when opening a connection?"
+    answers: [realtime-js/src/RealtimeClient.ts]
+    note: RealtimeClient calls WebSocketFactory.createWebSocket; index.ts only re-exports
+  - id: supabase-chain-4
+    category: chain
+    repo: realtime-js
+    question: "Which file depends on RealtimePresence?"
+    answers: [realtime-js/src/RealtimeChannel.ts]
+    note: RealtimeChannel imports and instantiates it; index.ts only re-exports
+  - id: supabase-broad-1
+    category: broad
+    repo: auth-js
+    question: "Where does the auth library turn a failed HTTP response into a typed error?"
+    answers: [auth-js/src/lib/fetch.ts]
+    note: handleError in lib/fetch.ts; grep -ril error in auth-js/src = 14 files
+  - id: supabase-broad-2
+    category: broad
+    repo: auth-js
+    question: "Where is the check that decides a stored session has expired and must be refreshed?"
+    answers: [auth-js/src/GoTrueClient.ts]
+    note: hasExpired using expires_at and EXPIRY_MARGIN_MS in GoTrueClient; grep -ril session in auth-js/src = 11 files
+  - id: supabase-broad-3
+    category: broad
+    repo: postgrest-js
+    question: "Where is the type-level parser that reads the select string of a query?"
+    answers: [postgrest-js/src/select-query-parser/parser.ts]
+    note: ParseQuery type; grep -ril query in postgrest-js/src = 10 files
+  - id: supabase-broad-4
+    category: broad
+    repo: postgrest-js
+    question: "Where does a failed response get converted into an error object with a message and code?"
+    answers: [postgrest-js/src/PostgrestBuilder.ts]
+    note: response handling in PostgrestBuilder then-callback builds error; grep -ril error in postgrest-js/src = 10 files
+  - id: supabase-cross-repo-1
+    category: cross-repo
+    repo: supabase-js
+    question: "How is an exclusive lock taken across browser tabs so only one refreshes the token at a time?"
+    answers: [auth-js/src/lib/locks.ts]
+    note: navigatorLock in auth-js locks.ts, passed through supabase-js as lock option
+  - id: supabase-cross-repo-2
+    category: cross-repo
+    repo: supabase-js
+    question: "Where is the periodic ping sent to keep the websocket alive?"
+    answers: [realtime-js/src/RealtimeClient.ts]
+    note: heartbeat logic and interval in RealtimeClient
+  - id: supabase-cross-repo-3
+    category: cross-repo
+    repo: supabase-js
+    question: "How are arrays of values serialised into the query string when filtering rows by membership in a list?"
+    answers: [postgrest-js/src/PostgrestFilterBuilder.ts]
+    note: in() method on the filter builder
+  - id: supabase-cross-repo-4
+    category: cross-repo
+    repo: supabase-js
+    question: "Where are time-limited download links for private objects created?"
+    answers: [storage-js/src/packages/StorageFileApi.ts]
+    note: createSignedUrl / createSignedUrls in StorageFileApi

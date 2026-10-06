@@ -1,0 +1,122 @@
+split: dev
+queries:
+  - id: sockshop-literal-1
+    category: literal
+    repo: payment
+    question: "Where is the /paymentAuth route registered?"
+    answers: [payment/transport.go]
+    note: MakeHTTPHandler mounts POST /paymentAuth in transport.go
+  - id: sockshop-literal-2
+    category: literal
+    repo: shipping
+    question: "Where is getShippingById defined?"
+    answers: [shipping/src/main/java/works/weave/socks/shipping/controllers/ShippingController.java]
+    note: method declared in ShippingController
+  - id: sockshop-literal-3
+    category: literal
+    repo: front-end
+    question: "Where is isInvalidRedirectPath defined?"
+    answers: [front-end/helpers/index.js]
+    note: arrow function declared in helpers/index.js
+  - id: sockshop-literal-4
+    category: literal
+    repo: user
+    question: "Where is ErrNoCustomerInResponse declared?"
+    answers: [user/users/users.go]
+    note: error var declared in users.go
+  - id: sockshop-vocabulary-1
+    category: vocabulary
+    repo: front-end
+    question: "Where does the web app fall back to the browser session when a visitor hasn't signed in?"
+    answers: [front-end/helpers/index.js]
+    note: getCustomerId uses req.session.id when not logged in
+  - id: sockshop-vocabulary-2
+    category: vocabulary
+    repo: user
+    question: "Where are a person's submitted credentials checked against what was saved when they sign in?"
+    answers: [user/api/service.go]
+    note: fixedService.Login compares the stored hash and returns ErrUnauthorized
+  - id: sockshop-vocabulary-3
+    category: vocabulary
+    repo: queue-master
+    question: "Where is the log line printed when a parcel job arrives off the broker?"
+    answers: [queue-master/src/main/java/works/weave/socks/queuemaster/ShippingTaskHandler.java]
+    note: handleMessage prints "Received shipment task"
+  - id: sockshop-vocabulary-4
+    category: vocabulary
+    repo: payment
+    question: "Where is the maximum spend limit enforced before a purchase is approved?"
+    answers: [payment/service.go]
+    note: Authorise compares amount to the configured decline threshold
+  - id: sockshop-chain-1
+    category: chain
+    repo: front-end
+    question: "Which files call getCustomerId?"
+    answers: [front-end/api/cart/index.js, front-end/api/user/index.js]
+    note: cart and user API routes call helpers.getCustomerId
+  - id: sockshop-chain-2
+    category: chain
+    repo: user
+    question: "Who calls MaskCCs?"
+    answers: [user/api/service.go]
+    note: Login calls u.MaskCCs()
+  - id: sockshop-chain-3
+    category: chain
+    repo: payment
+    question: "Where is WireUp called?"
+    answers: [payment/cmd/paymentsvc/main.go]
+    note: main.go calls payment.WireUp
+  - id: sockshop-chain-4
+    category: chain
+    repo: carts
+    question: "What uses FirstResultOrDefault?"
+    answers: [carts/src/main/java/works/weave/socks/cart/cart/CartResource.java]
+    note: CartResource instantiates FirstResultOrDefault
+  - id: sockshop-broad-1
+    category: broad
+    repo: orders
+    question: "Where is the order's final price worked out from its line items?"
+    answers: [orders/src/main/java/works/weave/socks/orders/controllers/OrdersController.java]
+    note: calculateTotal in OrdersController; "order" appears in 37 files of orders
+  - id: sockshop-broad-2
+    category: broad
+    repo: carts
+    question: "Where is an item added to the cart when it is not already present?"
+    answers: [carts/src/main/java/works/weave/socks/cart/controllers/ItemsController.java]
+    note: addToCart creates the item or increments it; "cart" appears in 47 files, "item" in 23
+  - id: sockshop-broad-3
+    category: broad
+    repo: user
+    question: "Where is a new user saved into the database?"
+    answers: [user/db/mongodb/mongodb.go]
+    note: Mongo.CreateUser persists the user; "user" appears in 35 files of the user repo
+  - id: sockshop-broad-4
+    category: broad
+    repo: front-end
+    question: "Where does the web layer handle removing a product from the shopping cart?"
+    answers: [front-end/api/cart/index.js]
+    note: app.delete /cart/:id handler; "cart" appears in 31 files of front-end
+  - id: sockshop-cross-repo-1
+    category: cross-repo
+    repo: front-end
+    question: "Which backend persists a visitor's basket contents in MongoDB, and where is that document defined?"
+    answers: [carts/src/main/java/works/weave/socks/cart/entities/Cart.java, carts/src/main/java/works/weave/socks/cart/repositories/CartRepository.java]
+    note: "@Document Cart entity and its Mongo repository in carts"
+  - id: sockshop-cross-repo-2
+    category: cross-repo
+    repo: front-end
+    question: "Which backend hides all but the last digits of a stored credit card number before returning it?"
+    answers: [user/users/cards.go]
+    note: Card.MaskCC in user service
+  - id: sockshop-cross-repo-3
+    category: cross-repo
+    repo: orders
+    question: "Which service puts a dispatch task onto the RabbitMQ queue when an order is placed?"
+    answers: [shipping/src/main/java/works/weave/socks/shipping/controllers/ShippingController.java]
+    note: postShipping does rabbitTemplate.convertAndSend("shipping-task")
+  - id: sockshop-cross-repo-4
+    category: cross-repo
+    repo: front-end
+    question: "Where is the SQL that lists socks filtered by tag?"
+    answers: [catalogue/service.go]
+    note: catalogueService.List builds the tag-filtered query

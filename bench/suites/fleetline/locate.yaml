@@ -1,0 +1,62 @@
+split: dev
+queries:
+  - id: fleetline-literal-1
+    category: literal
+    repo: drivers-svc
+    question: "Where is LICENSE_PATTERN defined?"
+    answers: [drivers-svc/app/verification.py]
+    note: LICENSE_PATTERN regex is declared at module level in verification.py.
+  - id: fleetline-literal-2
+    category: literal
+    repo: payments-svc
+    question: "Where is the driverShare constant declared?"
+    answers: [payments-svc/internal/payout/payout.go]
+    note: driverShare = 0.8 is declared in payout.go.
+  - id: fleetline-vocabulary-1
+    category: vocabulary
+    repo: payments-svc
+    question: "What cut of each completed ride's price goes to the person behind the wheel each week?"
+    answers: [payments-svc/internal/payout/payout.go]
+    note: payout.go computes 80% of the fare for weekly pay.
+  - id: fleetline-vocabulary-2
+    category: vocabulary
+    repo: pricing-svc
+    question: "Where is the upper limit on busy-time price inflation for a neighbourhood enforced?"
+    answers: [pricing-svc/internal/surge/surge.go]
+    note: surge.go caps the zone demand multiplier at 3x.
+  - id: fleetline-chain-1
+    category: chain
+    repo: trips-svc
+    question: "Who calls advance from the trip state machine?"
+    answers: [trips-svc/app/routes.py]
+    note: routes.py imports and calls advance in advance_trip (test file excluded).
+  - id: fleetline-chain-2
+    category: chain
+    repo: ui-kit
+    question: "What uses the Button component, so what breaks if its props change?"
+    answers: ["admin-console/app/drivers/[id]/page.tsx", driver-web/app/earnings/page.tsx, rider-web/app/ride/page.tsx]
+    note: These three pages import and render Button from @fleetline/ui-kit.
+  - id: fleetline-broad-1
+    category: broad
+    repo: trips-svc
+    question: "Where is the SQL that creates the trip tables?"
+    answers: [trips-svc/migrations/001_trips.sql]
+    note: "grep -ril trip = 26 files (excluding dot-cairn); the CREATE TABLE trips lives only in this migration."
+  - id: fleetline-broad-2
+    category: broad
+    repo: rider-web
+    question: "Where is the shared TypeScript interface for a driver declared?"
+    answers: [api-types/src/driver.ts]
+    note: "grep -ril driver = 26 files (excluding dot-cairn); the TS Driver interface is only in api-types/src/driver.ts."
+  - id: fleetline-cross-repo-1
+    category: cross-repo
+    repo: rider-web
+    question: "Which backend service defines the steps a ride goes through from being asked for to finished?"
+    answers: [trips-svc/app/state_machine.py]
+    note: state_machine.py holds the NEXT status transition map.
+  - id: fleetline-cross-repo-2
+    category: cross-repo
+    repo: admin-console
+    question: "Which service creates the database table that tracks money sent to drivers?"
+    answers: [payments-svc/migrations/001_payments.sql]
+    note: 001_payments.sql creates the payouts table with paid_at.
