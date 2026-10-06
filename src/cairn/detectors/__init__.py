@@ -9,6 +9,7 @@ from cairn.detectors.hosts import HostsDetector
 from cairn.detectors.http import HttpDetector
 from cairn.detectors.identity import IdentityDetector
 from cairn.detectors.infra import InfraDetector, is_compose_file
+from cairn.detectors.lineage import LineageDetector
 from cairn.detectors.messaging import MessagingDetector
 from cairn.detectors.packages import PackagesDetector
 from cairn.detectors.pathrefs import PathRefsDetector, is_config_file
@@ -22,6 +23,7 @@ RELATION_DETECTORS: tuple[Detector, ...] = (
     HttpDetector(),
     HostsDetector(),
     DeploysDetector(),
+    LineageDetector(),
     MessagingDetector(),
     InfraDetector(),
     EnvVarsDetector(),

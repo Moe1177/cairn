@@ -37,7 +37,12 @@ def one_liner(repo: Repo, authored: Authored | None) -> str:
     return clean_inline(first, ONE_LINER_MAX)
 
 
-def repo_line(repo: Repo, authored: Authored | None, used_by: tuple[str, ...] = ()) -> str:
+def repo_line(
+    repo: Repo,
+    authored: Authored | None,
+    used_by: tuple[str, ...] = (),
+    copies: tuple[str, ...] = (),
+) -> str:
     aliases = [a for a in repo.aliases if a.lower() != repo.id.lower()][:2]
     alias_part = f" ({', '.join(clean_inline(a, 64) for a in aliases)})" if aliases else ""
     stack = f" · {_primary_stack(repo.stack)}" if repo.stack else ""
@@ -46,8 +51,23 @@ def repo_line(repo: Repo, authored: Authored | None, used_by: tuple[str, ...] = 
         shown = ", ".join(clean_inline(u, 40) for u in used_by[:_USED_BY_PREVIEW])
         more = len(used_by) - _USED_BY_PREVIEW
         users = f" · used by {shown}" + (f" +{more}" if more > 0 else "")
+    twins = ""
+    if copies:
+        shown = ", ".join(clean_inline(c, 40) for c in copies[:_USED_BY_PREVIEW])
+        more = len(copies) - _USED_BY_PREVIEW
+        twins = f" · copies: {shown}" + (f" +{more}" if more > 0 else "")
     line = f"- {clean_inline(repo.id, 80)}{alias_part}: {one_liner(repo, authored)}{stack}"
-    return line + users
+    return line + twins + users
+
+
+def copies(workspace: Workspace) -> dict[str, tuple[str, ...]]:
+    """Repo id -> the repos that are copies of the same app (mirrors, at least inferred)."""
+    found: dict[str, set[str]] = {}
+    for edge in workspace.edges:
+        if edge.type is EdgeType.MIRRORS and edge.confidence.rank >= Confidence.INFERRED.rank:
+            found.setdefault(edge.source, set()).add(edge.target)
+            found.setdefault(edge.target, set()).add(edge.source)
+    return {repo: tuple(sorted(others)) for repo, others in found.items()}
 
 
 def used_by(workspace: Workspace) -> dict[str, tuple[str, ...]]:
@@ -77,8 +97,11 @@ def render_index(
     else:  # benchmark condition C: the index alone
         lines = [INDEX_TITLE, f"Workspace root: `{workspace.workspace_root}`.", ""]
     if len(workspace.repos) <= threshold:
-        users = used_by(workspace)
-        lines += [repo_line(r, authored.get(r.id), users.get(r.id, ())) for r in workspace.repos]
+        users, twins = used_by(workspace), copies(workspace)
+        lines += [
+            repo_line(r, authored.get(r.id), users.get(r.id, ()), twins.get(r.id, ()))
+            for r in workspace.repos
+        ]
     else:
         lines += _group_lines(workspace)
     return "\n".join(lines) + "\n"

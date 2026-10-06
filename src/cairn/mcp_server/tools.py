@@ -186,7 +186,8 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
     needle = query.strip().lower()
     lines: list[str] = []
     for repo in workspace.repos:
-        sides = (("exposes", repo.contracts.exposes), ("consumes", repo.contracts.consumes))
+        exposes = tuple(f for f in repo.contracts.exposes if f.kind is not FactKind.GIT_ROOT)
+        sides = (("exposes", exposes), ("consumes", repo.contracts.consumes))
         for direction, facts in sides:
             for fact in facts:
                 if fact.kind is FactKind.COMPOSE_SERVICE:

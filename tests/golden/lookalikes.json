@@ -288,6 +288,19 @@
    "target": "ui-kit-fork",
    "type": "depends_on_package",
    "why": null
+  },
+  {
+   "confidence": "ambiguous",
+   "evidence": [],
+   "note": null,
+   "score": 0.2,
+   "signals": [
+    "package:npm:@acme/ui-kit"
+   ],
+   "source": "ui-kit",
+   "target": "ui-kit-fork",
+   "type": "mirrors",
+   "why": null
   }
  ],
  "repos": {

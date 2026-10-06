@@ -13,6 +13,7 @@ from cairn.match.services import (
     grpc_edges,
     host_edges,
     http_edges,
+    mirror_edges,
     pubsub_edges,
 )
 from cairn.model.graph import (
@@ -52,6 +53,7 @@ def match_edges(
     merged = merge_edges(
         [
             *_package_edges(ordered),
+            *mirror_edges(ordered),
             *_db_edges(ordered, stop_tables),
             *_project_ref_edges(ordered),
             *_path_edges(ordered),

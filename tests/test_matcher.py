@@ -204,7 +204,11 @@ def test_duplicate_package_owners_are_ambiguous() -> None:
     kit = _repo("ui-kit", exposes=[(FactKind.PACKAGE, "npm:@acme/ui-kit")])
     fork = _repo("ui-kit-fork", exposes=[(FactKind.PACKAGE, "npm:@acme/ui-kit")])
     site = _repo("site", consumes=[(FactKind.PACKAGE, "npm:@acme/ui-kit")])
-    edges = {(e.target, e.confidence) for e in match_edges([kit, fork, site])}
+    edges = {
+        (e.target, e.confidence)
+        for e in match_edges([kit, fork, site])
+        if e.type is EdgeType.DEPENDS_ON_PACKAGE  # (kit <-> fork is a suggested mirror)
+    }
     assert edges == {("ui-kit", Confidence.AMBIGUOUS), ("ui-kit-fork", Confidence.AMBIGUOUS)}
 
 

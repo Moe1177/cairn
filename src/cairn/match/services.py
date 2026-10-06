@@ -128,6 +128,40 @@ def _resolve(
     return [(o, Confidence.AMBIGUOUS) for o in owners]
 
 
+MAX_SHARED_NAME = 3  # more repos than this on one package name: a generic name, not a copy
+
+
+def mirror_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Copies of one app kept as separate repos. A shared first commit proves it (extracted);
+    the same package name only suggests it (ambiguous: shown once confirmed), and not at all when
+    more than MAX_SHARED_NAME repos share the name."""
+    found: dict[tuple[str, str], _Link] = {}
+
+    def link(members: list[str], confidence: Confidence, signal: str) -> None:
+        for i, first in enumerate(members):
+            for second in members[i + 1 :]:
+                found.setdefault((first, second), _Link(EdgeType.MIRRORS)).add(
+                    confidence, signal, ()
+                )
+
+    by_root: dict[str, list[str]] = {}
+    by_name: dict[str, list[str]] = {}
+    for repo in repos:
+        for fact in repo.contracts.exposes:
+            if fact.kind is FactKind.GIT_ROOT:
+                by_root.setdefault(fact.value, []).append(repo.id)
+            elif fact.kind is FactKind.PACKAGE:
+                by_name.setdefault(fact.value.lower(), []).append(repo.id)
+    for sha, members in sorted(by_root.items()):
+        if len(set(members)) > 1:
+            link(sorted(set(members)), Confidence.EXTRACTED, f"root:{sha[:7]}")
+    for name, members in sorted(by_name.items()):
+        unique = sorted(set(members))
+        if 1 < len(unique) <= MAX_SHARED_NAME:
+            link(unique, Confidence.AMBIGUOUS, f"package:{name}")
+    return [link_.edge(a, b) for (a, b), link_ in sorted(found.items())]
+
+
 def deploy_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
     """Spec §24: a repo whose deploy files run another repo's image (`org/<repo>:tag`).
 

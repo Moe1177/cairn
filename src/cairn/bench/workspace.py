@@ -34,7 +34,9 @@ def materialize(
         marker.unlink()
         _git(repo, "init", "-q")
         _git(repo, "add", "-A")
-        _git(repo, "commit", "-q", "-m", "fixture")
+        # A message per repo: identical fixture trees committed in the same second would
+        # otherwise share a root commit and look like copies of one app.
+        _git(repo, "commit", "-q", "-m", f"fixture {repo.name}")
         if remotes and repo.name in remotes:
             _git(repo, "remote", "add", "origin", remotes[repo.name])
     return dest

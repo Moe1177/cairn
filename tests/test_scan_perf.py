@@ -27,7 +27,7 @@ def _facts(ws: Path) -> dict:
             r.id: {
                 "stack": list(r.stack),
                 "aliases": list(r.aliases),
-                "contracts": r.contracts.model_dump(mode="json"),
+                "contracts": _stable(r.contracts.model_dump(mode="json")),
                 "layout": [e.model_dump(mode="json") for e in r.layout],
                 "packages": [p.model_dump(mode="json") for p in r.packages],
                 "commands": [c.model_dump(mode="json") for c in r.commands],
@@ -36,6 +36,13 @@ def _facts(ws: Path) -> dict:
             for r in workspace.repos
         },
         "edges": [e.model_dump(mode="json") for e in workspace.edges],
+    }
+
+
+def _stable(contracts: dict) -> dict:
+    """Root-commit facts differ on every fixture checkout (like SHAs): leave them out."""
+    return {
+        side: [f for f in facts if f["kind"] != "git_root"] for side, facts in contracts.items()
     }
 
 
