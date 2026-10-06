@@ -31,6 +31,7 @@ class RunResult:
     duration_ms: int = 0
     is_error: bool = False
     models: tuple[str, ...] = ()
+    tools: tuple[tuple[str, int], ...] = ()  # (tool name, calls), sorted by name
 
     @property
     def fresh_tokens(self) -> int:
@@ -39,11 +40,11 @@ class RunResult:
 
 
 def parse_result(raw: str) -> RunResult:
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return RunResult(result_text=raw[-2000:], is_error=True)
-    if not isinstance(data, dict):
+    """claude's output: one JSON result (`--output-format json`), or a stream of JSON lines
+    (`stream-json`) whose last `result` line holds the totals and whose assistant messages
+    show each tool the agent called."""
+    data, tools = _result_and_tools(raw)
+    if data is None:
         return RunResult(result_text=raw[-2000:], is_error=True)
     usage = data.get("usage") or {}
     model_usage = data.get("modelUsage")
@@ -58,7 +59,35 @@ def parse_result(raw: str) -> RunResult:
         duration_ms=int(data.get("duration_ms") or 0),
         is_error=bool(data.get("is_error")),
         models=tuple(sorted(model_usage)) if isinstance(model_usage, dict) else (),
+        tools=tuple(sorted(tools.items())),
     )
+
+
+def _result_and_tools(raw: str) -> tuple[dict | None, dict[str, int]]:
+    try:
+        single = json.loads(raw)
+    except json.JSONDecodeError:
+        single = None
+    if isinstance(single, dict):
+        return single, {}
+    result: dict | None = None
+    tools: dict[str, int] = {}
+    for line in raw.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        if event.get("type") == "result":
+            result = event
+        elif event.get("type") == "assistant":
+            content = (event.get("message") or {}).get("content")
+            for block in content if isinstance(content, list) else []:
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    name = str(block.get("name") or "?")[:100]
+                    tools[name] = tools.get(name, 0) + 1
+    return result, tools
 
 
 def claude_home() -> Path:
@@ -110,7 +139,8 @@ class ClaudeRunner:
             "-p",
             prompt,
             "--output-format",
-            "json",
+            "stream-json",
+            "--verbose",  # stream-json in print mode needs it; it adds each message to the stream
             "--model",
             self.model,
             "--setting-sources",

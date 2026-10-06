@@ -42,6 +42,34 @@ def _summary(records: Sequence["RunRecord"]) -> list[str]:
     return lines
 
 
+CAIRN_TOOL_PREFIX = "mcp__cairn__"
+
+
+def _tools_used(records: Sequence["RunRecord"]) -> list[str]:
+    """Which tools agents called, per condition: whether cairn's MCP tools were used at all.
+    Empty for logs from before tool calls were recorded."""
+    if not any(r.result.tools for r in records):
+        return []
+    lines = [
+        "## Tools used",
+        "",
+        "| Condition | Runs | Runs calling cairn's MCP tools | cairn calls per run "
+        "| Grep per run | Read per run |",
+        "|---|---|---|---|---|---|",
+    ]
+    for condition in dict.fromkeys(r.condition for r in records):
+        rows = [r for r in records if r.condition == condition]
+        counts = [dict(r.result.tools) for r in rows]
+        cairn = [sum(c for n, c in t.items() if n.startswith(CAIRN_TOOL_PREFIX)) for t in counts]
+        using = sum(1 for c in cairn if c)
+        lines.append(
+            f"| {condition} | {len(rows)} | {using} ({using / len(rows):.0%}) "
+            f"| {_mean(cairn):.1f} | {_mean([t.get('Grep', 0) for t in counts]):.1f} "
+            f"| {_mean([t.get('Read', 0) for t in counts]):.1f} |"
+        )
+    return [*lines, ""]
+
+
 def _per_task(records: Sequence["RunRecord"]) -> list[str]:
     lines = [
         "| Condition | Task | Success | Recall | Cost (USD) |",
@@ -73,6 +101,7 @@ def render_markdown(
         "",
         *_body(records, level="##"),
         "",
+        *_tools_used(records),
         "## Per task",
         "",
         *_per_task(records),
@@ -104,6 +133,7 @@ def load_records(path: Path) -> list["RunRecord"]:
             continue
         result = dict(raw["result"])
         result["models"] = tuple(result.get("models", ()))
+        result["tools"] = tuple((str(n), int(c)) for n, c in result.get("tools", ()))
         records.append(
             RunRecord(
                 raw["condition"],
