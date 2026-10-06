@@ -14,6 +14,7 @@ from typing import Annotated, NoReturn
 import typer
 from pydantic import ValidationError
 
+from cairn import deep as deep_ops
 from cairn.authored_store import annotate_edge, set_summary
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
@@ -26,8 +27,9 @@ from cairn.integrations.harnesses import (
     uninstall_harness,
 )
 from cairn.load import load_authored
-from cairn.model.graph import Confidence
+from cairn.model.graph import Confidence, Repo, Workspace
 from cairn.paths import cairn_dir
+from cairn.providers.meta import indexed_repos
 from cairn.scan import ScanResult, scan_workspace
 from cairn.scan_log import render_log
 from cairn.store.lock import workspace_lock
@@ -174,6 +176,9 @@ def refresh(
     path: PathArg = Path("."),
     quiet: Annotated[bool, typer.Option("--quiet", help="Print nothing unless it fails.")] = False,
     verbose: Verbose = False,
+    deep: Annotated[
+        bool, typer.Option("--deep", help="Also rebuild deep indexes that went stale.")
+    ] = False,
 ) -> None:
     """Update the map, re-reading only repos that changed since the last scan."""
     try:
@@ -182,6 +187,14 @@ def refresh(
         _fail(str(exc))
     if not quiet:
         _report(result, verbose=verbose)
+    if deep and result.workspace.repos:
+        root = path.resolve()
+        _build_deep(
+            root,
+            lambda: deep_ops.select_repos(root, result.workspace, [], every=False, stale=True),
+            timeout=deep_ops.DEFAULT_TIMEOUT,
+            result=result,
+        )
 
 
 @app.command()
@@ -265,6 +278,7 @@ def status(path: PathArg = Path(".")) -> None:
         f"Detector errors: {'; '.join(errors) or 'none'}",
         f"Claude Code integration: {'installed' if is_installed(root) else 'not installed'}",
         f"Harnesses: {', '.join(installed_harnesses(root)) or 'none'}",
+        f"Deep indexes: {', '.join(indexed_repos(root)) or 'none'}",
     ]
     weak = [e for e in workspace.edges if e.confidence is Confidence.AMBIGUOUS]
     if weak:
@@ -443,3 +457,93 @@ def hooks(action: str, path: PathArg = Path(".")) -> None:
     typer.echo(f"git hooks {action}ed in {count} repo{'' if count == 1 else 's'}")
     for repo, why in report.skipped:
         typer.echo(f"skipped {repo}: {why}")
+
+
+deep_app = typer.Typer(
+    no_args_is_help=True, help="Per-repo code indexes for `query` (graphify; optional)."
+)
+app.add_typer(deep_app, name="deep")
+Repos = Annotated[list[str] | None, typer.Argument(help="Repo names (ids or aliases).")]
+WorkspaceOpt = Annotated[
+    Path, typer.Option("--workspace", "-w", help="Workspace root (default: current directory).")
+]
+
+
+def _loaded(root: Path) -> Workspace:
+    try:
+        workspace = load_workspace(root)
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    if workspace is None:
+        _fail("No map found. Run `cairn scan` first.")
+    return workspace
+
+
+def _build_deep(
+    root: Path,
+    pick: Callable[[], list[Repo]],
+    *,
+    timeout: float,
+    result: ScanResult | None = None,
+) -> None:
+    """Build the picked indexes, print one line each, then re-render cards (Deeper section)."""
+    try:
+        outcomes = deep_ops.build(root, pick(), timeout=timeout)
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    for outcome in outcomes:
+        typer.echo(outcome.message, err=not outcome.ok)
+    if outcomes:
+        try:
+            if result is None:
+                _scan_and_write(root)
+            else:
+                with workspace_lock(root):
+                    write_outputs(root, result)
+        except (CairnError, OSError) as exc:
+            _fail(str(exc))
+    if not all(o.ok for o in outcomes):
+        raise typer.Exit(1)
+
+
+@deep_app.command("build")
+def deep_build(
+    repos: Repos = None,
+    every: Annotated[bool, typer.Option("--all", help="Every repo in the map.")] = False,
+    stale: Annotated[
+        bool, typer.Option("--stale", help="Only existing indexes that went stale.")
+    ] = False,
+    timeout: Annotated[
+        float, typer.Option("--timeout", min=1, help="Seconds allowed per repo.")
+    ] = deep_ops.DEFAULT_TIMEOUT,
+    workspace: WorkspaceOpt = Path("."),
+) -> None:
+    """Index repos with graphify (code-only: no LLM, no network) so `query` gives file:line."""
+    root = workspace.resolve()
+    loaded = _loaded(root)
+    _build_deep(
+        root,
+        lambda: deep_ops.select_repos(root, loaded, repos or [], every=every, stale=stale),
+        timeout=timeout,
+    )
+
+
+@deep_app.command("status")
+def deep_status(path: PathArg = Path(".")) -> None:
+    """List deep indexes: size, provider version, build sha, fresh or stale."""
+    root = path.resolve()
+    lines = deep_ops.status_lines(root, _loaded(root))
+    typer.echo("\n".join(lines) or "No deep indexes. Build one with `cairn deep build REPO`.")
+
+
+@deep_app.command("clear")
+def deep_clear(repos: Repos = None, workspace: WorkspaceOpt = Path(".")) -> None:
+    """Delete deep indexes (all of them when no repo is named)."""
+    root = workspace.resolve()
+    try:
+        cleared = deep_ops.clear(root, _loaded(root), repos or [])
+        if cleared:
+            _scan_and_write(root)
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    typer.echo(f"Cleared: {', '.join(cleared)}" if cleared else "No deep indexes to clear.")

@@ -1,0 +1,6 @@
+{
+  "name": "@mesh/status-page",
+  "dependencies": {
+    "express": "4.19.0"
+  }
+}

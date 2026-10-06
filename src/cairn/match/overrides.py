@@ -4,7 +4,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from cairn.match.matcher import corroborate, merge_edges
-from cairn.model.graph import SYMMETRIC_TYPES, Confidence, Edge
+from cairn.model.graph import SYMMETRIC_TYPES, Confidence, Edge, EdgeType
 from cairn.model.overrides import Authored, Relations, RemovedEdge
 
 
@@ -32,6 +32,13 @@ def apply_overrides(
     warnings += _unknown_keys("notes", relations.notes, known_ids)
     # Corroborate last, so rejected/removed edges can't vouch and manual links can (spec §16.2).
     edges = corroborate(merge_edges([*kept, *manual]))
+    # A shared env var only backs up a real link (spec §21.3); alone it's noise (unrelated
+    # projects all read STRIPE_SECRET_KEY), so an uncorroborated one never reaches the map.
+    edges = tuple(
+        e
+        for e in edges
+        if not (e.type is EdgeType.SHARES_ENV and e.confidence is Confidence.AMBIGUOUS)
+    )
     return OverrideResult(edges=edges, warnings=tuple(warnings))
 
 

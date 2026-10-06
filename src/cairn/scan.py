@@ -109,7 +109,9 @@ def scan_workspace(
         for loc in locations
     )
     stop = DEFAULT_TABLE_STOPLIST | frozenset(t.lower() for t in config.stop_tables)
-    edges = match_edges([RepoFacts(r.id, r.path, r.contracts) for r in repos], stop_tables=stop)
+    edges = match_edges(
+        [RepoFacts(r.id, r.path, r.contracts, r.aliases) for r in repos], stop_tables=stop
+    )
     overridden = apply_overrides(edges, relations, authored, frozenset(r.id for r in repos))
     workspace = Workspace(
         workspace_root=root.as_posix(),
@@ -248,6 +250,10 @@ def _build_repo(
         layout=first.layout,
         readme_excerpt=first.readme_excerpt,
         summary_stale=summary_stale,
+        packages=tuple(
+            p.model_copy(update={"path": f"{loc.rel_path(ws_root)}/{p.path}"})
+            for p in second.packages
+        ),
         contracts=Contracts(exposes=second.exposes, consumes=second.consumes),
         detector_errors=(*first_errors, *second_errors),
     )

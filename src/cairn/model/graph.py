@@ -71,6 +71,8 @@ class Fact(Frozen):
     kind: FactKind
     value: str = Field(min_length=1)
     evidence: tuple[Evidence, ...] = ()
+    # What a call's base URL came from (an env var or service host), spec §21.1.
+    hints: tuple[str, ...] = ()
 
 
 class Contracts(Frozen):
@@ -86,6 +88,14 @@ class Command(Frozen):
 class LayoutEntry(Frozen):
     path: str
     purpose: str | None = None
+
+
+class Package(Frozen):
+    """A package inside a monorepo (spec §21.4); `path` is relative to the workspace root."""
+
+    name: str
+    path: str
+    stack: tuple[str, ...] = ()
 
 
 class DetectorError(Frozen):
@@ -104,6 +114,7 @@ class Repo(Frozen):
     dirty: bool | None = None
     commands: tuple[Command, ...] = ()
     layout: tuple[LayoutEntry, ...] = ()
+    packages: tuple[Package, ...] = ()
     readme_excerpt: str | None = None
     summary_stale: bool = False
     contracts: Contracts = Field(default_factory=Contracts)

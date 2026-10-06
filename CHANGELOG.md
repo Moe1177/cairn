@@ -7,6 +7,57 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0]
+
+### Added
+- **Deep queries.** `cairn deep build REPO…|--all|--stale` indexes repos with graphify
+  (`pip install 'cairnmap[graphify]'`); `cairn deep status` and `cairn deep clear` manage them.
+  The MCP `query` tool then answers with `symbol — file:line` hits and their neighbours, and says
+  when an index is stale.
+- Cards gain a **Deeper** section (symbols, build sha, stale flag, busiest symbols).
+- `cairn refresh --deep` rebuilds only the deep indexes that went stale. `cairn status` lists them.
+
+### Security
+- graphify always runs code-only (no LLM, no network) as a subprocess with an allowlisted
+  environment, and writes only under `.cairn/deep/`. Graph files are size-capped and every label
+  is sanitised before an agent sees it.
+
+## [0.2.0]
+
+### Added
+- **HTTP links.** Routes from Next.js (file routes), Express, Fastify, Hono, FastAPI (including an
+  `APIRouter` prefix), Flask, Go net/http, chi, gin, echo, and OpenAPI files are matched with
+  client calls (`fetch`, `axios`, `ky`, `got`, `requests`, `httpx`, Go `http`). A link is `extracted`
+  when the call's base URL env var or service host names the target.
+- **gRPC links.** Server implementations (Go, Python, TypeScript, Java) are matched with client
+  stubs.
+- **Pub/sub links.** Kafka, NATS, and Redis publishers are matched with subscribers on specific
+  topic names.
+- **Compose links.** A `depends_on` between services built from (or named after) your repos.
+- **Monorepo packages.** npm/yarn/pnpm, Cargo, `go.work`, and uv workspace packages are listed on
+  the card. They publish and depend like repos, and the MCP tools resolve them by name.
+- **Shared env vars.** These only corroborate other links; they are never shown on their own.
+- **`servicemesh` evaluation.** A new evaluation workspace with look-alikes. Every new link type
+  must be exact: precision and tier accuracy 1.0.
+
+### Changed
+- The scan cache format is version 3, so the first scan after upgrading re-reads every repo.
+- A single file can produce at most 2,000 table facts.
+- Generated gRPC stubs, generic services (Health, Query), WebSocket and HTTP-response `.send()`
+  calls, public Docker images, and remote build contexts never create links.
+- Internal workspace packages (`@repo/ui` in two Turborepos) never link unrelated monorepos.
+- Compose and workspace YAML files are depth-checked before parsing, so a hostile file can't crash
+  a scan.
+
+### Upgrading
+- Re-run `cairn install <harness>` after upgrading. The map gained fields that cairn 0.1 can't read,
+  so a harness still pinned to 0.1 (an old `uvx` entry) would fail to load it.
+
+### Known limitations
+- Router prefixes mounted in another file aren't applied yet: FastAPI `include_router(prefix=...)`,
+  Express `app.use('/api', router)`, and Flask blueprint `url_prefix`. Calls to those routes may not
+  link. Precision is unaffected.
+
 ## [0.1.0]
 
 First public release.

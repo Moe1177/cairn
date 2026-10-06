@@ -5,13 +5,16 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+from cairn import providers
 from cairn.discover.git import git_info
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
 from cairn.load import load_authored
-from cairn.model.graph import Confidence, Repo, Workspace
+from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.paths import cards_dir
+from cairn.providers.graph import Hit, load_graph, rank
+from cairn.providers.meta import read_deep_meta
 from cairn.render.card import relate_line
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
@@ -20,6 +23,7 @@ from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
 MAX_LINES = 30
+DEEP_HITS = 10
 
 
 def rescan(ws_root: Path) -> ScanResult:
@@ -86,6 +90,9 @@ def _find(ws_root: Path, name: str) -> tuple[Workspace, Repo | None, str]:
     for repo in workspace.repos:
         if lowered == repo.id.lower() or lowered in (a.lower() for a in repo.aliases):
             return workspace, repo, ""
+    owner = _package_owner(workspace, lowered)
+    if owner is not None:
+        return workspace, owner[0], ""
     matches = resolve_repo(workspace, load_authored(ws_root), name, limit=3)
     if matches and matches[0].score == 1.0:
         return workspace, workspace.repo(matches[0].repo_id), ""
@@ -93,9 +100,43 @@ def _find(ws_root: Path, name: str) -> tuple[Workspace, Repo | None, str]:
     return workspace, None, f"No repo named '{name}'. Did you mean: {hint}? (use resolve_repo)"
 
 
+def _package_owners(workspace: Workspace, lowered: str) -> list[tuple[Repo, Package]]:
+    """Every repo whose monorepo contains a package with this exact name (spec §21.4)."""
+    return [
+        (repo, package)
+        for repo in workspace.repos
+        for package in repo.packages
+        if package.name.lower() == lowered
+    ]
+
+
+def _package_owner(workspace: Workspace, lowered: str) -> tuple[Repo, Package] | None:
+    owners = _package_owners(workspace, lowered)
+    return owners[0] if owners else None
+
+
+def _names_a_repo(workspace: Workspace, lowered: str) -> bool:
+    return any(
+        lowered == r.id.lower() or lowered in (a.lower() for a in r.aliases)
+        for r in workspace.repos
+    )
+
+
 @locked
 def resolve_text(ws_root: Path, query: str) -> str:
     workspace = _workspace(ws_root)
+    lowered = query.strip().lower()
+    # A repo's own name always wins; then every repo holding a package by that name.
+    owners = [] if _names_a_repo(workspace, lowered) else _package_owners(workspace, lowered)
+    if owners:
+        return "\n".join(
+            clean_inline(
+                f"- {repo.id}: package {package.name} at `{package.path}` "
+                f"→ .cairn/cards/{repo.id}.md",
+                400,
+            )
+            for repo, package in owners[:MAX_LINES]
+        )
     matches = resolve_repo(workspace, load_authored(ws_root), query, limit=5)
     if not matches:
         known = ", ".join(r.id for r in workspace.repos[:MAX_LINES])
@@ -148,6 +189,8 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
         sides = (("exposes", repo.contracts.exposes), ("consumes", repo.contracts.consumes))
         for direction, facts in sides:
             for fact in facts:
+                if fact.kind is FactKind.COMPOSE_SERVICE:
+                    continue  # internal service-to-repo wiring; the edges show the result
                 if needle not in fact.value.lower() or (kind and fact.kind.value != kind):
                     continue
                 ev = fact.evidence[0] if fact.evidence else None
@@ -177,14 +220,49 @@ def query_text(ws_root: Path, repo: str, question: str) -> str:
     if found is None:
         return message
     found = _fresh(ws_root, found).repo(found.id) or found
-    layout = (
+    deep = _deep_answer(ws_root, found, question)
+    if deep is not None:
+        return deep
+    return (
+        f"No deep index for {found.id} yet. Build one with `cairn deep build {found.id}` "
+        "(needs graphify: pip install 'cairnmap[graphify]'). "
+        f"Meanwhile, start from these folders:\n{_layout(found)}"
+    )
+
+
+def _layout(repo: Repo) -> str:
+    return (
         "\n".join(
             clean_inline(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}", 200)
-            for e in found.layout
+            for e in repo.layout
         )
         or "- (no layout recorded)"
     )
-    return (
-        f"No deep index is installed for {found.id} yet (graphify support arrives in a later "
-        f"cairn release). To answer '{question}', start from these folders:\n{layout}"
-    )
+
+
+def _deep_answer(ws_root: Path, repo: Repo, question: str) -> str | None:
+    """Spec §23: answer from the repo's code graph, offline, without running graphify."""
+    meta = read_deep_meta(ws_root, repo.id)
+    if meta is None:
+        return None
+    provider = providers.default_provider()
+    graph = load_graph(provider.graph_path(ws_root, repo.id))
+    if graph is None:
+        return None
+    header = f"{repo.id} deep index ({meta.provider}, {meta.nodes} symbols)"
+    if provider.status(ws_root, repo.id, ws_root / repo.path).stale:
+        header += f"; may be stale, rebuild with `cairn deep build {repo.id}`"
+    hits = rank(graph, question, DEEP_HITS)
+    if not hits:
+        busiest = ", ".join(meta.hubs) or "none recorded"
+        line = clean_inline(f"{header}: no symbol matches. Busiest symbols: {busiest}", 400)
+        return f"{line}\nFolders:\n{_layout(repo)}"
+    return "\n".join([clean_inline(f"{header}:", 200), *_cap([_hit_line(h) for h in hits])])
+
+
+def _hit_line(hit: Hit) -> str:
+    where = ""
+    if hit.file:
+        where = f" — {hit.file}" + (f":{hit.line}" if hit.line else "")
+    near = f" (near: {', '.join(hit.neighbours)})" if hit.neighbours else ""
+    return clean_inline(f"- {hit.label}{where}{near}", 400)

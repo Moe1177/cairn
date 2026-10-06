@@ -9,7 +9,15 @@ from typing import Protocol
 from cairn.config import CairnConfig
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, crosses_link, iter_files, read_text
 from cairn.discover.repos import RepoLocation
-from cairn.model.graph import MAX_EVIDENCE, Command, Evidence, Fact, FactKind, LayoutEntry
+from cairn.model.graph import (
+    MAX_EVIDENCE,
+    Command,
+    Evidence,
+    Fact,
+    FactKind,
+    LayoutEntry,
+    Package,
+)
 from cairn.security.redact import make_snippet
 
 # Test code, fixtures, and examples hold fake data that would create false edges.
@@ -78,6 +86,7 @@ class DetectorResult:
     commands: tuple[Command, ...] = ()
     layout: tuple[LayoutEntry, ...] = ()
     readme_excerpt: str | None = None
+    packages: tuple[Package, ...] = ()
 
 
 class Detector(Protocol):
@@ -88,15 +97,27 @@ class Detector(Protocol):
 
 def merge_facts(facts: Iterable[Fact]) -> tuple[Fact, ...]:
     grouped: dict[tuple[str, str], list[Evidence]] = {}
+    hints: dict[tuple[str, str], list[str]] = {}
     for fact in facts:
-        bucket = grouped.setdefault((fact.kind.value, fact.value), [])
+        key = (fact.kind.value, fact.value)
+        bucket = grouped.setdefault(key, [])
         for ev in fact.evidence:
             if ev not in bucket and len(bucket) < MAX_EVIDENCE:
                 bucket.append(ev)
+        known = hints.setdefault(key, [])
+        known += [h for h in fact.hints if h not in known][: _MAX_HINTS - len(known)]
     return tuple(
-        Fact(kind=FactKind(kind), value=value, evidence=tuple(evidence))
+        Fact(
+            kind=FactKind(kind),
+            value=value,
+            evidence=tuple(evidence),
+            hints=tuple(hints[(kind, value)]),
+        )
         for (kind, value), evidence in sorted(grouped.items())
     )
+
+
+_MAX_HINTS = 5
 
 
 def combine_results(results: Iterable[DetectorResult]) -> DetectorResult:
@@ -109,6 +130,7 @@ def combine_results(results: Iterable[DetectorResult]) -> DetectorResult:
         commands=tuple(c for r in items for c in r.commands),
         layout=tuple(e for r in items for e in r.layout),
         readme_excerpt=next((r.readme_excerpt for r in items if r.readme_excerpt), None),
+        packages=tuple({p.path: p for r in items for p in r.packages}.values()),
     )
 
 

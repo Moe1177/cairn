@@ -1,0 +1,7 @@
+{
+  "name": "@mesh/web",
+  "dependencies": {
+    "next": "15.0.0",
+    "@mesh/ui": "workspace:*"
+  }
+}

@@ -11,11 +11,11 @@ from cairn.config import CairnConfig
 from cairn.detectors.base import DetectorResult
 from cairn.discover.git import git_command, git_env
 from cairn.discover.proc import run_bytes
-from cairn.model.graph import Command, DetectorError, Fact, Frozen, LayoutEntry
+from cairn.model.graph import Command, DetectorError, Fact, Frozen, LayoutEntry, Package
 from cairn.paths import repo_cache_dir
 from cairn.store.atomic import atomic_write_text
 
-CACHE_VERSION = 1
+CACHE_VERSION = 3  # bump whenever a cached detector's output changes
 
 
 class CachedResult(Frozen):
@@ -26,6 +26,7 @@ class CachedResult(Frozen):
     commands: tuple[Command, ...] = ()
     layout: tuple[LayoutEntry, ...] = ()
     readme_excerpt: str | None = None
+    packages: tuple[Package, ...] = ()
 
 
 class CacheEntry(Frozen):

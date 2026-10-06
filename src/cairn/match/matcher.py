@@ -6,6 +6,13 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST, db_confidence, noisy_or, specificity
+from cairn.match.services import (
+    compose_edges,
+    env_edges,
+    grpc_edges,
+    http_edges,
+    pubsub_edges,
+)
 from cairn.model.graph import (
     MAX_EVIDENCE,
     SYMMETRIC_TYPES,
@@ -27,6 +34,7 @@ class RepoFacts:
     id: str
     path: str
     contracts: Contracts
+    aliases: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -46,6 +54,11 @@ def match_edges(
             *_project_ref_edges(ordered),
             *_path_edges(ordered),
             *_mention_edges(ordered),
+            *http_edges(ordered),
+            *compose_edges(ordered),
+            *grpc_edges(ordered),
+            *pubsub_edges(ordered),
+            *env_edges(ordered),
         ]
     )
     return merged  # corroboration runs after overrides (see match.overrides)
@@ -70,14 +83,21 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
 
 
 def _corroborated(edge: Edge, same_pair: list[Edge]) -> Edge:
-    if edge.type is not EdgeType.SHARES_DB:
+    if edge.type not in (EdgeType.SHARES_DB, EdgeType.SHARES_ENV):
         return edge
-    # Only independent, non-ambiguous evidence corroborates (spec §16.2, review fix).
+    # Only independent, non-ambiguous evidence corroborates (spec §16.2, review fix); a shared
+    # env var never vouches for anything else (spec §21.3).
     others = [
         o
         for o in same_pair
-        if o.type is not EdgeType.SHARES_DB and o.confidence.rank >= Confidence.INFERRED.rank
+        if o.type not in (edge.type, EdgeType.SHARES_ENV)
+        and o.confidence.rank >= Confidence.INFERRED.rank
     ]
+    if edge.type is EdgeType.SHARES_ENV:
+        if edge.confidence is not Confidence.AMBIGUOUS or not others:
+            return edge
+        signals = (*edge.signals, f"corroborated:{others[0].type.value}")
+        return edge.model_copy(update={"confidence": Confidence.INFERRED, "signals": signals})
     strong = [o for o in others if o.confidence is Confidence.EXTRACTED]
     if edge.confidence is Confidence.AMBIGUOUS and others:
         upgraded, by = Confidence.INFERRED, others[0]
@@ -121,7 +141,10 @@ def _package_edges(repos: list[RepoFacts]) -> list[Edge]:
             owners.setdefault(fact.value, []).append(repo.id)
     edges = []
     for repo in repos:
+        own = {f.value for f in _facts(repo, True, FactKind.PACKAGE)}
         for fact in _facts(repo, False, FactKind.PACKAGE):
+            if fact.value in own:
+                continue  # an internal workspace dependency (@repo/ui), not another repo's
             candidates = [o for o in owners.get(fact.value, []) if o != repo.id]
             # Two repos publishing the same name: we can't tell which one is consumed.
             unique = len(candidates) == 1

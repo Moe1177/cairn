@@ -34,6 +34,10 @@ dependencies = [
   "mcp>=2.3,<3",
 ]
 
+[project.optional-dependencies]
+# Deep per-repo code indexes (`cairn deep build`). graphify runs as a subprocess, never imported.
+graphify = ["graphifyy>=0.9.77,<0.10"]
+
 [project.urls]
 Homepage = "https://github.com/Moe1177/cairn"
 Source = "https://github.com/Moe1177/cairn"

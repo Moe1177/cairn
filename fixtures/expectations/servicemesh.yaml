@@ -1,0 +1,24 @@
+edges:
+  - {from: web, to: gateway, type: calls_http, confidence: extracted}
+  - {from: web, to: platform, type: depends_on_package, confidence: extracted}
+  - {from: gateway, to: trips-api, type: calls_http, confidence: extracted}
+  - {from: gateway, to: billing, type: calls_http, confidence: extracted}
+  - {from: gateway, to: geo, type: grpc, confidence: inferred}
+  - {from: trips-api, to: billing, type: pubsub, confidence: inferred}
+  - {from: trips-api, to: receipts, type: pubsub, confidence: inferred}
+  - {from: web, to: gateway, type: compose_link, confidence: extracted}
+  - {from: gateway, to: trips-api, type: compose_link, confidence: extracted}
+  - {from: gateway, to: billing, type: compose_link, confidence: extracted}
+  - {from: infra, to: web, type: path_ref, confidence: extracted}
+  - {from: infra, to: gateway, type: path_ref, confidence: extracted}
+  - {from: infra, to: trips-api, type: path_ref, confidence: extracted}
+  - {from: infra, to: billing, type: path_ref, confidence: extracted}
+  - {from: gateway, to: trips-api, type: shares_env, confidence: inferred}
+phrasings:
+  - {query: "gateway", repo: gateway}
+  - {query: "trips-api", repo: trips-api}
+  - {query: "billing", repo: billing}
+  - {query: "receipts", repo: receipts}
+  - {query: "geo", repo: geo}
+  - {query: "platform", repo: platform}
+  - {query: "status-page", repo: status-page}

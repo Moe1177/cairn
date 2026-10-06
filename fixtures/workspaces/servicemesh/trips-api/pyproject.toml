@@ -1,0 +1,4 @@
+[project]
+name = "trips-api"
+version = "1.0.0"
+dependencies = ["fastapi"]
