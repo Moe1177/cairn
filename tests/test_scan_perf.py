@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -107,3 +108,63 @@ def test_the_read_cache_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     for path in ctx.files(lambda name: name.endswith(".py")):
         assert ctx.read(path) is not None
     assert ctx.cached_bytes() <= 2_000
+
+
+class _Counting:
+    """Stands in for a compiled pattern and counts how often a detector runs it."""
+
+    def __init__(self, pattern: "re.Pattern[str]", counter: Counter[str]) -> None:
+        self.pattern, self.counter = pattern, counter
+
+    def finditer(self, text: str):  # type: ignore[no-untyped-def]
+        self.counter["finditer"] += 1
+        return self.pattern.finditer(text)
+
+    def __getattr__(self, name: str):  # type: ignore[no-untyped-def]
+        return getattr(self.pattern, name)
+
+
+def test_lines_without_gate_keywords_skip_the_regexes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import cairn.detectors.database as database
+    import cairn.detectors.http as http
+    import cairn.detectors.messaging as messaging
+
+    counter: Counter[str] = Counter()
+    wrap = lambda patterns: tuple(_Counting(p, counter) for p in patterns)  # noqa: E731
+    monkeypatch.setattr(messaging, "_GRPC_SERVE", wrap(messaging._GRPC_SERVE))
+    monkeypatch.setattr(messaging, "_PUBLISH", wrap(messaging._PUBLISH))
+    monkeypatch.setattr(
+        http, "_ROUTES", {k: _Counting(v, counter) for k, v in http._ROUTES.items()}
+    )
+    monkeypatch.setattr(http, "_CALLS", {k: _Counting(v, counter) for k, v in http._CALLS.items()})
+    monkeypatch.setattr(database, "SQL_REF", _Counting(database.SQL_REF, counter))
+    repo = make_repo(tmp_path, "plain")
+    (repo / "calc.py").write_text("x = 1\ny = x * 2\n" * 200, encoding="utf-8")
+    scan_workspace(tmp_path, use_cache=False)
+    assert counter["finditer"] == 0, counter
+
+
+def test_live_detectors_run_in_the_worker_pool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+
+    import cairn.detectors as registry
+    from cairn.detectors.base import DetectorResult
+
+    threads: list[str] = []
+
+    class Recorder:
+        id = "docs"
+
+        def run(self, ctx: base_module.DetectorContext) -> DetectorResult:
+            threads.append(threading.current_thread().name)
+            return DetectorResult()
+
+    others = tuple(d for d in registry.RELATION_DETECTORS if d.id != "docs")
+    monkeypatch.setattr(registry, "RELATION_DETECTORS", (*others, Recorder()))
+    _repos(tmp_path)
+    scan_workspace(tmp_path, use_cache=False)
+    assert len(threads) == 2 and "MainThread" not in threads, threads

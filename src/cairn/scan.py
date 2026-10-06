@@ -85,23 +85,29 @@ def scan_workspace(
         read_list = list(
             pool.map(lambda loc: _read_repo(root, loc, config, gits[loc.id], use_cache), locations)
         )
-    reads = {loc.id: read for loc, read in zip(locations, read_list, strict=True)}
-    aliases = {
-        loc.id: _aliases_for(
-            loc, reads[loc.id].identity[0], gits[loc.id], relations, authored, config
+        reads = {loc.id: read for loc, read in zip(locations, read_list, strict=True)}
+        aliases = {
+            loc.id: _aliases_for(
+                loc, reads[loc.id].identity[0], gits[loc.id], relations, authored, config
+            )
+            for loc in locations
+        }
+        table = build_alias_table(aliases)
+        live = _detectors(live=True)
+        # Live detectors need every repo's aliases, so they run after the reads: in the pool
+        # too (each repo walks its files; the alias table is shared read-only).
+        live_runs = list(
+            pool.map(
+                lambda loc: _run_all(live, DetectorContext(root, loc, config, table)), locations
+            )
         )
-        for loc in locations
-    }
-    table = build_alias_table(aliases)
-    live = _detectors(live=True)
+    lived = {loc.id: run for loc, run in zip(locations, live_runs, strict=True)}
     repos = tuple(
         _build_repo(
             root,
             loc,
             reads[loc.id].identity,
-            _merge(
-                reads[loc.id].relation, _run_all(live, DetectorContext(root, loc, config, table))
-            ),
+            _merge(reads[loc.id].relation, lived[loc.id]),
             gits[loc.id],
             aliases[loc.id],
             _is_stale(loc, gits[loc.id], authored.get(loc.id), config),
