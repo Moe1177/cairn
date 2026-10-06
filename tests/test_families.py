@@ -77,3 +77,33 @@ def test_cards_and_index_name_the_copies(tmp_path: Path) -> None:
         if line.startswith("- registration-website:")
     )
     assert "copies: registration-website-2026" in line
+
+
+def test_copies_share_a_schema_not_a_database(tmp_path: Path) -> None:
+    """Per-event copies define the same models because they're copies: that overlap is no
+    evidence of a shared database, so no shares_db/shares_env link is made between them."""
+    ws = tmp_path / "ws"
+    original = ws / "registration"
+    (original / "models").mkdir(parents=True)
+    (original / "models" / "qr.ts").write_text(
+        'import mongoose from "mongoose";\n'
+        'export const Qr = mongoose.model("QrCodeMapping", qrSchema);\n',
+        encoding="utf-8",
+    )
+    _git(original, "init", "-q")
+    _commit(original, "first")
+    _git(ws, "clone", "-q", str(original), "registration-2026")
+    checkin = ws / "checkin"
+    (checkin / "scripts").mkdir(parents=True)
+    (checkin / "scripts" / "qr.ts").write_text(
+        'import { MongoClient } from "mongodb";\nconst qr = db.collection("qrcodemappings");\n',
+        encoding="utf-8",
+    )
+    _git(checkin, "init", "-q")
+    _commit(checkin, "checkin")
+    edges = scan_workspace(ws).workspace.edges
+    pairs = {(frozenset((e.source, e.target)), e.type) for e in edges}
+    copies = frozenset(("registration", "registration-2026"))
+    assert (copies, EdgeType.MIRRORS) in pairs
+    assert (copies, EdgeType.SHARES_DB) not in pairs and (copies, EdgeType.SHARES_ENV) not in pairs
+    assert (frozenset(("checkin", "registration")), EdgeType.SHARES_DB) in pairs
