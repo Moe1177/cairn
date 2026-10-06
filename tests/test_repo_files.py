@@ -117,3 +117,20 @@ def test_security_claims_match_the_code() -> None:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert "filters" in text and "hooks" in text, name
         assert "folder names) is flattened and capped, and kept out" not in text, name
+
+
+def test_graphify_is_an_optional_extra_tested_in_ci() -> None:
+    import tomllib
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["optional-dependencies"]["graphify"] == ["graphifyy>=0.9.77,<0.10"]
+    assert "graphifyy" not in " ".join(project["dependencies"])
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "--extra graphify" in ci
+
+
+def test_readme_explains_deep_queries() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "## Deep queries" in readme
+    for needle in ("cairn deep build", "cairnmap[graphify]", "--code-only", "cairn refresh --deep"):
+        assert needle in readme, needle

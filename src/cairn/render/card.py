@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from cairn.model.graph import SYMMETRIC_TYPES, Confidence, Edge, EdgeType, Repo, Workspace
 from cairn.model.overrides import Authored
+from cairn.providers.meta import DeepMeta
 from cairn.render.tokens import estimate_tokens
 from cairn.security.text import clean_inline
 
@@ -29,9 +30,10 @@ def render_card(
     authored: Authored | None = None,
     note: str | None = None,
     budget: int = 800,
+    deep: DeepMeta | None = None,
 ) -> str:
     text = _header(repo, authored)
-    for section in _sections(repo, workspace, note):
+    for section in _sections(repo, workspace, note, deep):
         fitted = _fit(section, budget - estimate_tokens(text))
         if fitted:
             text += fitted
@@ -74,7 +76,9 @@ def _meta(repo: Repo) -> str:
     return " · ".join(parts)
 
 
-def _sections(repo: Repo, workspace: Workspace, note: str | None) -> list[_Section]:
+def _sections(
+    repo: Repo, workspace: Workspace, note: str | None, deep: DeepMeta | None
+) -> list[_Section]:
     candidates = (
         _Section(
             "Warnings",
@@ -96,6 +100,7 @@ def _sections(repo: Repo, workspace: Workspace, note: str | None) -> list[_Secti
                 f"{f.kind.value.replace('_', ' ')} {_safe(f.value)}" for f in repo.contracts.exposes
             ),
         ),
+        _Section("Deeper", _deeper(repo, deep)),
         _Section("Notes", (note,) if note else ()),
     )
     return [s for s in candidates if s.items]
@@ -107,6 +112,25 @@ def _packages(repo: Repo) -> tuple[str, ...]:
     return (
         (*shown, f"…(+{extra} more; ask resolve_repo by package name)") if extra else tuple(shown)
     )
+
+
+def _deeper(repo: Repo, deep: DeepMeta | None) -> tuple[str, ...]:
+    """Spec §23: provider, size, build sha, a stale flag, and the busiest symbols."""
+    if deep is None:
+        return ()
+    built = f" · built at {deep.head_sha[:7]}" if deep.head_sha else ""
+    stale = (
+        f" · may be stale (HEAD moved; `cairn deep build {_safe(repo.id)}`)"
+        if repo.head_sha and deep.head_sha != repo.head_sha
+        else ""
+    )
+    lines = [
+        f"{_safe(deep.provider)} index: {deep.nodes} symbols{built}{stale}",
+        "ask `query` with a question for file:line answers",
+    ]
+    if deep.hubs:
+        lines.append("hubs: " + _join([_safe(h) for h in deep.hubs]))
+    return tuple(lines)
 
 
 def _fit(section: _Section, remaining: int) -> str | None:
