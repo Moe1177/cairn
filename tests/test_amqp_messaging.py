@@ -36,7 +36,9 @@ ANNOTATED = """public class Invoices {
     public void onInvoice(Invoice invoice) {}
 }
 """
-SENDER = """class Billing { void done() { template.convertAndSend("invoice-created", invoice); } }"""
+SENDER = (
+    """class Billing { void done() { template.convertAndSend("invoice-created", invoice); } }"""
+)
 
 
 def _pubsub(ws: Path) -> set[tuple[str, str]]:

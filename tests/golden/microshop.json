@@ -1,0 +1,725 @@
+{
+ "edges": [
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "src/main/java/acme/checkout/ServicesConfig.java",
+     "line": 8,
+     "repo": "checkout",
+     "snippet": "return new ServiceUri(new Hostname(\"dispatch\"), domain, \"/dispatch\").toUri();"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:dispatch"
+   ],
+   "source": "checkout",
+   "target": "dispatch",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "src/main/java/acme/checkout/ServicesConfig.java",
+     "line": 5,
+     "repo": "checkout",
+     "snippet": "return new ServiceUri(new Hostname(\"payments\"), domain, \"/authorise\").toUri();"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:payments"
+   ],
+   "source": "checkout",
+   "target": "payments",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "docker-compose/docker-compose.yml",
+     "line": 9,
+     "repo": "deploy",
+     "snippet": "image: acme/basket:2.0.0"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "image:basket"
+   ],
+   "source": "deploy",
+   "target": "basket",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "docker-compose/docker-compose.yml",
+     "line": 5,
+     "repo": "deploy",
+     "snippet": "image: acme/catalogue:0.9.1"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "image:catalogue"
+   ],
+   "source": "deploy",
+   "target": "catalogue",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "docker-compose/docker-compose.yml",
+     "line": 13,
+     "repo": "deploy",
+     "snippet": "image: acme/checkout:1.1.0"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "image:checkout"
+   ],
+   "source": "deploy",
+   "target": "checkout",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "kubernetes/dispatch.yaml",
+     "line": 8,
+     "repo": "deploy",
+     "snippet": "image: acme/dispatch:1.0.0"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "image:dispatch"
+   ],
+   "source": "deploy",
+   "target": "dispatch",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "kubernetes/dispatch.yaml",
+     "line": 10,
+     "repo": "deploy",
+     "snippet": "image: acme/dispatch-worker:1.0.0"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "image:dispatch-worker"
+   ],
+   "source": "deploy",
+   "target": "dispatch-worker",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "kubernetes/payments.yaml",
+     "line": 10,
+     "repo": "deploy",
+     "snippet": "image: registry.acme.io/acme/payments:3.2.1"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "image:payments"
+   ],
+   "source": "deploy",
+   "target": "payments",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "docker-compose/docker-compose.yml",
+     "line": 3,
+     "repo": "deploy",
+     "snippet": "image: acme/storefront:1.4.0"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "image:storefront"
+   ],
+   "source": "deploy",
+   "target": "storefront",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "src/main/java/acme/dispatch/DispatchController.java",
+     "line": 5,
+     "repo": "dispatch",
+     "snippet": "rabbitTemplate.convertAndSend(\"dispatch-task\", shipment);"
+    },
+    {
+     "file": "src/main/java/acme/worker/ConsumerConfig.java",
+     "line": 4,
+     "repo": "dispatch-worker",
+     "snippet": "protected final String queueName = \"dispatch-task\";"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "topic:dispatch-task"
+   ],
+   "source": "dispatch",
+   "target": "dispatch-worker",
+   "type": "pubsub",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "api/endpoints.js",
+     "line": 5,
+     "repo": "storefront",
+     "snippet": "basketUrl: \"http://basket:8080/basket\","
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:basket"
+   ],
+   "source": "storefront",
+   "target": "basket",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "api/endpoints.js",
+     "line": 4,
+     "repo": "storefront",
+     "snippet": "catalogueUrl: util.format(\"http://catalogue%s\", domain),"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:catalogue"
+   ],
+   "source": "storefront",
+   "target": "catalogue",
+   "type": "calls_http",
+   "why": null
+  }
+ ],
+ "repos": {
+  "basket": {
+   "aliases": [
+    "basket"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "mvn test"
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "java"
+   ]
+  },
+  "catalogue": {
+   "aliases": [
+    "catalogue"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "catalogue",
+        "snippet": "module github.com/acme/catalogue"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/acme/catalogue"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go"
+   ]
+  },
+  "checkout": {
+   "aliases": [
+    "checkout"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "mvn test"
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "src/main/java/acme/checkout/ServicesConfig.java",
+        "line": 8,
+        "repo": "checkout",
+        "snippet": "return new ServiceUri(new Hostname(\"dispatch\"), domain, \"/dispatch\").toUri();"
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "dispatch"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/main/java/acme/checkout/ServicesConfig.java",
+        "line": 5,
+        "repo": "checkout",
+        "snippet": "return new ServiceUri(new Hostname(\"payments\"), domain, \"/authorise\").toUri();"
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "payments"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "java"
+   ]
+  },
+  "deploy": {
+   "aliases": [
+    "deploy"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "docker-compose/docker-compose.yml",
+        "line": 9,
+        "repo": "deploy",
+        "snippet": "image: acme/basket:2.0.0"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "basket"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose/docker-compose.yml",
+        "line": 5,
+        "repo": "deploy",
+        "snippet": "image: acme/catalogue:0.9.1"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "catalogue"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose/docker-compose.yml",
+        "line": 7,
+        "repo": "deploy",
+        "snippet": "image: acme/catalogue-db:0.9.0"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "catalogue-db"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose/docker-compose.yml",
+        "line": 13,
+        "repo": "deploy",
+        "snippet": "image: acme/checkout:1.1.0"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "checkout"
+     },
+     {
+      "evidence": [
+       {
+        "file": "kubernetes/dispatch.yaml",
+        "line": 8,
+        "repo": "deploy",
+        "snippet": "image: acme/dispatch:1.0.0"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "dispatch"
+     },
+     {
+      "evidence": [
+       {
+        "file": "kubernetes/dispatch.yaml",
+        "line": 10,
+        "repo": "deploy",
+        "snippet": "image: acme/dispatch-worker:1.0.0"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "dispatch-worker"
+     },
+     {
+      "evidence": [
+       {
+        "file": "kubernetes/payments.yaml",
+        "line": 10,
+        "repo": "deploy",
+        "snippet": "image: registry.acme.io/acme/payments:3.2.1"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "payments"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose/docker-compose.yml",
+        "line": 3,
+        "repo": "deploy",
+        "snippet": "image: acme/storefront:1.4.0"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "storefront"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "docker-compose/",
+     "purpose": null
+    },
+    {
+     "path": "kubernetes/",
+     "purpose": null
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "dispatch": {
+   "aliases": [
+    "dispatch"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "mvn test"
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "src/main/java/acme/dispatch/DispatchController.java",
+        "line": 5,
+        "repo": "dispatch",
+        "snippet": "rabbitTemplate.convertAndSend(\"dispatch-task\", shipment);"
+       }
+      ],
+      "hints": [],
+      "kind": "topic",
+      "value": "dispatch-task"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "java"
+   ]
+  },
+  "dispatch-worker": {
+   "aliases": [
+    "dispatch-worker"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "mvn test"
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "src/main/java/acme/worker/ConsumerConfig.java",
+        "line": 4,
+        "repo": "dispatch-worker",
+        "snippet": "protected final String queueName = \"dispatch-task\";"
+       }
+      ],
+      "hints": [],
+      "kind": "topic",
+      "value": "dispatch-task"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "java"
+   ]
+  },
+  "ops-tools": {
+   "aliases": [
+    "ops-tools"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": []
+  },
+  "payments": {
+   "aliases": [
+    "payments"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "payments",
+        "snippet": "module github.com/acme/payments"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/acme/payments"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go"
+   ]
+  },
+  "storefront": {
+   "aliases": [
+    "storefront"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "storefront",
+        "snippet": "{\"name\": \"storefront\", \"dependencies\": {\"express\": \"^4.18.0\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:express"
+     },
+     {
+      "evidence": [
+       {
+        "file": "api/endpoints.js",
+        "line": 5,
+        "repo": "storefront",
+        "snippet": "basketUrl: \"http://basket:8080/basket\","
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "basket"
+     },
+     {
+      "evidence": [
+       {
+        "file": "api/endpoints.js",
+        "line": 4,
+        "repo": "storefront",
+        "snippet": "catalogueUrl: util.format(\"http://catalogue%s\", domain),"
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "catalogue"
+     },
+     {
+      "evidence": [
+       {
+        "file": "api/endpoints.js",
+        "line": 8,
+        "repo": "storefront",
+        "snippet": "selfUrl: \"http://storefront/index.html\","
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "storefront"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "storefront",
+        "snippet": "{\"name\": \"storefront\", \"dependencies\": {\"express\": \"^4.18.0\"}}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:storefront"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "api/",
+     "purpose": "API"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "express"
+   ]
+  }
+ }
+}
