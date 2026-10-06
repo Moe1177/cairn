@@ -32,6 +32,7 @@ class FactKind(StrEnum):
     DOC_MENTION = "doc_mention"
     CLI = "cli"
     DB_PROVIDER = "db_provider"
+    SERVICE_HOST = "service_host"
 
 
 class EdgeType(StrEnum):

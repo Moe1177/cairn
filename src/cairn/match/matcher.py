@@ -10,6 +10,7 @@ from cairn.match.services import (
     compose_edges,
     env_edges,
     grpc_edges,
+    host_edges,
     http_edges,
     pubsub_edges,
 )
@@ -55,6 +56,7 @@ def match_edges(
             *_path_edges(ordered),
             *_mention_edges(ordered),
             *http_edges(ordered),
+            *host_edges(ordered),
             *compose_edges(ordered),
             *grpc_edges(ordered),
             *pubsub_edges(ordered),

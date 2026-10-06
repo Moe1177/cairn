@@ -4,6 +4,7 @@ from cairn.detectors.base import Detector
 from cairn.detectors.database import DatabaseDetector
 from cairn.detectors.docs import DocsDetector
 from cairn.detectors.envvars import EnvVarsDetector
+from cairn.detectors.hosts import HostsDetector
 from cairn.detectors.http import HttpDetector
 from cairn.detectors.identity import IdentityDetector
 from cairn.detectors.infra import InfraDetector, is_compose_file
@@ -18,6 +19,7 @@ RELATION_DETECTORS: tuple[Detector, ...] = (
     DatabaseDetector(),
     PathRefsDetector(),
     HttpDetector(),
+    HostsDetector(),
     MessagingDetector(),
     InfraDetector(),
     EnvVarsDetector(),

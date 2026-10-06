@@ -128,6 +128,21 @@ def _resolve(
     return [(o, Confidence.AMBIGUOUS) for o in owners]
 
 
+def host_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Spec §24: a call addressed to a host named exactly like another repo (service DNS)."""
+    found: dict[tuple[str, str], _Link] = {}
+    for caller in repos:
+        for fact in caller.contracts.consumes:
+            if fact.kind is not FactKind.SERVICE_HOST:
+                continue
+            named = [r for r in repos if fact.value in {n.lower() for n in (r.id, *r.aliases)}]
+            if len(named) != 1 or named[0].id == caller.id:
+                continue
+            link = found.setdefault((caller.id, named[0].id), _Link(EdgeType.CALLS_HTTP))
+            link.add(Confidence.INFERRED, f"host:{fact.value}", fact.evidence)
+    return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
 def compose_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
     """Spec §21.2: `depends_on` between two services built from (or named after) repos."""
     found: dict[tuple[str, str], _Link] = {}
