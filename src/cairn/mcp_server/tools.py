@@ -248,7 +248,11 @@ def _deep_answer(ws_root: Path, repo: Repo, question: str) -> str | None:
     provider = providers.default_provider()
     graph = load_graph(provider.graph_path(ws_root, repo.id))
     if graph is None:
-        return None
+        return (
+            f"{repo.id}'s deep index is incomplete (its graph is missing or unreadable). "
+            f"Rebuild it with `cairn deep build {repo.id}`. Meanwhile, start from these "
+            f"folders:\n{_layout(repo)}"
+        )
     header = f"{repo.id} deep index ({meta.provider}, {meta.nodes} symbols)"
     if provider.status(ws_root, repo.id, ws_root / repo.path).stale:
         header += f"; may be stale, rebuild with `cairn deep build {repo.id}`"

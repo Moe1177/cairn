@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from cairn import providers
 from cairn.paths import cards_dir, index_file, logs_dir
 from cairn.providers.meta import read_deep_meta
 from cairn.render.card import render_card
@@ -25,6 +26,7 @@ def write_outputs(ws_root: Path, result: ScanResult) -> tuple[Path, ...]:
             note=result.relations.notes.get(repo.id),
             budget=result.config.card_budget,
             deep=read_deep_meta(ws_root, repo.id),
+            deep_ready=providers.default_provider().graph_path(ws_root, repo.id).is_file(),
         )
         path = directory / f"{repo.id}.md"
         atomic_write_text(path, card)
