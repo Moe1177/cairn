@@ -4,7 +4,9 @@ Plan B4 (lean): the 16 localization and impact tasks from sockshop, supabase-js,
 shopverse. Three conditions: **A** no map, **D** INDEX + cards, and **E** D + cairn's MCP server,
 whose `query` now locates grep-first (see
 [2026-10-06-locate.md](2026-10-06-locate.md)). Haiku 4.5 and Sonnet 5.5, 3 runs per cell, 288
-runs, Claude Code headless with read-only tools. Cost is Claude Code's reported API-equivalent
+runs, Claude Code headless with read-only tools. These runs used `query` as it was before the
+release review's fixes (related repos searched only when the asked repo had no hits; hyphenated
+English read as identifiers); see the revised locate numbers. Cost is Claude Code's reported API-equivalent
 cost; the runs were made on a subscription.
 
 ## Findings

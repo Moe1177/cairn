@@ -13,9 +13,10 @@ All notable changes to cairn are documented here. The format follows
 - **`query` finds the place in any repo, no install needed.** It searches with grep first: the
   question's identifiers, routes and quoted messages, else its words, through cairn's hardened
   `git grep`, with lockfiles, minified and generated files skipped. For "who calls X" it lists the
-  callers before the definition. It also searches repos the question names, and, when nothing
-  matches, the repos the map relates to the one asked about. Every answer says which search
-  answered and why. A deep index, when built, names the symbol on grep's hits and answers when
+  callers before the definition. It also searches repos the question names, and the repos the
+  map relates to the one asked about unless an identifier, route or message already answered.
+  Every answer says which search answered and why, and when a search stopped early at its time
+  or size limit. Files cairn never opens (`.env`, keys, `secrets.yaml`…) are never searched. A deep index, when built, names the symbol on grep's hits and answers when
   grep finds nothing.
 - **`cairn deep enable`** installs graphify as its own tool (uv, else pipx, else pip; it asks
   first) and indexes every repo. `cairn refresh` then keeps existing deep indexes fresh by default
@@ -25,7 +26,8 @@ All notable changes to cairn are documented here. The format follows
   and shopverse (dev) and supabase-js and networkx 3.4.2 (held out).
   [Results](bench/published/2026-10-06-locate.md):
   - grep matched or beat the code graph on every kind of question;
-  - the grep-first hybrid raised held-out hit@1 from 0.42 to 0.56 at the same cost;
+  - searching the way `query` does, the grep-first hybrid raised held-out hit@1 from 0.42 to 0.50
+    (MRR 0.52 to 0.57) at equal hit@5, almost all of it on "who calls X" questions;
   - questions worded differently from the code stay hard for both (hit@5 at most 0.38).
 
   A follow-up agent run (288 runs, Haiku and Sonnet, 16 localization and impact tasks) found
