@@ -137,6 +137,18 @@ def test_a_big_family_stays_short_on_the_index() -> None:
 # -- Git trust behind the memo -----------------------------------------------------------------
 
 
+def _distrust(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Make git treat every repo as another user's. CI images trust all directories in their
+    global/system config (safe.directory = *), so that config is replaced with an empty one."""
+    empty = tmp_path / "empty.gitconfig"
+    empty.write_text("", encoding="utf-8")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    for injected in ("GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT"):  # config set via env
+        monkeypatch.delenv(injected, raising=False)
+    monkeypatch.setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+
+
 def test_the_trust_warning_fires_even_when_the_memo_knows_head(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -144,7 +156,7 @@ def test_the_trust_warning_fires_even_when_the_memo_knows_head(
     _repo(ws / "app", {"README.md": "# app\n"})
     assert not [w for w in scan_workspace(ws).warnings if "safe.directory" in w]
     git_module.forget_git_memo()  # a later process: the memo comes from disk
-    monkeypatch.setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+    _distrust(monkeypatch, tmp_path)
     warnings = [w for w in scan_workspace(ws).warnings if "safe.directory" in w]
     assert len(warnings) == 1 and "app" in warnings[0]
 
@@ -152,7 +164,7 @@ def test_the_trust_warning_fires_even_when_the_memo_knows_head(
 def test_the_trust_command_quotes_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ws = tmp_path / "my ws"
     _repo(ws / "my app", {"README.md": "# app\n"})
-    monkeypatch.setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+    _distrust(monkeypatch, tmp_path)
     warning = next(w for w in scan_workspace(ws).warnings if "safe.directory" in w)
     assert "safe.directory '" in warning and "my app'" in warning
 
