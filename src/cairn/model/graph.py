@@ -34,6 +34,7 @@ class FactKind(StrEnum):
     DB_PROVIDER = "db_provider"
     SERVICE_HOST = "service_host"
     DEPLOYS_IMAGE = "deploys_image"
+    GIT_ROOT = "git_root"
 
 
 class EdgeType(StrEnum):
@@ -47,10 +48,11 @@ class EdgeType(StrEnum):
     MENTIONS = "mentions"
     SHARES_ENV = "shares_env"
     DEPLOYS = "deploys"
+    MIRRORS = "mirrors"
     MANUAL = "manual"
 
 
-SYMMETRIC_TYPES = frozenset({EdgeType.SHARES_DB, EdgeType.SHARES_ENV})
+SYMMETRIC_TYPES = frozenset({EdgeType.SHARES_DB, EdgeType.SHARES_ENV, EdgeType.MIRRORS})
 
 
 class Confidence(StrEnum):

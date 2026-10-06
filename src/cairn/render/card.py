@@ -2,7 +2,15 @@
 
 from dataclasses import dataclass
 
-from cairn.model.graph import SYMMETRIC_TYPES, Confidence, Edge, EdgeType, Repo, Workspace
+from cairn.model.graph import (
+    SYMMETRIC_TYPES,
+    Confidence,
+    Edge,
+    EdgeType,
+    FactKind,
+    Repo,
+    Workspace,
+)
 from cairn.model.overrides import Authored
 from cairn.providers.meta import DeepMeta
 from cairn.render.tokens import estimate_tokens
@@ -102,7 +110,9 @@ def _sections(
         _Section(
             "Exposes",
             tuple(
-                f"{f.kind.value.replace('_', ' ')} {_safe(f.value)}" for f in repo.contracts.exposes
+                f"{f.kind.value.replace('_', ' ')} {_safe(f.value)}"
+                for f in repo.contracts.exposes
+                if f.kind is not FactKind.GIT_ROOT  # plumbing for families, not a contract
             ),
         ),
         _Section("Deeper", _deeper(repo, deep, deep_ready)),
@@ -217,6 +227,14 @@ def _describe(edge: Edge) -> str:
         return "compose: depends on"
     if edge.type is EdgeType.SHARES_ENV:
         return "shares env " + _join(_signal_values(edge, "env:"))
+    if edge.type is EdgeType.MIRRORS:
+        if _signal_values(edge, "root:"):
+            return "copy of the same app (shares its first commit): change one, check the other"
+        return (
+            "copy of the same app (same package name "
+            + _join(_signal_values(edge, "package:"))
+            + ")"
+        )
     if edge.type is EdgeType.DEPLOYS:
         return "deploys image " + _join(_signal_values(edge, "image:"))
     if edge.type is EdgeType.MENTIONS:
