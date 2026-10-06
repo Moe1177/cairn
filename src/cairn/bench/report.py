@@ -45,13 +45,13 @@ def _summary(records: Sequence["RunRecord"]) -> list[str]:
 CAIRN_TOOL_PREFIX = "mcp__cairn__"
 
 
-def _tools_used(records: Sequence["RunRecord"]) -> list[str]:
+def _tools_used(records: Sequence["RunRecord"], *, level: str = "##") -> list[str]:
     """Which tools agents called, per condition: whether cairn's MCP tools were used at all.
     Empty for logs from before tool calls were recorded."""
     if not any(r.result.tools for r in records):
         return []
     lines = [
-        "## Tools used",
+        f"{level} Tools used",
         "",
         "| Condition | Runs | Runs calling cairn's MCP tools | cairn calls per run "
         "| Grep per run | Read per run |",
@@ -114,7 +114,8 @@ def render_combined(sections: Mapping[str, Sequence["RunRecord"]]) -> str:
     """One report over several runs (suite x model), each with its own statistics."""
     parts = ["# cairn benchmark (combined)", "", CONDITIONS_LINE, ""]
     for label, records in sections.items():
-        parts += [f"## {label}", "", *_body(records, level="###"), *_error_note(records), ""]
+        parts += [f"## {label}", "", *_body(records, level="###"), ""]
+        parts += [*_tools_used(records, level="###"), *_error_note(records), ""]
     return "\n".join(parts).rstrip("\n") + "\n"
 
 

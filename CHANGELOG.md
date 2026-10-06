@@ -10,15 +10,24 @@ All notable changes to cairn are documented here. The format follows
 ## [0.7.1]
 
 ### Fixed
-- A deep index whose rebuild fails or times out is no longer rebuilt by every `cairn refresh`
-  (and so by every commit's hook), for up to 15 minutes each time. The failure is recorded
-  against the repo's state, and refresh retries only once the repo changes. `cairn deep build`
-  always retries, and `cairn deep status` shows "last build failed".
+- **A deep index whose rebuild fails or times out is no longer retried on every refresh.** Before,
+  each refresh retried it, for up to 15 minutes each time, including the refreshes that commits
+  to *other* repos trigger.
+  - The failure is recorded against the state the build started from.
+  - `cairn refresh` retries only once that repo changes. A commit to the repo itself still
+    triggers a retry.
+  - `cairn deep build`, including `--stale`, always retries.
+  - `cairn deep status` shows "last build failed".
+- **Benchmarks recognise every usage-limit wording.** The pattern held two stray control
+  characters, so only "hit your … limit" matched. "Usage limit reached", "rate limit" and "weekly
+  limit" were logged as real failures: they didn't stop the run, and `--resume` didn't redo them.
+- **A benchmark run that ends without a result** (claude stopped right after starting) now counts
+  as an error, not as a clean empty answer, and keeps claude's error output.
 
 ### Changed
-- Benchmark runs record which tools the agent called (`--output-format stream-json`), and reports
-  gain a "Tools used" table: how many runs called cairn's MCP tools, and Grep and Read calls per
-  run. Older run logs still load.
+- **Benchmark runs record which tools the agent called** (`--output-format stream-json`). Run and
+  combined reports gain a "Tools used" table: how many runs called cairn's MCP tools, and Grep
+  and Read calls per run. Older run logs still load, without tool counts.
 
 ## [0.7.0]
 
