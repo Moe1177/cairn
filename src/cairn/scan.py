@@ -20,7 +20,7 @@ from cairn.detectors.base import (
 )
 from cairn.detectors.identity import clean_aliases
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists
-from cairn.discover.git import GitInfo, forget_git_memo, summary_is_stale
+from cairn.discover.git import GitInfo, forget_git_memo, git_refused, summary_is_stale
 from cairn.discover.repos import RepoLocation, discover_repos
 from cairn.errors import CairnError
 from cairn.load import load_authored, load_config, load_relations
@@ -147,8 +147,35 @@ def scan_workspace(
     )
     cached = tuple(repo_id for repo_id, read in reads.items() if read.cached)
     unsafe = tuple(f"skipped {loc.root.name!r}: unusual characters in its path" for loc in skipped)
-    warnings = (*_git_warning(locations), *unsafe, *overridden.warnings)
+    warnings = (
+        *_git_warning(locations),
+        *_trust_warning(root, locations, gits),
+        *unsafe,
+        *overridden.warnings,
+    )
     return ScanResult(workspace, authored, relations, config, warnings, cached)
+
+
+def _trust_warning(
+    root: Path, locations: Sequence[RepoLocation], gits: Mapping[str, GitInfo]
+) -> tuple[str, ...]:
+    """One warning naming the repos git refuses to read (only repos with no HEAD are asked)."""
+    refused = [
+        loc
+        for loc in locations
+        if gits[loc.id].head_sha is None
+        and safe_exists(loc.root / ".git")
+        and git_refused(loc.root)
+    ]
+    if not refused:
+        return ()
+    names = ", ".join(loc.id for loc in refused[:5]) + (" ..." if len(refused) > 5 else "")
+    example = refused[0].root.as_posix()
+    return (
+        f"git refuses {len(refused)} repo(s) owned by another user (dubious ownership): {names}. "
+        f"cairn can't read their HEAD, remote or cache. Trust each one with "
+        f"`git config --global --add safe.directory {example}` (`cairn doctor` lists them all).",
+    )
 
 
 def _git_warning(locations: Sequence[RepoLocation]) -> tuple[str, ...]:

@@ -337,6 +337,15 @@ def _listed_overrides(root: str) -> tuple[str, ...]:
     return _override_args(names)
 
 
+def git_refused(root: Path, timeout: float = 5.0) -> bool:
+    """True when git won't read this repo because another user owns it ("dubious ownership").
+    cairn then has no HEAD, remote or cache for it until the user trusts the folder."""
+    result = run_text(
+        [*git_command(root), "rev-parse", "--git-dir"], timeout=timeout, env=git_env()
+    )
+    return bool(result and result.returncode != 0 and "dubious ownership" in result.stderr)
+
+
 def _git(root: Path, args: list[str], timeout: float) -> str | None:
     result = run_text([*git_command(root), *args], timeout=timeout, env=git_env())
     return result.stdout.strip() if result and result.returncode == 0 else None
