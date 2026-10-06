@@ -219,29 +219,36 @@ Tasks cover:
 
 Answers are graded deterministically on the files and facts they must name.
 
-**First results** on two synthetic workspaces, `shopverse` (6 repos) and `fleetline` (15 repos):
+**Results** (2026-10-06): 840 runs over four workspaces, two of them real open-source systems:
+Sock Shop (9 microservice repos) and the Supabase JS client family (6 repos, held out: never
+used to tune cairn). 28 tasks, 3 runs per cell, Haiku 4.5 and Sonnet 5.5.
 
-| | Haiku 4.5 | Sonnet 5.5 | Opus 5.5 |
-|---|---|---|---|
-| Success, no map (A) | 89–96% | 100% | 100% |
-| Success, cairn index (C) | **100%** | **100%** | **100%** |
-| Best cairn cost vs no map | **−42%** (D) | **−24%** (C) | **−7%** (C) |
+| Cost per task vs no map (A) | Haiku 4.5 | Sonnet 5.5 |
+|---|---|---|
+| All 28 tasks, cairn INDEX (C) | **-25%** (p = 0.04) | -12% (n.s.) |
+| Sock Shop, cairn INDEX + cards (D) | -44% (n.s., 8 tasks) | **-24%** (p = 0.02) |
+| Held-out Supabase, best cairn condition | -8% (n.s.) | -10% (n.s.) |
 
-What this shows so far:
-- **Weaker models gain accuracy.** Haiku went from missing 4–11% of tasks to 100%.
-- **The index alone is the most reliable condition** on every model and suite.
-- **Cost savings are modest on small workspaces.** Strong models with grep explore 6–15 small repos
-  in about 4 turns, and cairn's savings should grow with workspace size. These are first results:
-  3 runs per cell, no significance testing yet. The Opus runs cover shopverse only.
+What this shows:
+- **cairn makes cross-repo work cheaper**, most clearly with the smaller model and on the real
+  microservices workspace. Haiku also used 19% fewer fresh tokens with the INDEX (p = 0.003).
+- **It beats a hand-written related-repos doc on cost for Sonnet** (10-12% cheaper, p <= 0.03).
+- **It doesn't measurably raise success.** Sonnet answers 99-100% of these tasks in every
+  condition; Haiku rises from 86% to 93% with the MCP server, which isn't significant.
+- **Correction:** our first, smaller run (2026-10-05) reported Haiku reaching 100% with the
+  INDEX. With more runs that doesn't replicate (89-92%, the same as no map).
 
-Full tables, model ids, and caveats:
-[bench/published](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-05-shopverse-fleetline.md).
+Methods, every table with 95% intervals and paired Wilcoxon tests, and the held-out results:
+[bench/published/2026-10-06-real-world.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-06-real-world.md).
+The first run is kept at
+[2026-10-05-shopverse-fleetline.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-05-shopverse-fleetline.md).
 
 Run the benchmarks yourself from a source checkout. They use your Claude usage.
 
 ```bash
-cairn bench bench/suites/fleetline --runs 3 --model haiku
+cairn bench bench/suites/sockshop --runs 3 --model haiku    # fetches the pinned repos once
 cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
+cairn bench bench/suites/sockshop --resume bench/results/<stamp>.jsonl   # after a usage limit
 ```
 
 ## Performance
@@ -356,7 +363,9 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 3. ✅ Deep per-repo queries via [graphify](https://github.com/Graphify-Labs/graphify) (0.3).
 4. ✅ Efficiency: 3x faster scans, faster and more reliable CI, `cairn doctor`, shell completion,
    and "used by" on INDEX lines (0.4).
-5. Larger benchmark suites (real open-source workspaces), significance testing, and more harnesses.
+5. ✅ Real-world reach (service DNS, deploy repos, RabbitMQ) and benchmarks on real open-source
+   workspaces with significance testing (0.5).
+6. More harnesses in the benchmark (Codex), and more ecosystems.
 
 ## Contributing
 

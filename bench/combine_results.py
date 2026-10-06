@@ -23,7 +23,14 @@ def collect(root: Path) -> dict[str, list]:
             logs = sorted(suite_dir.glob("*.jsonl"))
             if not logs:
                 continue
-            records = load_records(logs[-1])  # the latest run of this suite x model
+            # The latest log of this suite x model. A resumed log also holds the attempts that
+            # hit a usage limit: keep one record per cell, the good one when there is one.
+            cells: dict = {}
+            for record in load_records(logs[-1]):
+                key = (record.condition, record.task_id, record.run)
+                if key not in cells or cells[key].result.is_error:
+                    cells[key] = record
+            records = list(cells.values())
             sections[f"{suite_dir.name} / {model_dir.name}"] = records
             pooled.setdefault(model_dir.name, []).extend(
                 replace(r, task_id=f"{suite_dir.name}:{r.task_id}") for r in records

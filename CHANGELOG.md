@@ -29,6 +29,13 @@ All notable changes to cairn are documented here. The format follows
   their look-alikes.
 - The scan cache format is version 4, so the first scan after upgrading re-reads every repo.
 
+### Benchmarks
+- 840 runs on four workspaces (two real, one held out), Haiku 4.5 and Sonnet 5.5, with
+  intervals and paired tests: cairn cut Haiku's cost per task by 25% (p = 0.04) and Sonnet's by
+  24% on Sock Shop (p = 0.02); success rates did not change significantly. The first run's claim
+  that Haiku reaches 100% with the INDEX did not replicate and is corrected in the README. See
+  `bench/published/2026-10-06-real-world.md`.
+
 ## [0.4.0]
 
 ### Added
