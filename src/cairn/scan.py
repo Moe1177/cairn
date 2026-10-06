@@ -160,13 +160,23 @@ def scan_workspace(
 def _lineage_warning(repos: Sequence[Repo]) -> list[str]:
     """Repos whose first commits git couldn't list in time: their copies aren't linked this
     time (nothing is cached, so the next scan tries again)."""
-    failed = [r.id for r in repos if any(e.detector == "lineage" for e in r.detector_errors)]
-    if not failed:
-        return []
-    return [
-        f"couldn't read the first commit of {', '.join(failed)} in time: links between "
-        "copies of one app may be missing; run `cairn refresh` again"
+    lineage = [
+        (r.id, e.message) for r in repos for e in r.detector_errors if e.detector == "lineage"
     ]
+    slow = [repo for repo, message in lineage if message.startswith("GitTimeout")]
+    other = [repo for repo, message in lineage if not message.startswith("GitTimeout")]
+    warnings = []
+    if slow:
+        warnings.append(
+            f"couldn't read the first commit of {', '.join(slow)} in time: links between "
+            "copies of one app may be missing; run `cairn refresh` again"
+        )
+    if other:
+        warnings.append(
+            f"reading the first commit of {', '.join(other)} failed: links between copies of "
+            "one app may be missing (`cairn status` shows the error)"
+        )
+    return warnings
 
 
 def _trust_warning(

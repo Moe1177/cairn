@@ -124,9 +124,9 @@ class _LocalConfig:
 
 
 # Answers that only change when files under .git/ change, keyed by (repo, stamp of those
-# files) and shared by worker threads. Only HEAD shas and normalised remotes are persisted
-# between runs (git-memo.json). Filter overrides are never taken from disk: a memo file can't
-# be trusted to say a repo has no filters, so a config that mentions one is always asked.
+# files) and shared by worker threads. Only HEAD shas, normalised remotes and first commits
+# are persisted between runs (git-memo.json). Filter overrides are never taken from disk: a
+# memo file can't be trusted to say a repo has no filters, so a config naming one is asked.
 _CONFIGS: dict[tuple[str, str], _LocalConfig] = {}  # this process only
 _REMOTES: dict[tuple[str, str], str | None] = {}
 _HEADS: dict[tuple[str, str], str] = {}
@@ -147,7 +147,7 @@ def forget_git_memo() -> None:
 
 
 def export_git_memo(roots: Iterable[Path]) -> dict[str, dict]:
-    """The remembered HEADs and remotes for `roots`, as JSON-ready data."""
+    """The remembered HEADs, remotes and first commits for `roots`, as JSON-ready data."""
     wanted = {str(root) for root in roots}
     out: dict[str, dict] = {}
     for (root, stamp), remote in list(_REMOTES.items()):
@@ -270,7 +270,7 @@ def head_sha(root: Path, timeout: float = 5.0) -> str | None:
     return sha
 
 
-LINEAGE_TIMEOUT = 60.0  # it walks the whole first-parent history: big repos, slow disks
+LINEAGE_TIMEOUT = 30.0  # it walks the whole first-parent history: ~10x the slowest seen (3 s)
 _ROOTS_MAX = 5
 _FULL_SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")  # SHA-1 or SHA-256 repositories
 
@@ -284,10 +284,14 @@ def root_commits(root: Path, timeout: float = LINEAGE_TIMEOUT) -> tuple[str, ...
     until HEAD moves (the git memo keeps them between runs). () for a repo with no commits or
     that git can't read. Raises GitTimeout when git runs out of time: copies of one app are
     found by these, so a slow answer must not be read as "no copies"."""
-    stamp = head_stamp(root)
+    head = head_stamp(root)
+    # HEAD alone isn't enough: deepening a shallow clone, or a graft or replace ref, changes
+    # the first commit without moving HEAD.
+    stamp = None if head is None else f"{head}|{_history_stamp(root)}"
     key = (str(root), stamp or "")
-    if stamp is not None and key in _ROOTS:
-        return _ROOTS[key]
+    found = _ROOTS.get(key)  # one lookup: another thread may clear the memo meanwhile
+    if stamp is not None and found is not None:
+        return found
     command = [*git_command(root), "rev-list", "--max-parents=0", "--first-parent", "HEAD"]
     done = run_bytes_capped(command, max_bytes=65536, timeout=timeout, env=git_env())
     if done is not None and done.timed_out:
@@ -299,6 +303,26 @@ def root_commits(root: Path, timeout: float = LINEAGE_TIMEOUT) -> tuple[str, ...
     if stamp is not None:
         _remember(_ROOTS, key, roots)
     return roots
+
+
+def _history_stamp(root: Path) -> str:
+    """What reshapes history without moving HEAD: .git/shallow (a shallow clone deepened),
+    info/grafts, and replace refs (packed ones show in head_stamp's packed-refs)."""
+    git = root / ".git"
+    parts = []
+    for path in (git / "shallow", git / "info" / "grafts"):
+        try:
+            info = path.stat()
+            parts.append(f"{info.st_mtime_ns}:{info.st_size}")
+        except OSError:
+            parts.append("-")
+    replace = git / "refs" / "replace"
+    try:
+        refs = sorted(p for p in replace.iterdir() if p.is_file())[:64] if replace.is_dir() else []
+        parts += [f"{p.name}:{p.stat().st_mtime_ns}" for p in refs]
+    except OSError:
+        parts.append("?")
+    return hashlib.sha1("|".join(parts).encode()).hexdigest()
 
 
 def _local_config(root: Path) -> _LocalConfig | None:
