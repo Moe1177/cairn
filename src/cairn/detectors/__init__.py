@@ -2,6 +2,7 @@
 
 from cairn.detectors.base import Detector
 from cairn.detectors.database import DatabaseDetector
+from cairn.detectors.deploys import DeploysDetector
 from cairn.detectors.docs import DocsDetector
 from cairn.detectors.envvars import EnvVarsDetector
 from cairn.detectors.hosts import HostsDetector
@@ -20,6 +21,7 @@ RELATION_DETECTORS: tuple[Detector, ...] = (
     PathRefsDetector(),
     HttpDetector(),
     HostsDetector(),
+    DeploysDetector(),
     MessagingDetector(),
     InfraDetector(),
     EnvVarsDetector(),

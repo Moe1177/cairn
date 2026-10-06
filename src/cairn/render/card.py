@@ -217,6 +217,8 @@ def _describe(edge: Edge) -> str:
         return "compose: depends on"
     if edge.type is EdgeType.SHARES_ENV:
         return "shares env " + _join(_signal_values(edge, "env:"))
+    if edge.type is EdgeType.DEPLOYS:
+        return "deploys image " + _join(_signal_values(edge, "image:"))
     if edge.type is EdgeType.MENTIONS:
         return "docs mention"
     if edge.type is EdgeType.MANUAL:

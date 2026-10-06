@@ -128,6 +128,21 @@ def _resolve(
     return [(o, Confidence.AMBIGUOUS) for o in owners]
 
 
+def deploy_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Spec §24: a repo whose deploy files run another repo's image (`org/<repo>:tag`)."""
+    found: dict[tuple[str, str], _Link] = {}
+    for deployer in repos:
+        for fact in deployer.contracts.consumes:
+            if fact.kind is not FactKind.DEPLOYS_IMAGE:
+                continue
+            named = [r for r in repos if fact.value in {n.lower() for n in (r.id, *r.aliases)}]
+            if len(named) != 1 or named[0].id == deployer.id:
+                continue
+            link = found.setdefault((deployer.id, named[0].id), _Link(EdgeType.DEPLOYS))
+            link.add(Confidence.INFERRED, f"image:{fact.value}", fact.evidence)
+    return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
 def host_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
     """Spec §24: a call addressed to a host named exactly like another repo (service DNS)."""
     found: dict[tuple[str, str], _Link] = {}

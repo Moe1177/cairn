@@ -8,6 +8,7 @@ from itertools import combinations
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST, db_confidence, noisy_or, specificity
 from cairn.match.services import (
     compose_edges,
+    deploy_edges,
     env_edges,
     grpc_edges,
     host_edges,
@@ -58,6 +59,7 @@ def match_edges(
             *http_edges(ordered),
             *host_edges(ordered),
             *compose_edges(ordered),
+            *deploy_edges(ordered),
             *grpc_edges(ordered),
             *pubsub_edges(ordered),
             *env_edges(ordered),
