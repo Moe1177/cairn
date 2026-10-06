@@ -40,7 +40,7 @@ _GRPC_CALL = tuple(
 _PUBLISH = tuple(
     re.compile(p)
     for p in (
-        rf"(\w+)\.(?:send|produce|publish|Publish|send_and_wait|sendMessage)\(\s*{_T}",
+        rf"(\w+)\.(?:send|produce|publish|Publish|send_and_wait|sendMessage|convertAndSend)\(\s*{_T}",
         rf"(\w+)\.(?:send|produce)\(\s*\{{[^}}\n]{{0,200}}?topic\s*:\s*{_T}",
     )
 )
@@ -54,8 +54,15 @@ _SUBSCRIBE = tuple(
         rf"\.subscribe\(\s*\{{[^}}\n]{{0,200}}?topics?\s*:\s*\[?\s*{_T}",
         rf"@KafkaListener\([^)\n]{{0,200}}?topics\s*=\s*\{{?\s*{_T}",
         rf"\bKafkaConsumer\(\s*{_T}",
+        rf"@RabbitListener\([^)\n]{{0,200}}?queues\s*=\s*\{{?\s*{_T}",
+        rf"\.setQueueNames\(\s*{_T}",
     )
 )
+# Spring AMQP consumers often name their queue in a field the listener container reads
+# (`queueName = "shipping-task"`). That counts only in a file that declares a listener: the
+# publishing side usually declares the same queue too.
+_LISTENER_MARKERS = ("MessageListener", "RabbitListener", "SimpleMessageListenerContainer")
+_QUEUE_FIELD = re.compile(rf"\bqueue\w{{0,30}}\s*=\s*{_T}")
 _QUOTED = re.compile(r"""['"]([^'"\s]{3,120})['"]""")
 # Every pattern above needs one of these substrings; a line with none can't match any of them.
 _GATE = (
@@ -71,6 +78,10 @@ _GATE = (
     "ubscribe",
     "KafkaListener",
     "KafkaConsumer(",
+    "RabbitListener",
+    "setQueueNames",
+    "queue",
+    "convertAndSend",  # its "Send" is capitalised: "send" above doesn't cover it
 )
 # Generated stubs define both sides of every service; they say nothing about who calls whom.
 _GENERATED_SUFFIXES = (
@@ -141,6 +152,7 @@ def _scan(ctx: DetectorContext, path: Path, text: str) -> tuple[list[Fact], list
     consumes: list[Fact] = []
     if not any(key in text for key in _GATE):
         return exposes, consumes
+    listener = any(marker in text for marker in _LISTENER_MARKERS)
     for line_no, raw in enumerate(text.splitlines(), start=1):
         if len(exposes) + len(consumes) >= MAX_FACTS_PER_FILE:
             break
@@ -171,6 +183,8 @@ def _scan(ctx: DetectorContext, path: Path, text: str) -> tuple[list[Fact], list
             t for m in _SUBSCRIBE_LIST.finditer(line) for t in _QUOTED.findall(m.group(1))
         ]
         subscribed += [m.group(1) for p in _SUBSCRIBE for m in p.finditer(line)]
+        if listener:
+            subscribed += [m.group(1) for m in _QUEUE_FIELD.finditer(line)]
         if not (served or called or published or subscribed):
             continue
         evidence = (ctx.evidence(path, line_no, line),)
