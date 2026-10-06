@@ -129,7 +129,7 @@ class BenchStopped(CairnError):
     """A usage or rate limit: going on would only record failures."""
 
 
-_LIMIT = re.compile(r"(?i)(?:session|usage|rate|weekly) limit|hit your \w+ limit")
+_LIMIT = re.compile(r"(?i)\b(?:session|usage|rate|weekly) limit\b|hit your \w+ limit")
 
 
 def usage_limit(result: RunResult) -> bool:

@@ -39,14 +39,18 @@ class RunResult:
         return self.input_tokens + self.cache_creation_tokens + self.output_tokens
 
 
-def parse_result(raw: str) -> RunResult:
+def parse_result(raw: str, stderr: str = "") -> RunResult:
     """claude's output: one JSON result (`--output-format json`), or a stream of JSON lines
     (`stream-json`) whose last `result` line holds the totals and whose assistant messages
     show each tool the agent called."""
     data, tools = _result_and_tools(raw)
-    if data is None:
-        return RunResult(result_text=raw[-2000:], is_error=True)
-    usage = data.get("usage") or {}
+    if data is None:  # no result: claude failed or stopped before answering
+        text = f"{stderr.strip()}\n{raw}".strip() if stderr.strip() else raw
+        return RunResult(
+            result_text=text[-2000:], is_error=True, tools=tuple(sorted(tools.items()))
+        )
+    raw_usage = data.get("usage")
+    usage: dict = raw_usage if isinstance(raw_usage, dict) else {}
     model_usage = data.get("modelUsage")
     return RunResult(
         result_text=str(data.get("result") or ""),
@@ -68,7 +72,9 @@ def _result_and_tools(raw: str) -> tuple[dict | None, dict[str, int]]:
         single = json.loads(raw)
     except json.JSONDecodeError:
         single = None
-    if isinstance(single, dict):
+    # A lone JSON object is `--output-format json`'s result, unless it is a stream's first event
+    # (claude stopped right after `system/init`): that has a type, and no result.
+    if isinstance(single, dict) and single.get("type") in (None, "result"):
         return single, {}
     result: dict | None = None
     tools: dict[str, int] = {}
@@ -82,7 +88,8 @@ def _result_and_tools(raw: str) -> tuple[dict | None, dict[str, int]]:
         if event.get("type") == "result":
             result = event
         elif event.get("type") == "assistant":
-            content = (event.get("message") or {}).get("content")
+            message = event.get("message")
+            content = message.get("content") if isinstance(message, dict) else None
             for block in content if isinstance(content, list) else []:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     name = str(block.get("name") or "?")[:100]
@@ -178,7 +185,7 @@ class ClaudeRunner:
             home = self.home or claude_home()
             for path in {cwd, cwd.resolve()}:
                 forget_project(home, path)
-        return parse_result(proc.stdout or proc.stderr)
+        return parse_result(proc.stdout or proc.stderr, proc.stderr if proc.stdout else "")
 
     def version(self) -> str:
         try:
