@@ -19,6 +19,7 @@ from cairn.discover.files import iter_files, read_text
 from cairn.discover.git import git_command, git_env
 from cairn.discover.proc import run_bytes
 from cairn.locate.model import GrepResult, LocateHit
+from cairn.security.policy import is_forbidden, never_open_globs
 
 GREP_TIMEOUT = 10.0
 MAX_LINE = 400  # longer lines are minified or generated: never a place to read
@@ -87,7 +88,9 @@ def grep_locate(
 
 def _git_grep(root: Path, terms: Sequence[str]) -> dict[str, _FileMatch] | None:
     patterns = [arg for term in terms for arg in ("-e", term)]
+    # Secret files are excluded so git never opens them (spec §20.1), not just filtered after.
     excludes = [f":(exclude,glob){pattern}" for pattern in NOISE]
+    excludes += [f":(exclude,glob,icase){pattern}" for pattern in never_open_globs()]
     command = [
         *git_command(root),
         "-c",
@@ -138,7 +141,7 @@ def _python_grep(root: Path, terms: Sequence[str]) -> dict[str, _FileMatch]:
 
 
 def _record(found: dict[str, _FileMatch], rel: str, number: int, line: str) -> None:
-    if len(line) > MAX_LINE:
+    if len(line) > MAX_LINE or is_forbidden(Path(rel)):
         return
     match = found.setdefault(rel, _FileMatch())
     match.count += 1
@@ -187,7 +190,7 @@ def _with_name_hits(
     for rel in files:
         name = PurePosixPath(rel).name
         term = wanted.get(_name_key(name)) or wanted.get(_name_key(PurePosixPath(rel).stem))
-        if term is None or _NOISE_SPEC.match_file(rel):
+        if term is None or _NOISE_SPEC.match_file(rel) or is_forbidden(Path(rel)):
             continue
         bonus = 3.0 * (0.5 if _LOW_VALUE.search(rel) else 1.0)
         hit = by_file.get(rel)

@@ -247,3 +247,29 @@ def test_grep_skips_binaries_and_generated_lines(tmp_path: Path, git: bool) -> N
 def test_a_term_that_looks_like_an_option_is_searched_for(tmp_path: Path) -> None:
     repo = _repo(tmp_path / "r", {"run.sh": "git push --force-with-lease\n"})
     assert grep_locate(repo, ("--force-with-lease",), limit=5).hits[0].file == "run.sh"
+
+
+# -- final review fixes --------------------------------------------------------------------------
+
+SECRET = "sk_live_abc123XYZ"
+NEVER_OPEN = {
+    ".env": f"STRIPE_SECRET_KEY={SECRET}\n",
+    "config/.env.production": f"KEY={SECRET}\n",
+    "deploy/secrets.yaml": f"stripe: {SECRET}\n",
+    "infra/prod.tfvars": f'key = "{SECRET}"\n',
+    "api/appsettings.Production.json": f'{{"Key": "{SECRET}"}}\n',
+    "ops/db-secret.json": f'{{"k": "{SECRET}"}}\n',
+    ".docker/config.json": f'{{"auth": "{SECRET}"}}\n',
+}
+
+
+@pytest.mark.parametrize("git", [True, False], ids=["git", "no-git"])
+def test_never_open_files_are_never_searched(tmp_path: Path, git: bool) -> None:
+    """Spec §20.1: cairn never opens secret files, so no answer can confirm a guessed value."""
+    repo = _repo(tmp_path / "r", {**NEVER_OPEN, "src/pay.py": "KEY = load('stripe')\n"}, git=git)
+    for guess in (SECRET, "sk_live_abc", "STRIPE_SECRET_KEY"):
+        assert grep_locate(repo, (guess,), limit=10).hits == ()
+        hits = hybrid_locate(repo, f'where is "{guess}" read?', None).hits
+        assert {h.file for h in hits} <= {"src/pay.py"}  # never a secret file
+    for name in (".env", "secrets.yaml", "prod.tfvars", "appsettings.Production.json"):
+        assert grep_locate(repo, (name,), limit=10).hits == ()

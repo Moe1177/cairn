@@ -117,3 +117,10 @@ def test_answers_stay_inside_the_line_cap(ws: Path) -> None:
 
 def test_the_query_module_is_where_staleness_is_cached() -> None:
     assert query_module.STALE_TTL > 0
+
+
+def test_query_never_reads_a_secret_file(ws: Path) -> None:
+    (ws / "app" / ".env").write_text("STRIPE_SECRET_KEY=sk_live_abc123XYZ\n", encoding="utf-8")
+    for guess in ("sk_live_abc123XYZ", "sk_live_abc", "STRIPE_SECRET_KEY"):
+        answer = tools.query_text(ws, "app", f'where is "{guess}" read?')
+        assert ".env" not in answer and "sk_live" not in answer.split(":", 1)[1]

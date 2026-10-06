@@ -50,3 +50,15 @@ def is_forbidden(path: Path) -> bool:
     if name.startswith("appsettings") and name.endswith(".json"):  # .NET connection strings
         return True
     return name == "config.json" and path.parent.name.lower() == ".docker"
+
+
+def never_open_globs() -> tuple[str, ...]:
+    """is_forbidden() as gitignore-style globs (matched case-insensitively), for tools that pick
+    files themselves, such as `git grep`: they must not open these files either. Wider than
+    is_forbidden() where a glob can't say less (env templates are excluded too)."""
+    globs = ["**/.env", "**/.env.*", "**/*.env", "**/*.tfstate*", "**/appsettings*.json"]
+    globs += [f"**/{name}" for name in sorted(SECRET_NAMES)]
+    globs += [f"**/*{suffix}" for suffix in sorted(SECRET_SUFFIXES)]
+    globs += [f"**/*secret*{suffix}" for suffix in sorted(_DATA_SUFFIXES)]
+    globs.append("**/.docker/config.json")
+    return tuple(globs)
