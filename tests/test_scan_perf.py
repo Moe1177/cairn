@@ -60,9 +60,7 @@ def _repos(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_each_repo_is_walked_at_most_twice_per_scan(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_each_repo_is_walked_once_per_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = _repos(tmp_path)
     walks: Counter[str] = Counter()
     real = files_module.os.walk
@@ -73,8 +71,8 @@ def test_each_repo_is_walked_at_most_twice_per_scan(
 
     monkeypatch.setattr(files_module.os, "walk", counting)
     scan_workspace(root, use_cache=False)
-    # one walk for the identity + relation detectors, one for the live detectors (was 6)
-    assert walks["api"] <= 2 and walks["web"] <= 2, walks
+    # the live detectors reuse the read phase's file list (was 6 walks)
+    assert walks["api"] == 1 and walks["web"] == 1, walks
 
 
 def test_each_file_is_read_at_most_once_per_phase(

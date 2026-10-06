@@ -58,6 +58,14 @@ class _RepoFiles:
 
 
 @dataclass(frozen=True)
+class KnownFiles:
+    """Files a cached scan already found for these filters: a walk-free index."""
+
+    matchers: tuple[Callable[[str], bool], ...]
+    paths: tuple[Path, ...]
+
+
+@dataclass(frozen=True)
 class DetectorContext:
     """One repo, one scan phase. Files are walked and read once, so a context is a snapshot:
     take a new one to see later changes."""
@@ -66,6 +74,7 @@ class DetectorContext:
     repo: RepoLocation
     config: CairnConfig
     alias_table: Mapping[str, str] = field(default_factory=dict)
+    known_files: KnownFiles | None = None
     _files: _RepoFiles = field(default_factory=_RepoFiles, init=False, repr=False, compare=False)
 
     def rel(self, path: Path) -> str:
@@ -80,6 +89,9 @@ class DetectorContext:
     def files(self, match: Callable[[str], bool]) -> Iterator[Path]:
         """The repo's files whose name `match`es, in walk order. The repo is walked once."""
         cache = self._files
+        known = self.known_files
+        if cache.index is None and known is not None and match in known.matchers:
+            return (path for path in known.paths if match(path.name))
         if cache.index is None:
             ignore = DEFAULT_IGNORE_DIRS | NOISE_DIRS | frozenset(self.config.ignore_dirs)
             cache.index = tuple(
@@ -110,6 +122,11 @@ class DetectorContext:
             cache.text[path] = text
             cache.bytes += size
         return text
+
+    def matching(self, matchers: Iterable[Callable[[str], bool]]) -> tuple[Path, ...]:
+        """Every file any of `matchers` would select (one walk), for the scan cache."""
+        tests = tuple(matchers)
+        return tuple(p for p in self.files(lambda _: True) if any(t(p.name) for t in tests))
 
     def cached_bytes(self) -> int:
         return self._files.bytes

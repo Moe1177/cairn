@@ -236,6 +236,20 @@ cairn bench bench/suites/fleetline --runs 3 --model haiku
 cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
 ```
 
+## Performance
+
+cairn walks each repo once, reads each file once, and scans repos in parallel. A refresh
+re-reads only repos whose HEAD or working tree changed, and asks git one question per
+unchanged repo. On a synthetic workspace of 200 repos and 50,000 files (Windows 11, 12 cores):
+
+| | 0.3 | 0.4 |
+|---|---|---|
+| First scan | 156 s | 48 s |
+| Refresh, nothing changed | 15 s | 4.9 s |
+
+Most of a refresh on Windows is git process start-up; Linux and macOS start processes faster.
+Reproduce with `uv run python bench/perf_scan.py --out <dir>`.
+
 ## Safety and privacy
 
 cairn treats every scanned repo as untrusted input. It:

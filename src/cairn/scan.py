@@ -10,11 +10,17 @@ from pathlib import Path
 
 import cairn.detectors as detector_registry
 from cairn.config import CairnConfig
-from cairn.detectors import IDENTITY_DETECTORS, LIVE_DETECTOR_IDS
-from cairn.detectors.base import Detector, DetectorContext, DetectorResult, combine_results
+from cairn.detectors import IDENTITY_DETECTORS, LIVE_DETECTOR_IDS, LIVE_FILE_MATCHERS
+from cairn.detectors.base import (
+    Detector,
+    DetectorContext,
+    DetectorResult,
+    KnownFiles,
+    combine_results,
+)
 from cairn.detectors.identity import clean_aliases
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, safe_exists
-from cairn.discover.git import GitInfo, git_info, summary_is_stale
+from cairn.discover.git import GitInfo, summary_is_stale
 from cairn.discover.repos import RepoLocation, discover_repos
 from cairn.errors import CairnError
 from cairn.load import load_authored, load_config, load_relations
@@ -28,9 +34,11 @@ from cairn.scan_cache import (
     cache_key,
     from_cached,
     load_entry,
+    load_git_memo,
+    repo_state,
     save_entry,
+    save_git_memo,
     to_cached,
-    worktree_fingerprint,
 )
 from cairn.security.redact import redact
 
@@ -55,6 +63,7 @@ class _RepoRead:
     identity: Run
     relation: Run
     cached: bool
+    live_files: tuple[Path, ...] | None = None  # what the live detectors will look at
 
 
 def scan_workspace(
@@ -78,12 +87,18 @@ def scan_workspace(
     enclosing = next((p for p in root.parents if safe_exists(p / ".git")), None)
     if not locations and enclosing is not None:
         raise _inside_repo_error(root, enclosing)
+    if locations:
+        load_git_memo(root)
     # Per-repo work is mostly waiting on git subprocesses and disk: run it in parallel.
     with ThreadPoolExecutor(max_workers=SCAN_WORKERS) as pool:
-        infos = list(pool.map(lambda loc: git_info(loc.root), locations))
-        gits = {loc.id: info for loc, info in zip(locations, infos, strict=True)}
+        states = list(pool.map(lambda loc: repo_state(loc.root), locations))
+        gits = {loc.id: state[0] for loc, state in zip(locations, states, strict=True)}
+        prints = {loc.id: state[1] for loc, state in zip(locations, states, strict=True)}
         read_list = list(
-            pool.map(lambda loc: _read_repo(root, loc, config, gits[loc.id], use_cache), locations)
+            pool.map(
+                lambda loc: _read_repo(root, loc, config, gits[loc.id], prints[loc.id], use_cache),
+                locations,
+            )
         )
         reads = {loc.id: read for loc, read in zip(locations, read_list, strict=True)}
         aliases = {
@@ -98,10 +113,13 @@ def scan_workspace(
         # too (each repo walks its files; the alias table is shared read-only).
         live_runs = list(
             pool.map(
-                lambda loc: _run_all(live, DetectorContext(root, loc, config, table)), locations
+                lambda loc: _run_all(live, _live_context(root, loc, config, table, reads[loc.id])),
+                locations,
             )
         )
     lived = {loc.id: run for loc, run in zip(locations, live_runs, strict=True)}
+    if locations:
+        save_git_memo(root, (loc.root for loc in locations))
     repos = tuple(
         _build_repo(
             root,
@@ -145,24 +163,44 @@ def _detectors(*, live: bool) -> tuple[Detector, ...]:
 
 
 def _read_repo(
-    root: Path, loc: RepoLocation, config: CairnConfig, git: GitInfo, use_cache: bool
+    root: Path,
+    loc: RepoLocation,
+    config: CairnConfig,
+    git: GitInfo,
+    fingerprint: str | None,
+    use_cache: bool,
 ) -> _RepoRead:
     """Identity + file-reading relation detectors, served from the cache when nothing changed."""
-    key = cache_key(git.head_sha, worktree_fingerprint(loc.root), config)
+    key = cache_key(git.head_sha, fingerprint, config)
     entry = load_entry(root, loc.id, key) if key and use_cache else None
     if entry is not None:
         relation = (from_cached(entry.relation), entry.errors)
-        return _RepoRead((from_cached(entry.identity), ()), relation, True)
+        live = (
+            None if entry.live_files is None else tuple(loc.root / rel for rel in entry.live_files)
+        )
+        return _RepoRead((from_cached(entry.identity), ()), relation, True, live)
     ctx = DetectorContext(root, loc, config)  # one walk and one read per file for both
     identity = _run_all(IDENTITY_DETECTORS, ctx)
     relation = _run_all(_detectors(live=False), ctx)
+    live = ctx.matching(LIVE_FILE_MATCHERS)
     # A failed read (a file locked by antivirus, say) may be transient: never pin it.
     if key and not identity[1] and not relation[1]:
         entry = CacheEntry(
-            key=key, identity=to_cached(identity[0]), relation=to_cached(relation[0])
+            key=key,
+            identity=to_cached(identity[0]),
+            relation=to_cached(relation[0]),
+            live_files=tuple(path.relative_to(loc.root).as_posix() for path in live),
         )
         save_entry(root, loc.id, entry)
-    return _RepoRead(identity, relation, False)
+    return _RepoRead(identity, relation, False, live)
+
+
+def _live_context(
+    root: Path, loc: RepoLocation, config: CairnConfig, table: Mapping[str, str], read: _RepoRead
+) -> DetectorContext:
+    """The live detectors' context: walk-free when the read already knows their files."""
+    known = None if read.live_files is None else KnownFiles(LIVE_FILE_MATCHERS, read.live_files)
+    return DetectorContext(root, loc, config, table, known)
 
 
 def _is_stale(

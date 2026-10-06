@@ -1,8 +1,9 @@
 """Read git metadata without ever failing a scan."""
 
-import functools
+import hashlib
 import os
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -47,12 +48,12 @@ class GitInfo:
 
 
 def git_info(root: Path, timeout: float = 5.0) -> GitInfo:
-    head = _git(root, ["rev-parse", "--short", "HEAD"], timeout)
-    remote = _git(root, ["config", "--get", "remote.origin.url"], timeout)
+    head = head_sha(root, timeout)
+    remote = git_remote(root, timeout)
     status = _git(root, ["status", "--porcelain", "-uno"], timeout)
     return GitInfo(
         head_sha=head or None,
-        remote=normalize_remote(remote) if remote else None,
+        remote=remote,
         dirty=None if status is None else bool(status.strip()),
     )
 
@@ -101,16 +102,196 @@ def _filter_overrides(root: Path) -> list[str]:
     Reading config runs nothing. Only the repo's (local) config is untrusted; filters the user
     set up globally, such as git-lfs, keep working.
     """
-    config = root / ".git" / "config"
+    config = _local_config(root)
+    return list(config.overrides) if config else []
+
+
+def git_remote(root: Path, timeout: float = 5.0) -> str | None:
+    """`remote.origin.url` normalised to `host/path`: credentials never leave this function,
+    so nothing remembered or shown can hold them."""
+    config = _local_config(root)
+    if config is not None and config.listed:
+        return config.remote
+    raw = _git(root, ["config", "--get", "remote.origin.url"], timeout)
+    return normalize_remote(raw) if raw else None
+
+
+@dataclass(frozen=True)
+class _LocalConfig:
+    overrides: tuple[str, ...]
+    remote: str | None
+    listed: bool  # False when git couldn't list its config (git < 2.26): ask per key instead
+
+
+# Answers that only change when files under .git/ change, keyed by (repo, stamp of those
+# files). Shared by threads (dict get/set is atomic) and persisted between runs by the scan.
+_CONFIGS: dict[tuple[str, str], _LocalConfig] = {}
+_HEADS: dict[tuple[str, str], str] = {}
+_MEMO_MAX = 4096
+_IN_PROCESS = "mtime:"
+_EMPTY_FILTER = re.compile(r"filter\.[^=\n]{1,200}\.(?:clean|smudge|process)=")
+_STAMP_READ_MAX = 1_000_000
+
+
+def forget_git_memo() -> None:
+    _CONFIGS.clear()
+    _HEADS.clear()
+
+
+def export_git_memo(roots: Iterable[Path]) -> dict[str, dict]:
+    """The remembered answers for `roots`, as JSON-ready data."""
+    wanted = {str(root) for root in roots}
+    configs = {k: v for k, v in _CONFIGS.items() if k[0] in wanted}
+    heads = {k: v for k, v in _HEADS.items() if k[0] in wanted}
+    out: dict[str, dict] = {}
+    for (root, stamp), config in configs.items():
+        if config.listed and not stamp.startswith(_IN_PROCESS):
+            out.setdefault(root, {})["config"] = [stamp, list(config.overrides), config.remote]
+    for (root, stamp), sha in heads.items():
+        out.setdefault(root, {})["head"] = [stamp, sha]
+    return out
+
+
+def import_git_memo(data: object) -> None:
+    """Load what export_git_memo() wrote. Anything malformed is ignored, never trusted."""
+    if not isinstance(data, dict):
+        return
+    for root, entry in list(data.items())[:_MEMO_MAX]:
+        if not isinstance(root, str) or not isinstance(entry, dict):
+            continue
+        config, head = entry.get("config"), entry.get("head")
+        if (
+            isinstance(config, list)
+            and len(config) == 3
+            and isinstance(config[0], str)
+            and isinstance(config[1], list)
+            and _neutralising(config[1])
+            and (config[2] is None or isinstance(config[2], str))
+        ):
+            _CONFIGS[(root, config[0])] = _LocalConfig(tuple(config[1]), config[2], listed=True)
+        if (
+            isinstance(head, list)
+            and len(head) == 2
+            and all(isinstance(x, str) for x in head)
+            and re.fullmatch(r"[0-9a-f]{4,64}", head[1])
+        ):
+            _HEADS[(root, head[0])] = head[1]
+
+
+def _neutralising(args: list) -> bool:
+    """Only `-c filter.<name>.<clean|smudge|process>=` pairs with empty values: a memo can
+    switch filters off, never configure git to run anything."""
+    return len(args) % 2 == 0 and all(
+        isinstance(a, str) and (a == "-c" if i % 2 == 0 else _EMPTY_FILTER.fullmatch(a) is not None)
+        for i, a in enumerate(args)
+    )
+
+
+def _remember(memo: dict, key: tuple[str, str], value: object) -> None:
+    if len(memo) >= _MEMO_MAX:
+        memo.clear()
+    memo[key] = value
+
+
+def config_stamp(root: Path) -> str | None:
+    """A hash of .git/config, or None when it can't vouch for the answer (includes, no file)."""
     try:
-        stamp = config.stat().st_mtime_ns
+        data = (root / ".git" / "config").read_bytes()[: _STAMP_READ_MAX + 1]
     except OSError:
-        return []
-    return list(_cached_overrides(str(root), stamp))
+        return None
+    if len(data) > _STAMP_READ_MAX or b"[include" in data.lower():
+        return None
+    return hashlib.sha1(data).hexdigest()
 
 
-@functools.lru_cache(maxsize=1024)
-def _cached_overrides(root: str, _stamp: int) -> tuple[str, ...]:
+def head_stamp(root: Path) -> str | None:
+    """A hash of what decides HEAD's commit, or None for layouts it can't vouch for: a `.git`
+    file (worktrees, submodules), the reftable backend, or an unusual ref."""
+    git = root / ".git"
+    try:
+        if not git.is_dir() or (git / "reftable").exists():
+            return None
+        head = (git / "HEAD").read_bytes()[:512]
+        parts = [head]
+        if head.startswith(b"ref: "):
+            ref = head[5:].strip().decode("ascii")
+            if not re.fullmatch(r"refs/[A-Za-z0-9._/-]{1,200}", ref) or ".." in ref:
+                return None
+            try:
+                parts.append((git / ref).read_bytes()[:512])
+            except FileNotFoundError:
+                parts.append(b"-")
+            try:
+                packed = (git / "packed-refs").stat()
+                parts.append(f"{packed.st_mtime_ns}:{packed.st_size}".encode())
+            except FileNotFoundError:
+                parts.append(b"-")
+    except (OSError, UnicodeDecodeError):
+        return None
+    return hashlib.sha1(b"\0".join(parts)).hexdigest()
+
+
+def head_sha(root: Path, timeout: float = 5.0) -> str | None:
+    """`git rev-parse --short HEAD`, remembered until HEAD or its ref changes."""
+    stamp = head_stamp(root)
+    key = (str(root), stamp or "")
+    if stamp is not None and key in _HEADS:
+        return _HEADS[key]
+    sha = _git(root, ["rev-parse", "--short", "HEAD"], timeout) or None
+    if stamp is not None and sha:
+        _remember(_HEADS, key, sha)
+    return sha
+
+
+def _local_config(root: Path) -> _LocalConfig | None:
+    stamp = config_stamp(root)
+    if stamp is None:
+        try:
+            mtime = (root / ".git" / "config").stat().st_mtime_ns
+        except OSError:
+            return None
+        stamp = f"{_IN_PROCESS}{mtime}"  # includes: remembered for this process only
+    key = (str(root), stamp)
+    found = _CONFIGS.get(key)
+    if found is None:
+        found = _read_config(str(root))
+        _remember(_CONFIGS, key, found)
+    return found
+
+
+def _read_config(root: str) -> _LocalConfig:
+    """One `git config --list` for both the filter overrides and the origin remote."""
+    listing = run_text(
+        [*GIT, "-C", root, "config", "-z", "--list", "--show-scope"],
+        timeout=5.0,
+        env=git_env(),
+    )
+    if listing is None or listing.returncode != 0:
+        return _LocalConfig(_listed_overrides(root), None, listed=False)
+    names: set[str] = set()
+    remote = None
+    parts = listing.stdout.split("\0")
+    for scope, entry in zip(parts[0::2], parts[1::2], strict=False):
+        key, _, value = entry.partition("\n")
+        lowered = key.lower()
+        # Only the repo's own config is untrusted; global filters (git-lfs) keep working.
+        if scope in ("local", "worktree") and lowered.startswith("filter.") and key.count(".") >= 2:
+            names.add(key[len("filter.") : key.rindex(".")])
+        if lowered == "remote.origin.url":
+            remote = normalize_remote(value) if value else None  # later scopes win
+    return _LocalConfig(_override_args(names), remote, listed=True)
+
+
+def _override_args(names: set[str]) -> tuple[str, ...]:
+    return tuple(
+        arg
+        for name in sorted(names)
+        for part in ("clean", "smudge", "process")
+        for arg in ("-c", f"filter.{name}.{part}=")
+    )
+
+
+def _listed_overrides(root: str) -> tuple[str, ...]:
     listing = run_text(
         [
             *GIT,
@@ -131,12 +312,7 @@ def _cached_overrides(root: str, _stamp: int) -> tuple[str, ...]:
         for key in (listing.stdout.split() if listing else [])
         if key.count(".") >= 2
     }
-    return tuple(
-        arg
-        for name in sorted(names)
-        for part in ("clean", "smudge", "process")
-        for arg in ("-c", f"filter.{name}.{part}=")
-    )
+    return _override_args(names)
 
 
 def _git(root: Path, args: list[str], timeout: float) -> str | None:
