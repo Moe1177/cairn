@@ -150,10 +150,23 @@ def scan_workspace(
     warnings = (
         *_git_warning(locations),
         *_trust_warning(locations, prints),
+        *_lineage_warning(repos),
         *unsafe,
         *overridden.warnings,
     )
     return ScanResult(workspace, authored, relations, config, warnings, cached)
+
+
+def _lineage_warning(repos: Sequence[Repo]) -> list[str]:
+    """Repos whose first commits git couldn't list in time: their copies aren't linked this
+    time (nothing is cached, so the next scan tries again)."""
+    failed = [r.id for r in repos if any(e.detector == "lineage" for e in r.detector_errors)]
+    if not failed:
+        return []
+    return [
+        f"couldn't read the first commit of {', '.join(failed)} in time: links between "
+        "copies of one app may be missing; run `cairn refresh` again"
+    ]
 
 
 def _trust_warning(

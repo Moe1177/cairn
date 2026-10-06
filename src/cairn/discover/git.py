@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from cairn.discover.proc import run_text
+from cairn.discover.proc import run_bytes_capped, run_text
 
 # A repo's own config can name programs git runs while cairn reads it: core.fsmonitor, hooks
 # (post-index-change when `status` refreshes the index) and clean/process filters. A copied or
@@ -130,6 +130,7 @@ class _LocalConfig:
 _CONFIGS: dict[tuple[str, str], _LocalConfig] = {}  # this process only
 _REMOTES: dict[tuple[str, str], str | None] = {}
 _HEADS: dict[tuple[str, str], str] = {}
+_ROOTS: dict[tuple[str, str], tuple[str, ...]] = {}  # first commits, by HEAD stamp
 _MEMO_MAX = 4096
 _IN_PROCESS = "mtime:"
 _STAMP_READ_MAX = 1_000_000
@@ -142,6 +143,7 @@ def forget_git_memo() -> None:
     _CONFIGS.clear()
     _REMOTES.clear()
     _HEADS.clear()
+    _ROOTS.clear()
 
 
 def export_git_memo(roots: Iterable[Path]) -> dict[str, dict]:
@@ -154,6 +156,9 @@ def export_git_memo(roots: Iterable[Path]) -> dict[str, dict]:
     for (root, stamp), sha in list(_HEADS.items()):
         if root in wanted:
             out.setdefault(root, {})["head"] = [stamp, sha]
+    for (root, stamp), firsts in list(_ROOTS.items()):
+        if root in wanted:
+            out.setdefault(root, {})["roots"] = [stamp, list(firsts)]
     return out
 
 
@@ -179,6 +184,16 @@ def import_git_memo(data: object) -> None:
             and _SHA.fullmatch(head[1])
         ):
             _HEADS[(root, head[0])] = head[1]
+        roots = entry.get("roots")
+        if (
+            isinstance(roots, list)
+            and len(roots) == 2
+            and isinstance(roots[0], str)
+            and isinstance(roots[1], list)
+            and len(roots[1]) <= _ROOTS_MAX
+            and all(isinstance(s, str) and _FULL_SHA.fullmatch(s) for s in roots[1])
+        ):
+            _ROOTS[(root, roots[0])] = tuple(roots[1])
 
 
 def _remember(memo: dict, key: tuple[str, str], value: object) -> None:
@@ -253,6 +268,37 @@ def head_sha(root: Path, timeout: float = 5.0) -> str | None:
     if stamp is not None and sha:
         _remember(_HEADS, key, sha)
     return sha
+
+
+LINEAGE_TIMEOUT = 60.0  # it walks the whole first-parent history: big repos, slow disks
+_ROOTS_MAX = 5
+_FULL_SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")  # SHA-1 or SHA-256 repositories
+
+
+class GitTimeout(Exception):
+    """git didn't answer in time: the answer is unknown, not empty."""
+
+
+def root_commits(root: Path, timeout: float = LINEAGE_TIMEOUT) -> tuple[str, ...]:
+    """The first commits of HEAD's first-parent history, sorted, at most five, remembered
+    until HEAD moves (the git memo keeps them between runs). () for a repo with no commits or
+    that git can't read. Raises GitTimeout when git runs out of time: copies of one app are
+    found by these, so a slow answer must not be read as "no copies"."""
+    stamp = head_stamp(root)
+    key = (str(root), stamp or "")
+    if stamp is not None and key in _ROOTS:
+        return _ROOTS[key]
+    command = [*git_command(root), "rev-list", "--max-parents=0", "--first-parent", "HEAD"]
+    done = run_bytes_capped(command, max_bytes=65536, timeout=timeout, env=git_env())
+    if done is not None and done.timed_out:
+        raise GitTimeout(f"git took over {timeout:.0f}s to list the first commits")
+    if done is None or done.returncode != 0:
+        return ()
+    listing = done.stdout.decode("ascii", "replace").split()
+    roots = tuple(sorted(line for line in listing if _FULL_SHA.fullmatch(line)))[:_ROOTS_MAX]
+    if stamp is not None:
+        _remember(_ROOTS, key, roots)
+    return roots
 
 
 def _local_config(root: Path) -> _LocalConfig | None:
