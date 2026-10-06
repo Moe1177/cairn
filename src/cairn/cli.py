@@ -15,6 +15,7 @@ import typer
 from pydantic import ValidationError
 
 from cairn import deep as deep_ops
+from cairn import providers
 from cairn.authored_store import annotate_edge, set_summary
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
@@ -177,8 +178,12 @@ def refresh(
     quiet: Annotated[bool, typer.Option("--quiet", help="Print nothing unless it fails.")] = False,
     verbose: Verbose = False,
     deep: Annotated[
-        bool, typer.Option("--deep", help="Also rebuild deep indexes that went stale.")
-    ] = False,
+        bool | None,
+        typer.Option(
+            "--deep/--no-deep",
+            help="Rebuild stale deep indexes (default: when any exist and graphify is installed).",
+        ),
+    ] = None,
 ) -> None:
     """Update the map, re-reading only repos that changed since the last scan."""
     try:
@@ -187,8 +192,10 @@ def refresh(
         _fail(str(exc))
     if not quiet:
         _report(result, verbose=verbose)
+    root = path.resolve()
+    if deep is None:  # by default only when deep indexes exist and graphify can rebuild them
+        deep = bool(indexed_repos(root)) and providers.default_provider().available()
     if deep and result.workspace.repos:
-        root = path.resolve()
         _build_deep(
             root,
             lambda: deep_ops.select_repos(root, result.workspace, [], every=False, stale=True),
@@ -531,6 +538,34 @@ def _build_deep(
             _fail(str(exc))
     if not all(o.ok for o in outcomes):
         raise typer.Exit(1)
+
+
+@deep_app.command("enable")
+def deep_enable(
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Install without asking.")] = False,
+    timeout: Annotated[
+        float, typer.Option("--timeout", min=1, help="Seconds allowed per repo.")
+    ] = deep_ops.DEFAULT_TIMEOUT,
+    workspace: WorkspaceOpt = Path("."),
+) -> None:
+    """Turn deep queries on: install graphify if needed, then index every repo."""
+    root = workspace.resolve()
+    loaded = _loaded(root)
+    if not providers.default_provider().available():
+        command = deep_ops.graphify_install_command()
+        shown = " ".join(f'"{c}"' if " " in c or "<" in c or ">" in c else c for c in command)
+        typer.echo(f"graphify isn't installed. Install it with: {shown}")
+        if not (yes or typer.confirm("Run that now?", default=True)):
+            raise typer.Exit(1)
+        if deep_ops.run_installer(command) != 0:
+            _fail(f"the install failed; run it yourself: {shown}")
+        if not providers.default_provider().available():
+            _fail("graphify installed but isn't on PATH yet: open a new terminal and rerun this.")
+    _build_deep(
+        root,
+        lambda: deep_ops.select_repos(root, loaded, [], every=True, stale=False),
+        timeout=timeout,
+    )
 
 
 @deep_app.command("build")

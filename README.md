@@ -187,19 +187,24 @@ instead of a list of folders.
 Deep indexes are optional and built per repo with [graphify](https://github.com/Graphify-Labs/graphify):
 
 ```bash
-uv tool install 'cairnmap[graphify]'   # or: pip install 'cairnmap[graphify]'
-cairn deep build trips-svc             # one repo (or --all)
+cairn deep enable                      # installs graphify if needed (asks first), indexes every repo
 cairn deep status                      # size, build sha, fresh or stale
-cairn refresh --deep                   # after changes: rebuild only the stale indexes
-cairn deep clear trips-svc             # delete it
+cairn refresh                          # also rebuilds stale deep indexes once any exist (--no-deep skips)
+cairn deep build trips-svc             # one repo by hand; cairn deep clear trips-svc deletes it
 ```
+
+`cairn deep enable` installs graphify as its own tool (`uv tool install graphifyy`, else pipx, else
+pip), so cairn's own environment is left alone; `cairn doctor` shows how many repos are indexed.
+You can also install cairn with the extra (`pip install 'cairnmap[graphify]'`); `cairn refresh --deep`
+forces a deep rebuild check even before any index exists.
 
 - graphify always runs `--code-only`: no LLM, no network, and an allowlisted environment, so no
   API key reaches it. It writes only to `.cairn/deep/<repo>/`, never into the repo.
 - cairn answers queries itself from the saved graph, offline, so serving needs no graphify.
-- Building is never automatic (the first build of a large repo can take minutes). When an index
-  falls behind the repo (a new commit or an uncommitted edit), `query` and `cairn deep status`
-  say so; the card's **Deeper** section flags new commits.
+- The first build is something you ask for (`cairn deep enable` or `cairn deep build`): a large
+  repo can take minutes. After that, `cairn refresh` (and the git hooks' background refresh)
+  keeps indexes current, one build per repo at a time. When an index still falls behind, `query`
+  and `cairn deep status` say so; the card's **Deeper** section flags new commits.
 
 ## Benchmarks
 
@@ -302,8 +307,8 @@ how to report a vulnerability.
 |---|---|
 | `cairn init` | Scan, then offer to add the index to Claude Code |
 | `cairn scan [--full] [--verbose]` | Map every repo under the folder into `.cairn/` |
-| `cairn refresh [--deep]` | Re-read only repos whose HEAD or working tree changed (`--deep`: also rebuild stale deep indexes) |
-| `cairn deep build REPO…\|--all\|--stale [-w PATH]` | Build graphify code indexes so `query` answers with file:line (optional extra) |
+| `cairn refresh [--no-deep]` | Re-read only repos whose HEAD or working tree changed, and rebuild stale deep indexes |
+| `cairn deep enable` / `cairn deep build REPO…\|--all\|--stale [-w PATH]` | Build graphify code indexes so `query` answers with file:line (optional extra) |
 | `cairn deep status` / `cairn deep clear [REPO…]` | List deep indexes (fresh or stale) / delete them |
 | `cairn status` | What cairn knows, unconfirmed links, missing or stale summaries |
 | `cairn annotate-edge KEY --confirm\|--reject [--why TEXT]` | Settle a relationship |
