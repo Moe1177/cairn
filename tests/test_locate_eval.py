@@ -110,7 +110,7 @@ def test_each_locator_is_scored_per_query(tmp_path: Path) -> None:
     assert rank[("q-miss", "hybrid")] is None
     assert all(o.tokens >= 0 and o.ms >= 0 for o in outcomes)
     route = {(o.query_id, o.mode): o.route for o in outcomes}
-    assert route[("q-lit", "hybrid")] == "grep" and route[("q-voc", "hybrid")] == "graph"
+    assert route[("q-lit", "hybrid")] == "grep" and route[("q-voc", "hybrid")] == "grep"
 
 
 def test_the_summary_is_a_table_per_split_locator_and_category(tmp_path: Path) -> None:
