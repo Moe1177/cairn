@@ -1,0 +1,596 @@
+{
+ "edges": [
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "pyproject.toml",
+     "line": 4,
+     "repo": "orders-svc",
+     "snippet": "dependencies = [\"shopverse-common>=0.1\", \"fastapi>=0.110\"]"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "package:pypi:shopverse-common"
+   ],
+   "source": "orders-svc",
+   "target": "common",
+   "type": "depends_on_package",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "README.md",
+     "line": 3,
+     "repo": "orders-svc",
+     "snippet": "FastAPI service that owns orders. Payments are handled by the `payments` service."
+    }
+   ],
+   "note": null,
+   "score": 0.5,
+   "signals": [
+    "doc_mention"
+   ],
+   "source": "orders-svc",
+   "target": "payments",
+   "type": "mentions",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "go.mod",
+     "line": 6,
+     "repo": "payments",
+     "snippet": "github.com/acme/money v0.1.0"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "package:go:github.com/acme/money"
+   ],
+   "source": "payments",
+   "target": "money",
+   "type": "depends_on_package",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "Makefile",
+     "line": 2,
+     "repo": "payments",
+     "snippet": "cd ../money && go test ./..."
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "path_ref:money"
+   ],
+   "source": "payments",
+   "target": "money",
+   "type": "path_ref",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "internal/store.go",
+     "line": 4,
+     "repo": "payments",
+     "snippet": "const findOrder = \"SELECT id FROM orders WHERE id = $1\""
+    },
+    {
+     "file": "migrations/001_orders.sql",
+     "line": 1,
+     "repo": "orders-svc",
+     "snippet": "CREATE TABLE orders (id serial PRIMARY KEY);"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "db_table:orders"
+   ],
+   "source": "payments",
+   "target": "orders-svc",
+   "type": "shares_db",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "internal/store.go",
+     "line": 3,
+     "repo": "payments",
+     "snippet": "const insertLedger = \"INSERT INTO payments_ledger (id) VALUES ([REDACTED])"
+    },
+    {
+     "file": "prisma/schema.prisma",
+     "line": 1,
+     "repo": "web",
+     "snippet": "model Payment {"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "db_table:payments_ledger"
+   ],
+   "source": "payments",
+   "target": "web",
+   "type": "shares_db",
+   "why": null
+  }
+ ],
+ "repos": {
+  "common": {
+   "aliases": [
+    "common",
+    "shopverse-common"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 2,
+        "repo": "common",
+        "snippet": "name = \"Shopverse_Common\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:shopverse-common"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "python"
+   ]
+  },
+  "ledger": {
+   "aliases": [
+    "ledger"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "cargo test"
+    },
+    {
+     "name": "build",
+     "run": "cargo build"
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "Cargo.toml",
+        "line": 6,
+        "repo": "ledger",
+        "snippet": "serde = \"1\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "cargo:serde"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "Cargo.toml",
+        "line": 2,
+        "repo": "ledger",
+        "snippet": "name = \"ledger\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "cargo:ledger"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "rust"
+   ]
+  },
+  "money": {
+   "aliases": [
+    "money"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "money",
+        "snippet": "module github.com/acme/money"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/acme/money"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go"
+   ]
+  },
+  "orders-svc": {
+   "aliases": [
+    "orders-svc"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "app/main.py",
+        "line": 2,
+        "repo": "orders-svc",
+        "snippet": "ITEMS = \"SELECT * FROM order_items WHERE order_id = %s\""
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "order_items"
+     },
+     {
+      "evidence": [
+       {
+        "file": "app/main.py",
+        "line": 1,
+        "repo": "orders-svc",
+        "snippet": "ORDER_INSERT = \"INSERT INTO orders (id) VALUES ([REDACTED])"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "README.md",
+        "line": 3,
+        "repo": "orders-svc",
+        "snippet": "FastAPI service that owns orders. Payments are handled by the `payments` service."
+       }
+      ],
+      "hints": [],
+      "kind": "doc_mention",
+      "value": "payments"
+     },
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 4,
+        "repo": "orders-svc",
+        "snippet": "dependencies = [\"shopverse-common>=0.1\", \"fastapi>=0.110\"]"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:fastapi"
+     },
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 4,
+        "repo": "orders-svc",
+        "snippet": "dependencies = [\"shopverse-common>=0.1\", \"fastapi>=0.110\"]"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:shopverse-common"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "migrations/001_orders.sql",
+        "line": 2,
+        "repo": "orders-svc",
+        "snippet": "CREATE TABLE order_items (id serial PRIMARY KEY, order_id int);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "order_items"
+     },
+     {
+      "evidence": [
+       {
+        "file": "migrations/001_orders.sql",
+        "line": 1,
+        "repo": "orders-svc",
+        "snippet": "CREATE TABLE orders (id serial PRIMARY KEY);"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 2,
+        "repo": "orders-svc",
+        "snippet": "name = \"orders-svc\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:orders-svc"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "app/",
+     "purpose": "routes/pages"
+    },
+    {
+     "path": "migrations/",
+     "purpose": "DB migrations"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "python",
+    "fastapi"
+   ]
+  },
+  "payments": {
+   "aliases": [
+    "payments"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "internal/store.go",
+        "line": 4,
+        "repo": "payments",
+        "snippet": "const findOrder = \"SELECT id FROM orders WHERE id = $1\""
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "internal/store.go",
+        "line": 3,
+        "repo": "payments",
+        "snippet": "const insertLedger = \"INSERT INTO payments_ledger (id) VALUES ([REDACTED])"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "payments_ledger"
+     },
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 6,
+        "repo": "payments",
+        "snippet": "github.com/acme/money v0.1.0"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/acme/money"
+     },
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 7,
+        "repo": "payments",
+        "snippet": "github.com/gin-gonic/gin v1.9.0"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/gin-gonic/gin"
+     },
+     {
+      "evidence": [
+       {
+        "file": "Makefile",
+        "line": 2,
+        "repo": "payments",
+        "snippet": "cd ../money && go test ./..."
+       }
+      ],
+      "hints": [],
+      "kind": "path_ref",
+      "value": "money"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "payments",
+        "snippet": "module github.com/acme/payments"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/acme/payments"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "internal/",
+     "purpose": "internal packages"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "go",
+    "gin"
+   ]
+  },
+  "web": {
+   "aliases": [
+    "web",
+    "shop-web"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "web",
+        "snippet": "{ \"name\": \"shop-web\", \"dependencies\": { \"next\": \"15.0.0\", \"react\": \"19.0.0\", \"@prisma/client\": \"5.0.0\" } }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@prisma/client"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "web",
+        "snippet": "{ \"name\": \"shop-web\", \"dependencies\": { \"next\": \"15.0.0\", \"react\": \"19.0.0\", \"@prisma/client\": \"5.0.0\" } }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:next"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "web",
+        "snippet": "{ \"name\": \"shop-web\", \"dependencies\": { \"next\": \"15.0.0\", \"react\": \"19.0.0\", \"@prisma/client\": \"5.0.0\" } }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:react"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "prisma/schema.prisma",
+        "line": 1,
+        "repo": "web",
+        "snippet": "model Payment {"
+       }
+      ],
+      "hints": [],
+      "kind": "db_table",
+      "value": "payments_ledger"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "web",
+        "snippet": "{ \"name\": \"shop-web\", \"dependencies\": { \"next\": \"15.0.0\", \"react\": \"19.0.0\", \"@prisma/client\": \"5.0.0\" } }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:shop-web"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "prisma/",
+     "purpose": "Prisma schema"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "nextjs",
+    "react",
+    "prisma"
+   ]
+  }
+ }
+}

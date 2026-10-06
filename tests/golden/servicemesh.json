@@ -1,0 +1,1270 @@
+{
+ "edges": [
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "src/server.js",
+     "line": 10,
+     "repo": "gateway",
+     "snippet": "const invoice = await fetch(`${BILLING}/invoices`);"
+    },
+    {
+     "file": "main.go",
+     "line": 9,
+     "repo": "billing",
+     "snippet": "http.HandleFunc(\"/invoices\", invoices)"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "http_route:/invoices"
+   ],
+   "source": "gateway",
+   "target": "billing",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "docker-compose.yml",
+     "line": 11,
+     "repo": "infra",
+     "snippet": "- billing"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "compose:depends_on"
+   ],
+   "source": "gateway",
+   "target": "billing",
+   "type": "compose_link",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "server.go",
+     "line": 5,
+     "repo": "geo",
+     "snippet": "pb.RegisterGeoServiceServer(s, &server{})"
+    },
+    {
+     "file": "src/geo.js",
+     "line": 3,
+     "repo": "gateway",
+     "snippet": "const geo = new GeoServiceClient(process.env.GEO_GRPC_ADDR, credentials);"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "grpc:GeoService"
+   ],
+   "source": "gateway",
+   "target": "geo",
+   "type": "grpc",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "src/server.js",
+     "line": 9,
+     "repo": "gateway",
+     "snippet": "const trip = await axios.get(`${process.env.TRIPS_API_URL}/trips/${req.params.id}`);"
+    },
+    {
+     "file": "app/main.py",
+     "line": 15,
+     "repo": "trips-api",
+     "snippet": "@router.get(\"/{trip_id}\")"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "http_route:/trips/{}"
+   ],
+   "source": "gateway",
+   "target": "trips-api",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "docker-compose.yml",
+     "line": 10,
+     "repo": "infra",
+     "snippet": "- trips"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "compose:depends_on"
+   ],
+   "source": "gateway",
+   "target": "trips-api",
+   "type": "compose_link",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "src/server.js",
+     "line": 5,
+     "repo": "gateway",
+     "snippet": ""
+    },
+    {
+     "file": "app/main.py",
+     "line": 7,
+     "repo": "trips-api",
+     "snippet": ""
+    }
+   ],
+   "note": null,
+   "score": 0.2,
+   "signals": [
+    "env:INTERNAL_AUTH_AUDIENCE",
+    "corroborated:calls_http"
+   ],
+   "source": "gateway",
+   "target": "trips-api",
+   "type": "shares_env",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "docker-compose.yml",
+     "line": 15,
+     "repo": "infra",
+     "snippet": "build: ../billing"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "path_ref:billing"
+   ],
+   "source": "infra",
+   "target": "billing",
+   "type": "path_ref",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "docker-compose.yml",
+     "line": 8,
+     "repo": "infra",
+     "snippet": "context: ../gateway"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "path_ref:gateway"
+   ],
+   "source": "infra",
+   "target": "gateway",
+   "type": "path_ref",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "docker-compose.yml",
+     "line": 13,
+     "repo": "infra",
+     "snippet": "build: ../trips-api"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "path_ref:trips-api"
+   ],
+   "source": "infra",
+   "target": "trips-api",
+   "type": "path_ref",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "docker-compose.yml",
+     "line": 3,
+     "repo": "infra",
+     "snippet": "build: ../web"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "path_ref:web"
+   ],
+   "source": "infra",
+   "target": "web",
+   "type": "path_ref",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "app/main.py",
+     "line": 17,
+     "repo": "trips-api",
+     "snippet": "producer.send(\"trip.completed\", trip_id.encode())"
+    },
+    {
+     "file": "main.go",
+     "line": 11,
+     "repo": "billing",
+     "snippet": "nc.Subscribe(\"trip.completed\", onTrip)"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "topic:trip.completed"
+   ],
+   "source": "trips-api",
+   "target": "billing",
+   "type": "pubsub",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "app/main.py",
+     "line": 17,
+     "repo": "trips-api",
+     "snippet": "producer.send(\"trip.completed\", trip_id.encode())"
+    },
+    {
+     "file": "worker/main.py",
+     "line": 1,
+     "repo": "receipts",
+     "snippet": "consumer.subscribe(['trip.completed', 'events'])"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "topic:trip.completed"
+   ],
+   "source": "trips-api",
+   "target": "receipts",
+   "type": "pubsub",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "app/rides/[id]/page.tsx",
+     "line": 2,
+     "repo": "web",
+     "snippet": "const ride = await fetch(`${process.env.NEXT_PUBLIC_GATEWAY_URL}/api/rides/${params.id}`);"
+    },
+    {
+     "file": "src/server.js",
+     "line": 8,
+     "repo": "gateway",
+     "snippet": "app.get('/api/rides/:id', async (req, res) => {"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "http_route:/api/rides/{}"
+   ],
+   "source": "web",
+   "target": "gateway",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "docker-compose.yml",
+     "line": 5,
+     "repo": "infra",
+     "snippet": "- gateway"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "compose:depends_on"
+   ],
+   "source": "web",
+   "target": "gateway",
+   "type": "compose_link",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "package.json",
+     "line": 5,
+     "repo": "web",
+     "snippet": "\"@mesh/ui\": \"workspace:*\""
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "package:npm:@mesh/ui"
+   ],
+   "source": "web",
+   "target": "platform",
+   "type": "depends_on_package",
+   "why": null
+  }
+ ],
+ "repos": {
+  "billing": {
+   "aliases": [
+    "billing"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "main.go",
+        "line": 11,
+        "repo": "billing",
+        "snippet": "nc.Subscribe(\"trip.completed\", onTrip)"
+       }
+      ],
+      "hints": [],
+      "kind": "topic",
+      "value": "trip.completed"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "main.go",
+        "line": 10,
+        "repo": "billing",
+        "snippet": "http.HandleFunc(\"/health\", health)"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/health"
+     },
+     {
+      "evidence": [
+       {
+        "file": "main.go",
+        "line": 9,
+        "repo": "billing",
+        "snippet": "http.HandleFunc(\"/invoices\", invoices)"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/invoices"
+     },
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "billing",
+        "snippet": "module github.com/mesh/billing"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/mesh/billing"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go"
+   ]
+  },
+  "gateway": {
+   "aliases": [
+    "gateway",
+    "@mesh/gateway"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "src/server.js",
+        "line": 4,
+        "repo": "gateway",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "BILLING_SVC_URL"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/geo.js",
+        "line": 3,
+        "repo": "gateway",
+        "snippet": ""
+       },
+       {
+        "file": "src/geo.js",
+        "line": 4,
+        "repo": "gateway",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "GEO_GRPC_ADDR"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/server.js",
+        "line": 5,
+        "repo": "gateway",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "INTERNAL_AUTH_AUDIENCE"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/server.js",
+        "line": 9,
+        "repo": "gateway",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "TRIPS_API_URL"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/geo.js",
+        "line": 4,
+        "repo": "gateway",
+        "snippet": "const billing = new BillingServiceClient(process.env.GEO_GRPC_ADDR, credentials);"
+       }
+      ],
+      "hints": [],
+      "kind": "grpc_service",
+      "value": "BillingService"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/geo.js",
+        "line": 3,
+        "repo": "gateway",
+        "snippet": "const geo = new GeoServiceClient(process.env.GEO_GRPC_ADDR, credentials);"
+       }
+      ],
+      "hints": [],
+      "kind": "grpc_service",
+      "value": "GeoService"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/server.js",
+        "line": 10,
+        "repo": "gateway",
+        "snippet": "const invoice = await fetch(`${BILLING}/invoices`);"
+       }
+      ],
+      "hints": [
+       "BILLING_SVC_URL"
+      ],
+      "kind": "http_route",
+      "value": "/invoices"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/server.js",
+        "line": 9,
+        "repo": "gateway",
+        "snippet": "const trip = await axios.get(`${process.env.TRIPS_API_URL}/trips/${req.params.id}`);"
+       }
+      ],
+      "hints": [
+       "TRIPS_API_URL"
+      ],
+      "kind": "http_route",
+      "value": "/trips/{}"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 5,
+        "repo": "gateway",
+        "snippet": "\"axios\": \"1.7.0\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:axios"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 4,
+        "repo": "gateway",
+        "snippet": "\"express\": \"4.19.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:express"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "src/server.js",
+        "line": 8,
+        "repo": "gateway",
+        "snippet": "app.get('/api/rides/:id', async (req, res) => {"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/api/rides/{}"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/server.js",
+        "line": 7,
+        "repo": "gateway",
+        "snippet": "app.get('/health', (req, res) => res.send('ok'));"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/health"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "gateway",
+        "snippet": "\"name\": \"@mesh/gateway\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@mesh/gateway"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "express"
+   ]
+  },
+  "geo": {
+   "aliases": [
+    "geo"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "server.go",
+        "line": 5,
+        "repo": "geo",
+        "snippet": "pb.RegisterGeoServiceServer(s, &server{})"
+       }
+      ],
+      "hints": [],
+      "kind": "grpc_service",
+      "value": "GeoService"
+     },
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "geo",
+        "snippet": "module github.com/mesh/geo"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:github.com/mesh/geo"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go"
+   ]
+  },
+  "infra": {
+   "aliases": [
+    "infra"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 11,
+        "repo": "infra",
+        "snippet": "- billing"
+       }
+      ],
+      "hints": [],
+      "kind": "compose_service",
+      "value": "path:gateway=>path:billing"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 10,
+        "repo": "infra",
+        "snippet": "- trips"
+       }
+      ],
+      "hints": [],
+      "kind": "compose_service",
+      "value": "path:gateway=>path:trips-api"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 5,
+        "repo": "infra",
+        "snippet": "- gateway"
+       }
+      ],
+      "hints": [],
+      "kind": "compose_service",
+      "value": "path:web=>path:gateway"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 15,
+        "repo": "infra",
+        "snippet": "build: ../billing"
+       }
+      ],
+      "hints": [],
+      "kind": "path_ref",
+      "value": "billing"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 8,
+        "repo": "infra",
+        "snippet": "context: ../gateway"
+       }
+      ],
+      "hints": [],
+      "kind": "path_ref",
+      "value": "gateway"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 13,
+        "repo": "infra",
+        "snippet": "build: ../trips-api"
+       }
+      ],
+      "hints": [],
+      "kind": "path_ref",
+      "value": "trips-api"
+     },
+     {
+      "evidence": [
+       {
+        "file": "docker-compose.yml",
+        "line": 3,
+        "repo": "infra",
+        "snippet": "build: ../web"
+       }
+      ],
+      "hints": [],
+      "kind": "path_ref",
+      "value": "web"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": []
+  },
+  "platform": {
+   "aliases": [
+    "platform"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "packages/ui/package.json",
+        "line": 4,
+        "repo": "platform",
+        "snippet": "\"@mesh/config\": \"workspace:*\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@mesh/config"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "packages/config/package.json",
+        "line": 2,
+        "repo": "platform",
+        "snippet": "\"name\": \"@mesh/config\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@mesh/config"
+     },
+     {
+      "evidence": [
+       {
+        "file": "packages/ui/package.json",
+        "line": 2,
+        "repo": "platform",
+        "snippet": "\"name\": \"@mesh/ui\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@mesh/ui"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 1,
+        "repo": "platform",
+        "snippet": "{\"name\": \"platform\", \"private\": true}"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:platform"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "packages/",
+     "purpose": null
+    }
+   ],
+   "packages": [
+    {
+     "name": "@mesh/config",
+     "path": "platform/packages/config",
+     "stack": [
+      "javascript"
+     ]
+    },
+    {
+     "name": "@mesh/ui",
+     "path": "platform/packages/ui",
+     "stack": [
+      "javascript"
+     ]
+    }
+   ],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "protos": {
+   "aliases": [
+    "protos"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": []
+  },
+  "receipts": {
+   "aliases": [
+    "receipts"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "worker/main.py",
+        "line": 1,
+        "repo": "receipts",
+        "snippet": "consumer.subscribe(['trip.completed', 'events'])"
+       }
+      ],
+      "hints": [],
+      "kind": "topic",
+      "value": "trip.completed"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 2,
+        "repo": "receipts",
+        "snippet": "name = \"receipts\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:receipts"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "worker/",
+     "purpose": null
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "python"
+   ]
+  },
+  "status-page": {
+   "aliases": [
+    "status-page",
+    "@mesh/status-page"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "index.js",
+        "line": 3,
+        "repo": "status-page",
+        "snippet": "fetch('/health');"
+       }
+      ],
+      "hints": [],
+      "kind": "http_route",
+      "value": "/health"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 4,
+        "repo": "status-page",
+        "snippet": "\"express\": \"4.19.0\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:express"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "index.js",
+        "line": 1,
+        "repo": "status-page",
+        "snippet": "app.get('/health', (req, res) => res.send('ok'));"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/health"
+     },
+     {
+      "evidence": [
+       {
+        "file": "index.js",
+        "line": 2,
+        "repo": "status-page",
+        "snippet": "app.get('/metrics', (req, res) => res.send(''));"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/metrics"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "status-page",
+        "snippet": "\"name\": \"@mesh/status-page\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@mesh/status-page"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "express"
+   ]
+  },
+  "trips-api": {
+   "aliases": [
+    "trips-api"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "app/main.py",
+        "line": 7,
+        "repo": "trips-api",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "INTERNAL_AUTH_AUDIENCE"
+     },
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 4,
+        "repo": "trips-api",
+        "snippet": "dependencies = [\"fastapi\"]"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:fastapi"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "app/main.py",
+        "line": 10,
+        "repo": "trips-api",
+        "snippet": "@app.get(\"/health\")"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/health"
+     },
+     {
+      "evidence": [
+       {
+        "file": "app/main.py",
+        "line": 15,
+        "repo": "trips-api",
+        "snippet": "@router.get(\"/{trip_id}\")"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/trips/{}"
+     },
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 2,
+        "repo": "trips-api",
+        "snippet": "name = \"trips-api\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:trips-api"
+     },
+     {
+      "evidence": [
+       {
+        "file": "app/main.py",
+        "line": 17,
+        "repo": "trips-api",
+        "snippet": "producer.send(\"trip.completed\", trip_id.encode())"
+       }
+      ],
+      "hints": [],
+      "kind": "topic",
+      "value": "trip.completed"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "app/",
+     "purpose": "routes/pages"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "python",
+    "fastapi"
+   ]
+  },
+  "web": {
+   "aliases": [
+    "web",
+    "@mesh/web"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "app/rides/[id]/page.tsx",
+        "line": 2,
+        "repo": "web",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "GATEWAY_URL"
+     },
+     {
+      "evidence": [
+       {
+        "file": "app/rides/[id]/page.tsx",
+        "line": 2,
+        "repo": "web",
+        "snippet": "const ride = await fetch(`${process.env.NEXT_PUBLIC_GATEWAY_URL}/api/rides/${params.id}`);"
+       }
+      ],
+      "hints": [
+       "NEXT_PUBLIC_GATEWAY_URL"
+      ],
+      "kind": "http_route",
+      "value": "/api/rides/{}"
+     },
+     {
+      "evidence": [
+       {
+        "file": "lib/pay.ts",
+        "line": 2,
+        "repo": "web",
+        "snippet": "export const ping = () => fetch('/health');"
+       }
+      ],
+      "hints": [],
+      "kind": "http_route",
+      "value": "/health"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 5,
+        "repo": "web",
+        "snippet": "\"@mesh/ui\": \"workspace:*\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@mesh/ui"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 4,
+        "repo": "web",
+        "snippet": "\"next\": \"15.0.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:next"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "app/api/session/route.ts",
+        "line": 1,
+        "repo": "web",
+        "snippet": "export async function GET() {"
+       }
+      ],
+      "hints": [
+       "source:code"
+      ],
+      "kind": "http_route",
+      "value": "/api/session"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "web",
+        "snippet": "\"name\": \"@mesh/web\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@mesh/web"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "app/",
+     "purpose": "routes/pages"
+    },
+    {
+     "path": "lib/",
+     "purpose": "library code"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "nextjs"
+   ]
+  }
+ }
+}

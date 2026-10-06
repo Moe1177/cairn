@@ -147,8 +147,9 @@ def _read_repo(
     if entry is not None:
         relation = (from_cached(entry.relation), entry.errors)
         return _RepoRead((from_cached(entry.identity), ()), relation, True)
-    identity = _run_all(IDENTITY_DETECTORS, DetectorContext(root, loc, config))
-    relation = _run_all(_detectors(live=False), DetectorContext(root, loc, config))
+    ctx = DetectorContext(root, loc, config)  # one walk and one read per file for both
+    identity = _run_all(IDENTITY_DETECTORS, ctx)
+    relation = _run_all(_detectors(live=False), ctx)
     # A failed read (a file locked by antivirus, say) may be transient: never pin it.
     if key and not identity[1] and not relation[1]:
         entry = CacheEntry(

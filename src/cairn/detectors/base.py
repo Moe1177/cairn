@@ -20,6 +20,10 @@ from cairn.model.graph import (
 )
 from cairn.security.redact import make_snippet
 
+# Text kept per context so detectors share one read of each file; bounded so a huge repo
+# never sits in memory (8 scan workers -> at most 8x this).
+READ_CACHE_BYTES = 16 * 1024 * 1024
+
 # Test code, fixtures, and examples hold fake data that would create false edges.
 NOISE_DIRS = frozenset(
     {
@@ -43,12 +47,23 @@ _TEST_FILE = re.compile(r"^test_.*\.py$|_test\.(?:py|go)$|\.(?:test|spec)\.[cm]?
 _SQL_DATA = re.compile(r"(?i)\b(?:insert\s+into|values|copy)\b")
 
 
+class _RepoFiles:
+    """One walk and one read per file, shared by every detector using the same context."""
+
+    def __init__(self) -> None:
+        self.index: tuple[Path, ...] | None = None
+        self.indexed: frozenset[Path] = frozenset()
+        self.text: dict[Path, str | None] = {}
+        self.bytes = 0
+
+
 @dataclass(frozen=True)
 class DetectorContext:
     workspace_root: Path
     repo: RepoLocation
     config: CairnConfig
     alias_table: Mapping[str, str] = field(default_factory=dict)
+    _files: _RepoFiles = field(default_factory=_RepoFiles, init=False, repr=False, compare=False)
 
     def rel(self, path: Path) -> str:
         return path.relative_to(self.repo.root).as_posix()
@@ -60,21 +75,41 @@ class DetectorContext:
         return Evidence(repo=self.repo.id, file=self.rel(path), line=line_no, snippet=snippet)
 
     def files(self, match: Callable[[str], bool]) -> Iterator[Path]:
-        ignore = DEFAULT_IGNORE_DIRS | NOISE_DIRS | frozenset(self.config.ignore_dirs)
-        return iter_files(
-            self.repo.root,
-            ignore_dirs=ignore,
-            max_bytes=self.config.max_file_bytes,
-            match=lambda name: match(name) and not _TEST_FILE.search(name),
-        )
+        """The repo's files whose name `match`es, in walk order. The repo is walked once."""
+        cache = self._files
+        if cache.index is None:
+            ignore = DEFAULT_IGNORE_DIRS | NOISE_DIRS | frozenset(self.config.ignore_dirs)
+            cache.index = tuple(
+                iter_files(
+                    self.repo.root,
+                    ignore_dirs=ignore,
+                    max_bytes=self.config.max_file_bytes,
+                    match=lambda name: not _TEST_FILE.search(name),
+                )
+            )
+            cache.indexed = frozenset(cache.index)
+        return (path for path in cache.index if match(path.name))
 
     def read(self, path: Path) -> str | None:
-        try:
-            if crosses_link(self.repo.root, path):
-                return None  # e.g. `supabase/.temp` -> a folder outside the repo
-        except ValueError:
-            pass  # not below this repo (a sibling path ref); read_text still refuses links
-        return read_text(path, self.config.max_file_bytes)
+        cache = self._files
+        if path in cache.text:
+            return cache.text[path]
+        # The walk never enters links, so indexed paths need no per-component check.
+        if path not in cache.indexed:
+            try:
+                if crosses_link(self.repo.root, path):
+                    return None  # e.g. `supabase/.temp` -> a folder outside the repo
+            except ValueError:
+                pass  # not below this repo (a sibling path ref); read_text still refuses links
+        text = read_text(path, self.config.max_file_bytes)
+        size = len(text) if text else 0
+        if cache.bytes + size <= READ_CACHE_BYTES:
+            cache.text[path] = text
+            cache.bytes += size
+        return text
+
+    def cached_bytes(self) -> int:
+        return self._files.bytes
 
 
 @dataclass(frozen=True)
