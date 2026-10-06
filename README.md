@@ -152,8 +152,10 @@ and you can commit them so your team shares them.
 |---|---|
 | HTTP calls | Next.js routes, Express/Fastify/Hono, FastAPI/Flask, Go (net/http, chi, gin, echo) and OpenAPI routes, matched with `fetch`/`axios`, `requests`/`httpx`, and Go `http` client calls |
 | gRPC | Go, Python, TypeScript and Java servers matched with their client stubs |
-| Pub/sub topics | Kafka, NATS and Redis publishers matched with subscribers (`trip.completed`) |
+| Service names | Calls addressed to a sibling's service name, as Docker and Kubernetes DNS do: `http://catalogue`, `http://carts:8080/carts`, `*.svc.cluster.local`, `Hostname("payment")` |
+| Pub/sub topics | Kafka, NATS, Redis and RabbitMQ (Spring AMQP) publishers matched with subscribers (`trip.completed`) |
 | docker-compose | `depends_on` between services built from (or named after) your repos |
+| Deploy repos | compose, Kubernetes and Helm files that run your repos' images (`image: acme/catalogue:1.2`) |
 | Package dependencies | npm (`workspace:*`, scoped packages), PyPI, Go modules, Cargo |
 | Packages inside monorepos | npm/yarn/pnpm, Cargo, `go.work` and uv workspaces, listed on the card and resolvable by name |
 | Shared database tables | SQL migrations and queries, Prisma, Drizzle, Supabase |
@@ -166,9 +168,12 @@ Look-alikes are deliberately ignored:
 - calls to other companies' APIs;
 - vague topic names;
 - `.proto` files with no implementer;
-- generic env vars such as `PORT`.
+- generic env vars such as `PORT`;
+- `localhost`, public domains, and URLs in comments;
+- public images (`mongo:3.4`) and look-alike names (`catalogue-db` is not `catalogue`);
+- a queue that a repo declares but never consumes.
 
-An evaluation workspace in the test suite keeps every one of these at precision 1.0.
+Evaluation workspaces in the test suite keep every one of these at precision 1.0.
 
 ## Deep queries
 
