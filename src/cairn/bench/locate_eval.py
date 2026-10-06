@@ -23,11 +23,12 @@ from cairn.bench.suite import load_suite
 from cairn.bench.workspace import materialize
 from cairn.errors import CairnError
 from cairn.locate.hybrid import run_locator
-from cairn.locate.workspace import fan_out
+from cairn.locate.workspace import fan_out, scoped_locate
 from cairn.model.graph import Frozen
 from cairn.providers.graph import Graph, load_graph
 from cairn.providers.graphify import GraphifyProvider
 from cairn.providers.meta import deep_dir
+from cairn.scan import scan_workspace
 
 LOCATE_FILE = "locate.yaml"
 CATEGORIES = ("literal", "vocabulary", "chain", "broad", "cross-repo")
@@ -126,16 +127,21 @@ def evaluate(
     *,
     limit: int = 10,
 ) -> list[Outcome]:
+    """Every question searched the way `query` searches it (scoped_locate: the asked repo, repos
+    it names, related repos unless a literal answered), whatever its category."""
+    workspace = scan_workspace(ws).workspace
     outcomes = []
     for query in locate_set.queries:
-        # A cross-repo question is about another repo than the one it is asked in: search all.
-        scope = sorted(graphs) if query.category == "cross-repo" else [query.repo]
         for mode in modes:
+
+            def run(ids: list[str], mode: str = mode, question: str = query.question) -> dict:
+                return {
+                    repo: run_locator(mode, ws / repo, question, graphs.get(repo), limit=limit)
+                    for repo in ids
+                }
+
             started = time.perf_counter()
-            results = {
-                repo: run_locator(mode, ws / repo, query.question, graphs.get(repo), limit=limit)
-                for repo in scope
-            }
+            results, _, _ = scoped_locate(workspace, query.repo, query.question, run)
             hits = fan_out(results, limit=limit)
             ms = (time.perf_counter() - started) * 1000
             paths = [f"{hit.repo}/{hit.file}" for hit in hits]
