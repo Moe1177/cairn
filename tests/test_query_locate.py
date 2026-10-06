@@ -209,3 +209,27 @@ def test_plain_words_are_not_called_a_definition(
     ws = _copies(tmp_path, monkeypatch)
     answer = tools.query_text(ws, "admin", "where are the applications loaded?")
     assert "(definition)" not in answer
+
+
+def test_many_copies_still_give_a_full_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Asked repo plus three copies, each with the same 12 hits: the answer still lists 10
+    distinct places, not the 5 the first 20 interleaved hits collapse to."""
+    src = tmp_path / "many-src"
+    files = {f"src/m{i:02d}.ts": "const applications = load();\n" for i in range(12)}
+    names = ["admin", "admin-2024", "admin-2025", "admin-2026"]
+    for name in names:
+        (src / name).mkdir(parents=True)
+        (src / name / ".fixture-repo").write_text("", encoding="utf-8")
+        for rel, text in files.items():
+            (src / name / rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / name / rel).write_text(text, encoding="utf-8")
+        if name != "admin":
+            (src / name / ".fixture-clone-of").write_text("admin", encoding="utf-8")
+    ws = materialize(src, tmp_path / "many-ws").resolve()
+    write_outputs(ws, scan_workspace(ws))
+    missing = GraphifyProvider(executable=str(tmp_path / "no-graphify"))
+    monkeypatch.setattr(providers, "default_provider", lambda: missing)
+    answer = tools.query_text(ws, "admin", "where are the applications loaded?")
+    assert len([line for line in answer.splitlines() if line.startswith("- ")]) == 10

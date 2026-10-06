@@ -45,10 +45,12 @@ def parse_result(raw: str, stderr: str = "") -> RunResult:
     show each tool the agent called."""
     data, tools = _result_and_tools(raw)
     if data is None:  # no result: claude failed or stopped before answering
-        text = f"{stderr.strip()}\n{raw}".strip() if stderr.strip() else raw
-        return RunResult(
-            result_text=text[-2000:], is_error=True, tools=tuple(sorted(tools.items()))
-        )
+        # claude's own words only: stderr, and stdout lines that aren't stream events. The
+        # stream holds tool output quoting the benchmark repo's code, which must not be graded
+        # as an answer or read as a usage limit; stderr comes first and is kept whole.
+        plain = "\n".join(line for line in raw.splitlines() if not _is_event(line))
+        text = "\n".join(part for part in (stderr.strip()[-1000:], plain.strip()[-1000:]) if part)
+        return RunResult(result_text=text, is_error=True, tools=tuple(sorted(tools.items())))
     raw_usage = data.get("usage")
     usage: dict = raw_usage if isinstance(raw_usage, dict) else {}
     model_usage = data.get("modelUsage")
@@ -65,6 +67,13 @@ def parse_result(raw: str, stderr: str = "") -> RunResult:
         models=tuple(sorted(model_usage)) if isinstance(model_usage, dict) else (),
         tools=tuple(sorted(tools.items())),
     )
+
+
+def _is_event(line: str) -> bool:
+    try:
+        return isinstance(json.loads(line), dict)
+    except json.JSONDecodeError:
+        return False
 
 
 def _result_and_tools(raw: str) -> tuple[dict | None, dict[str, int]]:

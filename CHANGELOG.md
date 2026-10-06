@@ -18,16 +18,19 @@ All notable changes to cairn are documented here. The format follows
     triggers a retry.
   - `cairn deep build`, including `--stale`, always retries.
   - `cairn deep status` shows "last build failed".
-- **Benchmarks recognise every usage-limit wording.** The pattern held two stray control
-  characters, so only "hit your … limit" matched. "Usage limit reached", "rate limit" and "weekly
-  limit" were logged as real failures: they didn't stop the run, and `--resume` didn't redo them.
+- **Benchmarks recognise far more usage-limit wordings.** The pattern held two stray control
+  characters, so only "hit your … limit" matched. Wordings like "usage limit reached", "rate
+  limited", "5-hour limit" or a 429 `rate_limit_error` were logged as real failures: they didn't
+  stop the run, and `--resume` didn't redo them.
 - **`query` lists each place once across copies of one app.** Repos that share their first commit
   (a per-event copy of an admin panel, say) used to show every hit twice, once per copy, which
   wasted half the answer. Now the same file and line shows once, followed by
-  "(same in admin-2026)", which also says the change belongs in both. Plain-word searches no
-  longer call `const applications = …` a "(definition)".
+  "(same in admin-2026)": the copy has the same place, so check it there too. Only repos the
+  map confirms as copies are merged, never on a shared package name alone. Plain-word searches
+  no longer call `const applications = …` a "(definition)".
 - **A benchmark run that ends without a result** (claude stopped right after starting) now counts
-  as an error, not as a clean empty answer, and keeps claude's error output.
+  as an error, not as a clean empty answer. Its text is claude's error output, never the tool
+  output in the stream, so it can't be graded as an answer or mistaken for a usage limit.
 
 ### Changed
 - **Benchmark runs record which tools the agent called** (`--output-format stream-json`). Run and

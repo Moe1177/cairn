@@ -425,7 +425,10 @@ def bench(
     ),
     resume: Annotated[
         Path | None,
-        typer.Option("--resume", help="Continue a run's .jsonl log: only missing/failed runs."),
+        typer.Option(
+            "--resume",
+            help="Continue a run's .jsonl log: runs it lacks, and runs a usage limit stopped.",
+        ),
     ] = None,
 ) -> None:
     """Measure what cairn saves: run a suite headlessly in Claude Code under each condition."""
