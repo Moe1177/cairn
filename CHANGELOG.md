@@ -7,6 +7,28 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Added
+- **Service-name links.** Calls addressed to a sibling's service name, as Docker and
+  Kubernetes DNS do (`http://catalogue`, `http://carts:8080/carts`, `*.svc.cluster.local`), and
+  host literals (`Hostname("payment")`, `host = "orders"`) link the caller to that repo.
+- **Deploy repos.** compose, Kubernetes and Helm files that run a sibling's image
+  (`image: acme/catalogue:1.2`) make a `deploys` link.
+- **RabbitMQ (Spring AMQP).** `convertAndSend` publishers link to `@RabbitListener`,
+  `setQueueNames` and listener-container consumers of the same queue.
+- **Real-world benchmarks.** Suites can pin real repos at exact commits (`sources:`); two new
+  suites, Sock Shop (9 repos) and the Supabase JS client family (6 repos, held out). Reports add
+  95% bootstrap intervals, paired Wilcoxon tests against the cold and hand-written-doc
+  baselines, and break-even. `bench/combine_results.py` pools suites and models.
+- `cairn bench` stops at a usage limit and `--resume <log>` continues without redoing runs.
+
+### Changed
+- On Sock Shop, cairn found none of the 16 real service links in 0.4 and finds all of them now.
+  The `microshop` evaluation workspace keeps these link types exact (precision 1.0) against
+  their look-alikes.
+- The scan cache format is version 4, so the first scan after upgrading re-reads every repo.
+
 ## [0.4.0]
 
 ### Added
