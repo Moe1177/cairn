@@ -51,11 +51,12 @@ def test_a_missing_graph_is_not_cached(tmp_path: Path) -> None:
     assert graph_module.cached_graphs() == 0
 
 
-def test_a_repeated_query_runs_no_git_process(
+def test_a_repeated_query_asks_git_only_to_search(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Agents fire queries in bursts: once warm, a query costs no subprocess (HEAD from the git
-    memo; the deep index's staleness verdict reused for a few seconds)."""
+    """Agents fire queries in bursts: once warm, a query runs only the search itself (git grep,
+    ls-files): HEAD comes from the git memo, and the deep index's staleness verdict is reused for
+    a few seconds."""
     from cairn import providers
     from cairn.bench.workspace import materialize
     from cairn.discover import proc
@@ -74,22 +75,29 @@ def test_a_repeated_query_runs_no_git_process(
     fake = GraphifyProvider(executable=_fake_graphify(tmp_path))
     monkeypatch.setattr(providers, "default_provider", lambda: fake)
     fake.build(ws, "app", ws / "app", timeout=60)
-    first = tools.query_text(ws, "app", "login")
-    calls = []
+    first = tools.query_text(ws, "app", "logins")  # grep finds nothing; the graph answers
+    calls: list[str] = []
+    modules = (
+        "cairn.discover.git",
+        "cairn.scan_cache",
+        "cairn.providers.graphify",
+        "cairn.locate.grep",
+    )
     for name in ("run_text", "run_bytes", "run_text_tree"):
         real = getattr(proc, name)
 
         def counting(*a, _real=real, **k):  # type: ignore[no-untyped-def]
-            calls.append(a[0][:3] if a else None)
+            argv = list(a[0]) if a else []
+            calls.append(next((w for w in ("grep", "ls-files") if w in argv), " ".join(argv)))
             return _real(*a, **k)
 
         monkeypatch.setattr(proc, name, counting)
-        for module in ("cairn.discover.git", "cairn.scan_cache", "cairn.providers.graphify"):
+        for module in modules:
             mod = __import__(module, fromlist=["x"])
             if hasattr(mod, name):
                 monkeypatch.setattr(mod, name, counting)
-    assert tools.query_text(ws, "app", "login") == first
-    assert calls == []
+    assert tools.query_text(ws, "app", "logins") == first
+    assert calls and set(calls) <= {"grep", "ls-files"}
 
 
 def test_an_edit_is_flagged_once_the_staleness_verdict_lapses(
@@ -98,6 +106,7 @@ def test_an_edit_is_flagged_once_the_staleness_verdict_lapses(
     from cairn import providers
     from cairn.bench.workspace import materialize
     from cairn.emit import write_outputs
+    from cairn.mcp_server import query as query_module
     from cairn.mcp_server import tools
     from cairn.providers.graphify import GraphifyProvider
     from cairn.scan import scan_workspace
@@ -112,10 +121,10 @@ def test_an_edit_is_flagged_once_the_staleness_verdict_lapses(
     fake = GraphifyProvider(executable=_fake_graphify(tmp_path))
     monkeypatch.setattr(providers, "default_provider", lambda: fake)
     fake.build(ws, "app", ws / "app", timeout=60)
-    assert "may be stale" not in tools.query_text(ws, "app", "login")
+    assert "may be stale" not in tools.query_text(ws, "app", "logins")  # graph-only
     (ws / "app" / "auth.py").write_text("def login():\n    return 9\n", encoding="utf-8")
-    monkeypatch.setattr(tools, "STALE_TTL", 0.0)
-    assert "may be stale" in tools.query_text(ws, "app", "login")
+    monkeypatch.setattr(query_module, "STALE_TTL", 0.0)
+    assert "may be stale" in tools.query_text(ws, "app", "logins")
 
 
 def _ranked_by_scoring_every_node(graph: graph_module.Graph, question: str, limit: int) -> list:

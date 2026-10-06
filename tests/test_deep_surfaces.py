@@ -48,18 +48,18 @@ def test_build_status_and_clear(ws: Path) -> None:
     assert (ws / ".cairn" / "deep" / "app").exists()
 
 
-def test_query_answers_from_the_deep_index(ws: Path) -> None:
+def test_query_names_the_deep_index_symbol_on_grep_s_hit(ws: Path) -> None:
     _cli("deep", "build", "app", "-w", str(ws))
     answer = tools.query_text(ws, "app", "where is login handled?")
-    assert "login() — auth.py:1" in answer and "stale" not in answer
+    assert "auth.py:1 login()" in answer and "stale" not in answer
 
 
 def test_query_says_when_the_index_is_stale_or_missing(ws: Path) -> None:
     _cli("deep", "build", "app", "-w", str(ws))
     time.sleep(1.1)
     (ws / "app" / "auth.py").write_text("def login():\n    return False\n", encoding="utf-8")
-    assert "may be stale" in tools.query_text(ws, "app", "login")
-    missing = tools.query_text(ws, "billing", "login")
+    assert "may be stale" in tools.query_text(ws, "app", "logins")  # the graph answers
+    missing = tools.query_text(ws, "billing", "warehouse robot")  # nothing found
     assert "cairn deep build billing" in missing
 
 

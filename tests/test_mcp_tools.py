@@ -87,4 +87,4 @@ def test_cap_adds_a_more_line() -> None:
 def test_refresh_and_query(ws: Path) -> None:
     assert tools.refresh_text(ws).startswith("Refreshed 4 repos")
     answer = tools.query_text(ws, "eats", "where are orders created?")
-    assert "No deep index" in answer and "my-app/db/" in answer
+    assert answer.startswith("eats: answered by grep") and "my-app/db/" in answer

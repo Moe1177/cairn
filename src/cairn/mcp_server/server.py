@@ -102,7 +102,8 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
 
     @server.tool()
     def query(repo: str, question: str) -> str:
-        """Ask a code-level question about one repo (deep index when available, else where to look)."""
+        """Where in the code is X? file:line hits in this repo (and repos the question names, or
+        related repos when it has none); grep first, a deep index's symbols when built."""
         return _safe(lambda: tools.query_text(ws_root, repo, question))
 
     @server.tool()

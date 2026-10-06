@@ -143,7 +143,7 @@ and you can commit them so your team shares them.
 | `repo_card` | The card for a repo (re-scanned first if its HEAD moved) |
 | `related` | Everything connected to a repo, with evidence |
 | `find_across` | Which repos expose or use a table, package, or path |
-| `query` | Where inside a repo: `symbol — file:line` from a deep index, else which folders to start in |
+| `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
 | `refresh` | Update the map now |
 
 ### What cairn detects
@@ -178,13 +178,23 @@ Look-alikes are deliberately ignored:
 
 Evaluation workspaces in the test suite keep every one of these at precision 1.0.
 
-## Deep queries
+## Finding the place in a repo
 
-The map tells an agent *which* repo to open. A deep index tells it *where inside*: the `query` MCP
-tool answers "where is login handled?" with `login() — src/auth.py:12` hits and their neighbours,
-instead of a list of folders.
+The map tells an agent *which* repo to open; the `query` MCP tool tells it *where inside*. Ask
+"where is login handled?" and it answers with `src/auth.py:12 login() — grep: login (definition)`.
+How it searches:
+- It runs grep first, through cairn's hardened `git grep`. It looks for the question's
+  identifiers, routes and quoted messages, and failing those, its words.
+- For "who calls X", it lists the callers before the definition.
+- It also searches repos the question names. When nothing matches, it searches the repos the map
+  relates to the one asked about.
+- Every answer says which search answered and why. It needs nothing installed.
 
-Deep indexes are optional and built per repo with [graphify](https://github.com/Graphify-Labs/graphify):
+Deep indexes are optional, and built per repo with
+[graphify](https://github.com/Graphify-Labs/graphify). A code graph names the symbol on grep's hits
+and answers when grep finds nothing. cairn asks grep first because, on its offline locate
+benchmark, grep matched or beat the code graph on every kind of question
+([results](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-06-locate.md)).
 
 ```bash
 cairn deep enable                      # installs graphify if needed (asks first), indexes every repo
@@ -319,7 +329,7 @@ how to report a vulnerability.
 | `cairn init` | Scan, then offer to add the index to Claude Code |
 | `cairn scan [--full] [--verbose]` | Map every repo under the folder into `.cairn/` |
 | `cairn refresh [--no-deep]` | Re-read only repos whose HEAD or working tree changed, and rebuild stale deep indexes |
-| `cairn deep enable` / `cairn deep build REPO…\|--all\|--stale [-w PATH]` | Build graphify code indexes so `query` answers with file:line (optional extra) |
+| `cairn deep enable` / `cairn deep build REPO…\|--all\|--stale [-w PATH]` | Build graphify code indexes so `query` also names symbols (optional extra) |
 | `cairn deep status` / `cairn deep clear [REPO…]` | List deep indexes (fresh or stale) / delete them |
 | `cairn status` | What cairn knows, unconfirmed links, missing or stale summaries |
 | `cairn annotate-edge KEY --confirm\|--reject [--why TEXT]` | Settle a relationship |

@@ -9,6 +9,7 @@ import os
 import re
 import time
 from collections.abc import Iterable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -70,12 +71,16 @@ def grep_locate(
     terms = tuple(t for t in terms if t.strip())
     if not terms:
         return GrepResult((), 0, False)
-    matches = _git_grep(repo_root, terms)
-    if matches is None:
-        matches = _python_grep(repo_root, terms)
-    scored = [_score_file(rel, found, terms) for rel, found in matches.items()]
-    if names:
-        scored = _with_name_hits(repo_root, scored, terms)
+    wants_names = names and any(len(_name_key(t)) >= 3 for t in terms)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        # The file listing doesn't depend on the search: list while git greps.
+        listing = pool.submit(lambda: list(_list_files(repo_root))) if wants_names else None
+        matches = _git_grep(repo_root, terms)
+        if matches is None:
+            matches = _python_grep(repo_root, terms)
+        scored = [_score_file(rel, found, terms) for rel, found in matches.items()]
+        if listing is not None:
+            scored = _with_name_hits(listing.result(), scored, terms)
     scored.sort(key=lambda hit: (-hit.score, hit.file))
     return GrepResult(tuple(scored[:limit]), len(scored), len(scored) > limit)
 
@@ -170,14 +175,16 @@ def _defines(line: str, term: str) -> bool:
     )
 
 
-def _with_name_hits(root: Path, scored: list[LocateHit], terms: Sequence[str]) -> list[LocateHit]:
+def _with_name_hits(
+    files: Iterable[str], scored: list[LocateHit], terms: Sequence[str]
+) -> list[LocateHit]:
     """Boost (or add) files whose name is a term: `charge.py`, `OrderService` -> OrderService.ts
     or order_service.py."""
     wanted = {_name_key(t): t for t in terms if len(_name_key(t)) >= 3}
     if not wanted:
         return scored
     by_file = {hit.file: hit for hit in scored}
-    for rel in _list_files(root):
+    for rel in files:
         name = PurePosixPath(rel).name
         term = wanted.get(_name_key(name)) or wanted.get(_name_key(PurePosixPath(rel).stem))
         if term is None or _NOISE_SPEC.match_file(rel):
