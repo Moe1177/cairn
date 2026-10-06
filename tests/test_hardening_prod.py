@@ -53,15 +53,25 @@ def test_large_workspaces_scan_repos_in_parallel(
     for i in range(40):
         make_repo(tmp_path, f"svc-{i:02d}")
 
+    # Count overlapping git calls rather than timing the scan: wall-clock limits flake on
+    # shared CI runners, while overlap proves the repos are read in parallel.
+    lock = threading.Lock()
+    active = peak = 0
+
     def slow_git(root: Path, timeout: float = 5.0) -> GitInfo:
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
         time.sleep(0.05)
+        with lock:
+            active -= 1
         return GitInfo()
 
     monkeypatch.setattr(scan_module, "git_info", slow_git)
-    start = time.perf_counter()
     result = scan_workspace(tmp_path)
     assert len(result.workspace.repos) == 40
-    assert time.perf_counter() - start < 1.5  # serially the git calls alone take 2 s
+    assert peak >= 4
 
 
 def test_mcp_answers_from_the_last_map_while_another_scan_runs(tmp_path: Path) -> None:
