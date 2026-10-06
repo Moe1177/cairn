@@ -59,12 +59,13 @@ def _grep(root: Path, question: str, limit: int) -> tuple[GrepResult, str]:
     words = tuple(dict.fromkeys([*(t for t in literal if is_weak(t)), *concept_terms(question)]))
     if not words:
         return GrepResult((), 0, False), "nothing in the question to search for"
-    return grep_locate(root, words, limit=limit), f"words: {', '.join(words)}"
+    found = grep_locate(root, words, limit=limit, label_definitions=False)
+    return found, f"words: {', '.join(words)}"
 
 
 def _users_first(hits: tuple[LocateHit, ...]) -> tuple[LocateHit, ...]:
     """Who calls X is answered by the files using X: the one defining it goes last."""
-    return tuple(sorted(hits, key=lambda hit: "(definition)" in hit.why))
+    return tuple(sorted(hits, key=lambda hit: hit.defines))
 
 
 def _graph_hits(root: Path, graph: Graph, question: str, limit: int) -> tuple[LocateHit, ...]:

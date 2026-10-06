@@ -170,3 +170,42 @@ def test_query_says_when_a_search_stopped_early(ws: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(grep_module, "GREP_MAX_BYTES", 10)
     answer = tools.query_text(ws, "app", "where is login defined?")
     assert "stopped early" in answer
+
+
+def _copies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """`admin` and its per-event copy `admin-2026` share their first commit: one app, twice."""
+    src = tmp_path / "copies-src"
+    files = {
+        "src/stats.ts": "const applications = await db.collection('applications').find();\n",
+        "src/users.ts": "export const users = 1;\n",
+    }
+    for name in ("admin", "admin-2026"):
+        (src / name).mkdir(parents=True)
+        (src / name / ".fixture-repo").write_text("", encoding="utf-8")
+        for rel, text in files.items():
+            (src / name / rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / name / rel).write_text(text, encoding="utf-8")
+    (src / "admin-2026" / ".fixture-clone-of").write_text("admin", encoding="utf-8")
+    root = materialize(src, tmp_path / "copies-ws").resolve()
+    write_outputs(root, scan_workspace(root))
+    missing = GraphifyProvider(executable=str(tmp_path / "no-graphify"))
+    monkeypatch.setattr(providers, "default_provider", lambda: missing)
+    return root
+
+
+def test_the_same_place_in_a_copy_is_one_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _copies(tmp_path, monkeypatch)
+    answer = tools.query_text(ws, "admin", "where are the applications loaded?")
+    lines = [line for line in answer.splitlines() if line.startswith("- ")]
+    stats = [line for line in lines if "stats.ts" in line]
+    assert len(stats) == 1 and "same in admin-2026" in stats[0]
+
+
+def test_plain_words_are_not_called_a_definition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = _copies(tmp_path, monkeypatch)
+    answer = tools.query_text(ws, "admin", "where are the applications loaded?")
+    assert "(definition)" not in answer

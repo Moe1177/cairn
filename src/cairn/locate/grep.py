@@ -67,9 +67,16 @@ class _FileMatch:
 
 
 def grep_locate(
-    repo_root: Path, terms: Sequence[str], *, limit: int = 10, names: bool = True
+    repo_root: Path,
+    terms: Sequence[str],
+    *,
+    limit: int = 10,
+    names: bool = True,
+    label_definitions: bool = True,
 ) -> GrepResult:
-    """The files holding `terms`, best first: one hit per file, at its most telling line."""
+    """The files holding `terms`, best first: one hit per file, at its most telling line.
+    `label_definitions=False` for plain words: `const applications = ...` defines a variable,
+    not what the question asked about, so the hit isn't called a definition."""
     terms = tuple(t for t in terms if t.strip())
     if not terms:
         return GrepResult((), 0, False)
@@ -81,7 +88,10 @@ def grep_locate(
         if searched is None:  # git can't search here at all (not a timeout): read the files
             searched = _python_grep(repo_root, terms)
         matches, partial = searched
-        scored = [_score_file(rel, found, terms) for rel, found in matches.items()]
+        scored = [
+            _score_file(rel, found, terms, label=label_definitions)
+            for rel, found in matches.items()
+        ]
         if listing is not None:
             scored = _with_name_hits(listing.result(), scored, terms)
     scored.sort(key=lambda hit: (-hit.score, hit.file))
@@ -157,7 +167,7 @@ def _record(found: dict[str, _FileMatch], rel: str, number: int, line: str) -> N
         match.lines.append((number, line))
 
 
-def _score_file(rel: str, found: _FileMatch, terms: Sequence[str]) -> LocateHit:
+def _score_file(rel: str, found: _FileMatch, terms: Sequence[str], *, label: bool) -> LocateHit:
     best: tuple[float, int, list[str], bool] = (-1.0, 0, [], False)
     seen: set[str] = set()
     for number, line in found.lines:
@@ -171,8 +181,10 @@ def _score_file(rel: str, found: _FileMatch, terms: Sequence[str]) -> LocateHit:
     score = best[0] + 0.1 * min(found.count - 1, 10) + len(seen) / len(terms)
     if _LOW_VALUE.search(rel):
         score *= 0.5
-    why = f"grep: {', '.join(best[2])}" + (" (definition)" if best[3] else "")
-    return LocateHit(file=rel, line=best[1], why=why, source="grep", score=round(score, 3))
+    why = f"grep: {', '.join(best[2])}" + (" (definition)" if best[3] and label else "")
+    return LocateHit(
+        file=rel, line=best[1], why=why, source="grep", score=round(score, 3), defines=best[3]
+    )
 
 
 def _defines(line: str, term: str) -> bool:
@@ -213,6 +225,7 @@ def _with_name_hits(
                 why=f"{hit.why}; file name: {term}",
                 source="grep",
                 score=round(hit.score + bonus, 3),
+                defines=hit.defines,
             )
     return list(by_file.values())
 

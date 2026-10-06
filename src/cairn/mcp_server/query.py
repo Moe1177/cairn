@@ -8,6 +8,7 @@ have nothing, the repos the map relates to it. Says which locator answered and w
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 
 from cairn import providers
@@ -15,7 +16,7 @@ from cairn.discover.git import head_sha
 from cairn.locate.hybrid import hybrid_locate
 from cairn.locate.model import LocateHit, LocateResult
 from cairn.locate.workspace import fan_out, scoped_locate
-from cairn.model.graph import Repo, Workspace
+from cairn.model.graph import EdgeType, Repo, Workspace
 from cairn.providers.graph import Graph, load_graph_cached
 from cairn.providers.graphify import GraphifyProvider
 from cairn.providers.meta import read_deep_meta
@@ -42,7 +43,7 @@ def answer(
     notes = _incomplete(ws_root, [repo, *named, *related])
     if any(result.partial for result in results.values()):
         notes.append("(a search stopped early at its time or size limit: ask a narrower question)")
-    hits = fan_out(results, limit=HITS)
+    hits = collapse_copies(fan_out(results, limit=HITS * 2), workspace, asked=repo.id)[:HITS]
     searched = ", ".join(r.id for r in [repo, *named, *related])
     if not hits:
         if read_deep_meta(ws_root, repo.id) is None:
@@ -122,11 +123,50 @@ def _incomplete(ws_root: Path, repos: list[Repo]) -> list[str]:
     ]
 
 
+def collapse_copies(
+    hits: tuple[LocateHit, ...], workspace: Workspace, *, asked: str
+) -> tuple[LocateHit, ...]:
+    """One line for the same file and line in repos the map knows are copies of one app (a
+    shared first commit): the asked repo's, naming the others. The freed places go to the
+    next hits."""
+    family = _copy_families(workspace)
+    kept: dict[tuple[str, str, int | None], LocateHit] = {}  # keeps fan_out's order
+    for hit in hits:
+        repo = hit.repo or asked
+        key = (family.get(repo, repo), hit.file, hit.line)
+        first = kept.get(key)
+        if first is None:
+            kept[key] = hit
+        elif repo == asked:  # the asked repo speaks for its copies, in the same place
+            kept[key] = replace(hit, also=(*first.also, first.repo or asked))
+        else:
+            kept[key] = replace(first, also=(*first.also, repo))
+    return tuple(kept.values())
+
+
+def _copy_families(workspace: Workspace) -> dict[str, str]:
+    """repo id -> a family id shared by every repo linked to it as a copy (`mirrors`)."""
+    parent: dict[str, str] = {}
+
+    def root(repo: str) -> str:
+        while parent.get(repo, repo) != repo:
+            repo = parent[repo]
+        return repo
+
+    for edge in workspace.edges:
+        if edge.type is EdgeType.MIRRORS:
+            a, b = root(edge.source), root(edge.target)
+            if a != b:
+                parent[max(a, b)] = min(a, b)
+    return {repo: root(repo) for repo in {*parent, *parent.values()}}
+
+
 def _line(hit: LocateHit, asked: str) -> str:
     path = hit.file if hit.repo in (None, asked) else f"{hit.repo}/{hit.file}"
     where = f"{path}:{hit.line}" if hit.line else path
     symbol = f" {hit.symbol} (graph)" if hit.symbol else ""
-    return clean_inline(f"- {where}{symbol} — {hit.why}", 300)
+    copies = f" (same in {', '.join(hit.also)})" if hit.also else ""
+    return clean_inline(f"- {where}{symbol} — {hit.why}{copies}", 300)
 
 
 def _layout(repo: Repo) -> list[str]:
