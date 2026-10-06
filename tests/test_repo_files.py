@@ -129,9 +129,9 @@ def test_graphify_is_an_optional_extra_tested_in_ci() -> None:
     assert "--extra graphify" in ci
 
 
-def test_readme_explains_deep_queries() -> None:
+def test_readme_explains_query_and_deep_indexes() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "## Deep queries" in readme
+    assert "## Finding the place in a repo" in readme and "grep first" in readme
     for needle in ("cairn deep build", "cairnmap[graphify]", "--code-only", "cairn refresh --deep"):
         assert needle in readme, needle
 

@@ -2,21 +2,17 @@
 
 import functools
 import threading
-import time
 from collections.abc import Callable
 from pathlib import Path
 
-from cairn import providers
 from cairn.discover.git import head_sha
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
 from cairn.load import load_authored
+from cairn.mcp_server.query import answer as query_answer
 from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.paths import cards_dir
-from cairn.providers.graph import Hit, load_graph_cached, rank
-from cairn.providers.graphify import GraphifyProvider
-from cairn.providers.meta import read_deep_meta
 from cairn.render.card import relate_line
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
@@ -25,7 +21,6 @@ from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
 MAX_LINES = 30
-DEEP_HITS = 10
 
 
 def rescan(ws_root: Path) -> ScanResult:
@@ -219,82 +214,11 @@ def refresh_text(ws_root: Path) -> str:
 
 @locked
 def query_text(ws_root: Path, repo: str, question: str) -> str:
+    """Where in the code `question` is answered: grep first, the code graph as a backstop."""
     _, found, message = _find(ws_root, repo)
     if found is None:
         return message
-    found = _fresh(ws_root, found).repo(found.id) or found
-    deep = _deep_answer(ws_root, found, question)
-    if deep is not None:
-        return deep
-    return (
-        f"No deep index for {found.id} yet. Build one with `cairn deep build {found.id}` "
-        "(needs graphify: pip install 'cairnmap[graphify]'). "
-        f"Meanwhile, start from these folders:\n{_layout(found)}"
-    )
-
-
-def _layout(repo: Repo) -> str:
-    return (
-        "\n".join(
-            clean_inline(f"- {e.path}{f' → {e.purpose}' if e.purpose else ''}", 200)
-            for e in repo.layout
-        )
-        or "- (no layout recorded)"
-    )
-
-
-def _deep_answer(ws_root: Path, repo: Repo, question: str) -> str | None:
-    """Spec §23: answer from the repo's code graph, offline, without running graphify."""
-    meta = read_deep_meta(ws_root, repo.id)
-    if meta is None:
-        return None
-    provider = providers.default_provider()
-    graph = load_graph_cached(provider.graph_path(ws_root, repo.id))
-    if graph is None:
-        return (
-            f"{repo.id}'s deep index is incomplete (its graph is missing or unreadable). "
-            f"Rebuild it with `cairn deep build {repo.id}`. Meanwhile, start from these "
-            f"folders:\n{_layout(repo)}"
-        )
-    header = f"{repo.id} deep index ({meta.provider}, {meta.nodes} symbols)"
-    if _deep_stale(provider, ws_root, repo, meta.built_at):
-        header += f"; may be stale, rebuild with `cairn deep build {repo.id}`"
-    hits = rank(graph, question, DEEP_HITS)
-    if not hits:
-        busiest = ", ".join(meta.hubs) or "none recorded"
-        line = clean_inline(f"{header}: no symbol matches. Busiest symbols: {busiest}", 400)
-        return f"{line}\nFolders:\n{_layout(repo)}"
-    return "\n".join([clean_inline(f"{header}:", 200), *_cap([_hit_line(h) for h in hits])])
-
-
-# Agents ask in bursts. Checking a deep index for staleness runs `git status`, so a verdict is
-# reused for a few seconds per (repo, HEAD, build): an edit shows up on the next query after that.
-STALE_TTL = 5.0
-_STALE: dict[tuple[str, str | None, str | None], tuple[float, bool]] = {}
-_STALE_LOCK = threading.Lock()
-
-
-def _deep_stale(
-    provider: GraphifyProvider, ws_root: Path, repo: Repo, built_at: str | None
-) -> bool:
-    root = ws_root / repo.path
-    key = (str(root), head_sha(root), built_at)
-    now = time.monotonic()
-    with _STALE_LOCK:
-        seen = _STALE.get(key)
-        if seen is not None and now - seen[0] < STALE_TTL:
-            return seen[1]
-    stale = provider.status(ws_root, repo.id, root).stale
-    with _STALE_LOCK:
-        if len(_STALE) > 256:
-            _STALE.clear()
-        _STALE[key] = (now, stale)
-    return stale
-
-
-def _hit_line(hit: Hit) -> str:
-    where = ""
-    if hit.file:
-        where = f" — {hit.file}" + (f":{hit.line}" if hit.line else "")
-    near = f" (near: {', '.join(hit.neighbours)})" if hit.neighbours else ""
-    return clean_inline(f"- {hit.label}{where}{near}", 400)
+    workspace = _fresh(ws_root, found)
+    found = workspace.repo(found.id) or found
+    header, lines, notes = query_answer(ws_root, workspace, found, question)
+    return "\n".join([header, *_cap(lines), *notes])
