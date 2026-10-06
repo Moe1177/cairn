@@ -55,6 +55,7 @@ _SUFFIXES = frozenset(
 )
 _COMMENT_PREFIXES = ("//", "#", "*", "/*", "<!--", "--")
 _GATE = ("http", "host", "Host", "HOST")
+_GATE_RE = re.compile("|".join(re.escape(key) for key in _GATE))
 
 
 class HostsDetector:
@@ -64,7 +65,7 @@ class HostsDetector:
         consumes: list[Fact] = []
         for path in ctx.files(_wanted):
             text = ctx.read(path)
-            if text and any(key in text for key in _GATE):
+            if text and _GATE_RE.search(text):
                 consumes += _scan(ctx, path, text)
         return DetectorResult(consumes=merge_facts(consumes))
 
@@ -84,7 +85,7 @@ def _scan(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
                 in_docstring = not in_docstring
             if inside:
                 continue
-        if not any(key in line for key in _GATE) or line.lstrip().startswith(_COMMENT_PREFIXES):
+        if not _GATE_RE.search(line) or line.lstrip().startswith(_COMMENT_PREFIXES):
             continue
         code = _strip_comment(line, hash_comments=suffix in _HASH_SUFFIXES)
         hosts = [m.group(1) for m in _URL.finditer(code)]
