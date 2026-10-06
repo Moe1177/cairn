@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 6 * * *" # nightly: the full matrix catches drift (new Python, runner images)
   workflow_dispatch:
 
 permissions:
@@ -11,15 +13,30 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # A new push to a pull request supersedes the old run; main and nightly runs always finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
+    name: test (${{ matrix.os }}, ${{ matrix.python }})
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python: ["3.11", "3.12", "3.13", "3.14"]
+        # Pull requests run one job per OS and per Python version (4); main, nightly and
+        # manual runs run all 12. The excludes only match when pr is "yes".
+        pr: ["${{ github.event_name == 'pull_request' && 'yes' || 'no' }}"]
+        exclude:
+          - { pr: "yes", os: ubuntu-latest, python: "3.12" }
+          - { pr: "yes", os: ubuntu-latest, python: "3.13" }
+          - { pr: "yes", os: windows-latest, python: "3.11" }
+          - { pr: "yes", os: windows-latest, python: "3.13" }
+          - { pr: "yes", os: windows-latest, python: "3.14" }
+          - { pr: "yes", os: macos-latest, python: "3.11" }
+          - { pr: "yes", os: macos-latest, python: "3.12" }
+          - { pr: "yes", os: macos-latest, python: "3.14" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,14 +46,16 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
+          cache-dependency-glob: uv.lock
       - run: uv sync --locked --all-groups
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pyright
-      - run: uv run pytest --cov=cairn --cov-report=term-missing --cov-fail-under=80
+      - run: uv run pytest -n auto --cov=cairn --cov-report=term-missing --cov-fail-under=80
 
   lowest-dependencies:
     # The oldest versions pyproject.toml allows must still work.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,10 +69,11 @@ jobs:
       - name: Show the versions under test
         run: |
           uv run --no-sync python -c "import importlib.metadata as m; print({p: m.version(p) for p in ('typer', 'click', 'pydantic', 'pyyaml', 'pathspec', 'mcp')})"
-      - run: uv run --no-sync pytest -q
+      - run: uv run --no-sync pytest -q -n auto
 
   deep:
     # The graphify extra, end to end: a real code-only build, never touching the repo.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,16 +83,22 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
+          cache-dependency-glob: uv.lock
       - run: uv sync --locked --all-groups --extra graphify
       - run: uv run graphify --version
       - run: uv run pytest -q tests/test_graphify_provider.py tests/test_deep_graph.py tests/test_deep_surfaces.py -rs
 
   package:
     # What users install: build, check metadata, install the wheel into a clean venv, run it.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        pr: ["${{ github.event_name == 'pull_request' && 'yes' || 'no' }}"]
+        exclude:
+          - { pr: "yes", os: windows-latest }
+          - { pr: "yes", os: macos-latest }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

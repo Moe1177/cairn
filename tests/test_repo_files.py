@@ -20,9 +20,9 @@ def test_ci_is_hardened_and_tests_the_built_wheel() -> None:
     assert ci["permissions"] == {"contents": "read"}
     assert "concurrency" in ci
     assert "--locked" in text
-    matrix = ci["jobs"]["test"]["strategy"]["matrix"]
-    assert set(matrix["os"]) == {"ubuntu-latest", "windows-latest", "macos-latest"}
-    assert {"3.11", "3.12", "3.13", "3.14"} <= set(matrix["python"])
+    full = _combos(ci["jobs"]["test"], pr=False)
+    assert {os for os, _ in full} == {"ubuntu-latest", "windows-latest", "macos-latest"}
+    assert {py for _, py in full} >= {"3.11", "3.12", "3.13", "3.14"} and len(full) == 12
     assert "lowest-direct" in text
     assert re.search(r"pip install .*dist/.*\.whl", text) and "cairn --version" in text
     assert "persist-credentials: false" in text
@@ -134,3 +134,50 @@ def test_readme_explains_deep_queries() -> None:
     assert "## Deep queries" in readme
     for needle in ("cairn deep build", "cairnmap[graphify]", "--code-only", "cairn refresh --deep"):
         assert needle in readme, needle
+
+
+def _combos(job: dict, *, pr: bool) -> set[tuple[str, str]]:
+    """The (os, python) jobs a matrix runs on a pull request or on main."""
+    matrix = job["strategy"]["matrix"]
+    flag = "yes" if pr else "no"
+    excluded = [e for e in matrix.get("exclude", []) if e.get("pr", flag) == flag]
+    return {
+        (os_name, py)
+        for os_name in matrix["os"]
+        for py in matrix.get("python", ["-"])
+        if not any(e.get("os", os_name) == os_name and e.get("python", py) == py for e in excluded)
+    }
+
+
+def test_pull_requests_run_a_smaller_matrix_on_every_os() -> None:
+    text, ci = _workflow("ci.yml")
+    assert "github.event_name == 'pull_request' && 'yes' || 'no'" in text
+    small = _combos(ci["jobs"]["test"], pr=True)
+    assert len(small) == 4
+    assert {os for os, _ in small} == {"ubuntu-latest", "windows-latest", "macos-latest"}
+    assert {py for _, py in small} == {"3.11", "3.12", "3.13", "3.14"}
+    assert _combos(ci["jobs"]["package"], pr=True) == {("ubuntu-latest", "-")}
+    assert len(_combos(ci["jobs"]["package"], pr=False)) == 3
+
+
+def test_ci_runs_nightly_and_never_hangs() -> None:
+    _, ci = _workflow("ci.yml")
+    triggers = ci[True] if True in ci else ci["on"]  # YAML 1.1 reads `on:` as True
+    assert triggers["schedule"] and "workflow_dispatch" in triggers
+    for name, job in ci["jobs"].items():
+        assert 0 < job["timeout-minutes"] <= 30, name
+    assert (
+        "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in _workflow("ci.yml")[0]
+    )
+    assert "-n auto" in _workflow("ci.yml")[0]
+    assert "cache-dependency-glob" in _workflow("ci.yml")[0]
+
+
+def test_jobs_no_runner_picked_up_are_retried_once_and_safely() -> None:
+    text, rerun = _workflow("rerun.yml")
+    triggers = rerun[True] if True in rerun else rerun["on"]
+    assert triggers["workflow_run"]["workflows"] == ["ci"]
+    assert rerun["permissions"] == {"actions": "write"}
+    assert "actions/checkout" not in text and "run_attempt == 1" in text
+    assert "${{ github.event" not in rerun["jobs"]["rerun"]["steps"][0]["run"]
+    assert rerun["jobs"]["rerun"]["timeout-minutes"] <= 10
