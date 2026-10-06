@@ -198,7 +198,9 @@ def refresh(
     if deep and result.workspace.repos:
         _build_deep(
             root,
-            lambda: deep_ops.select_repos(root, result.workspace, [], every=False, stale=True),
+            lambda: deep_ops.select_repos(
+                root, result.workspace, [], every=False, stale=True, skip_failed=True
+            ),
             timeout=deep_ops.DEFAULT_TIMEOUT,
             quiet=quiet,
         )
