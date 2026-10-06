@@ -4,6 +4,8 @@ used cairn's MCP tools at all)."""
 import json
 from pathlib import Path
 
+import pytest
+
 from cairn.bench.grading import Grade
 from cairn.bench.report import load_records, render_markdown
 from cairn.bench.run import RunRecord
@@ -84,3 +86,36 @@ def test_the_report_says_how_often_cairn_s_tools_were_used() -> None:
     text = render_markdown(records)
     assert "## Tools used" in text
     assert "| E | 2 | 1 (50%) | 0.5 |" in text
+
+
+def test_a_stream_without_a_result_line_is_an_error() -> None:
+    """claude can die after its init line: that is not a clean run with an empty answer."""
+    init = json.dumps({"type": "system", "subtype": "init", "tools": ["Grep"]})
+    for raw in (init, init + "\n" + _tool_use("Grep")):
+        result = parse_result(raw)
+        assert result.is_error
+
+
+def test_odd_stream_lines_never_crash_the_run() -> None:
+    lines = [
+        json.dumps({"type": "assistant", "message": "not a dict"}),
+        json.dumps({"type": "assistant", "message": {"content": "text"}}),
+        json.dumps({"type": "result", "result": "a", "usage": "oops", "modelUsage": []}),
+    ]
+    result = parse_result("\n".join(lines))
+    assert result.result_text == "a" and result.input_tokens == 0
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Claude AI usage limit reached|1760000000",
+        "You've hit your session limit · resets 5pm",
+        "Rate limit exceeded",
+        "Weekly limit reached",
+    ],
+)
+def test_every_limit_wording_is_detected(text: str) -> None:
+    from cairn.bench.run import usage_limit
+
+    assert usage_limit(RunResult(result_text=text, is_error=True))
