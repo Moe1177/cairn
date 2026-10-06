@@ -12,6 +12,7 @@ from cairn.bench.conditions import prepare
 from cairn.bench.grading import Grade, grade
 from cairn.bench.report import render_markdown
 from cairn.bench.runner import Runner, RunResult
+from cairn.bench.sources import fetch_sources
 from cairn.bench.suite import load_suite
 from cairn.store.atomic import atomic_write_text
 
@@ -52,6 +53,7 @@ def run_bench(
         **(meta or {}),
     }
     out_dir.mkdir(parents=True, exist_ok=True)
+    source = fetch_sources(suite_dir, suite)  # an OSS suite's repos, fetched once
     log = out_dir / f"{now}.jsonl"
     records: list[RunRecord] = []
     for condition in conditions:
@@ -61,7 +63,7 @@ def run_bench(
                 with tempfile.TemporaryDirectory(
                     prefix="cairn-bench-", ignore_cleanup_errors=True
                 ) as tmp:
-                    prepared = prepare(condition, suite, suite_dir, Path(tmp))
+                    prepared = prepare(condition, suite, suite_dir, Path(tmp), source)
                     ws = prepared.ws
                     repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
                     result = runner.run(task.prompt, ws / task.repo, ws, prepared.mcp_config)
