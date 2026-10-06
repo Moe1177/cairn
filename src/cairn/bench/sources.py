@@ -104,7 +104,7 @@ def _fetch_one(source: Source, dest: Path) -> None:
     _remove_tree(dest / ".git")
     for path in sorted(dest.rglob("*"), reverse=True):
         # Anything that could become git metadata or a second repo when materialised goes.
-        if path.name in (".git", "dot-git", ".fixture-repo") and path.exists():
+        if path.name in (".git", "dot-git", ".fixture-repo", ".fixture-clone-of") and path.exists():
             if path.is_dir():
                 _remove_tree(path)
             else:

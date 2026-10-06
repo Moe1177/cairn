@@ -7,6 +7,24 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0]
+
+### Added
+- **Copies of one app.** Repos that share their first commit (a registration site cloned for each
+  event, say) are linked as one family (`mirrors`): cards say "copy of the same app: change one,
+  check the other" and INDEX lines list the copies. The same package name only suggests a copy
+  (unconfirmed). Copies get no shared-database, shared-env or docs-mention link just for sharing
+  a schema or copied docs: per-event copies often use a database each.
+- **MongoDB.** Mongoose models (collection named the way Mongoose names it, or the explicit
+  third argument) and driver `.collection("x")` calls are database tables, so apps on the same
+  collections link. Only files that import mongoose/mongodb count (Firestore looks alike).
+- **Git trust.** When git refuses a repo owned by another user ("dubious ownership"), the scan
+  says so with the `safe.directory` command instead of quietly losing its HEAD, remote and
+  cache; `cairn doctor` lists every such repo.
+
+### Changed
+- The scan cache format is version 5, so the first scan after upgrading re-reads every repo.
+
 ## [0.5.0]
 
 ### Added

@@ -35,8 +35,14 @@ def _facts(ws: Path) -> dict:
             }
             for r in workspace.repos
         },
-        "edges": [e.model_dump(mode="json") for e in workspace.edges],
+        "edges": [_stable_edge(e.model_dump(mode="json")) for e in workspace.edges],
     }
+
+
+def _stable_edge(edge: dict) -> dict:
+    """A family link's `root:<sha>` signal changes with every fixture checkout: mask the sha."""
+    signals = [("root:<sha>" if s.startswith("root:") else s) for s in edge["signals"]]
+    return {**edge, "signals": signals}
 
 
 def _stable(contracts: dict) -> dict:

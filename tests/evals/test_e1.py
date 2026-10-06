@@ -27,6 +27,7 @@ REMOTES = {
     "lookalikes": {},
     "servicemesh": {},
     "microshop": {},
+    "eventsuite": {},
 }
 SECRETS = ("sk_live_FAKE", "sk_test_FAKEreadme", "SuperSecretPw123", "ghp_FAKEfake", REMOTE_TOKEN)
 
@@ -232,5 +233,21 @@ def test_real_world_service_links_are_exact(scanned) -> None:
     }
     expected = {
         (e["from"], e["to"], e["type"], e["confidence"]) for e in _expect("microshop")["edges"]
+    }
+    assert predicted == expected, (sorted(predicted - expected), sorted(expected - predicted))
+
+
+def test_families_and_mongo_links_are_exact(scanned) -> None:
+    """A registration site and its per-event clone are one family (and share no database link
+    just for sharing a schema); an admin panel and a check-in app share MongoDB collections; a
+    name-only copy is a suggestion; Firestore's look-alike collection calls link nothing."""
+    _, result = scanned("eventsuite")
+    predicted = {
+        (*sorted((e.source, e.target)), e.type.value, e.confidence.value)
+        for e in result.workspace.edges
+    }
+    expected = {
+        (*sorted((e["from"], e["to"])), e["type"], e["confidence"])
+        for e in _expect("eventsuite")["edges"]
     }
     assert predicted == expected, (sorted(predicted - expected), sorted(expected - predicted))

@@ -85,9 +85,10 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
     by_pair: dict[frozenset[str], list[Edge]] = {}
     for edge in items:
         by_pair.setdefault(frozenset((edge.source, edge.target)), []).append(edge)
-    # Copies of one app (a shared first commit) define the same tables and env vars because
-    # they're copies, and often run against different databases (one per event): that
-    # overlap says nothing about shared data, so it makes no link.
+    # Copies of one app (a shared first commit) define the same tables and env vars, and their
+    # copied docs name the original, because they're copies; they often run against a
+    # different database per event. That overlap says nothing about shared data or a
+    # dependency, so it makes no link.
     copies = {
         pair
         for pair, pair_edges in by_pair.items()
@@ -99,7 +100,7 @@ def corroborate(edges: Iterable[Edge]) -> tuple[Edge, ...]:
         e
         for e in items
         if not (
-            e.type in (EdgeType.SHARES_DB, EdgeType.SHARES_ENV)
+            e.type in (EdgeType.SHARES_DB, EdgeType.SHARES_ENV, EdgeType.MENTIONS)
             and frozenset((e.source, e.target)) in copies
         )
     ]

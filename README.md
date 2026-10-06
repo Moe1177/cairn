@@ -158,7 +158,8 @@ and you can commit them so your team shares them.
 | Deploy repos | compose, Kubernetes and Helm files that run your repos' images (`image: acme/catalogue:1.2`) |
 | Package dependencies | npm (`workspace:*`, scoped packages), PyPI, Go modules, Cargo |
 | Packages inside monorepos | npm/yarn/pnpm, Cargo, `go.work` and uv workspaces, listed on the card and resolvable by name |
-| Shared database tables | SQL migrations and queries, Prisma, Drizzle, Supabase |
+| Shared database tables | SQL migrations and queries, Prisma, Drizzle, Supabase, MongoDB (Mongoose models, `db.collection("x")`) |
+| Copies of one app | Repos that share their first commit (an app cloned per event or per client): "change one, check the other". The same package name only suggests it |
 | Path references | `../trips-svc` in docker-compose, tsconfig, and other config files |
 | Documentation | READMEs and docs that mention a sibling repo |
 | Shared env vars | Specific names read by both sides. These only back up another link; they never make one on their own |
@@ -171,7 +172,9 @@ Look-alikes are deliberately ignored:
 - generic env vars such as `PORT`;
 - `localhost`, public domains, and URLs in comments;
 - public images (`mongo:3.4`) and look-alike names (`catalogue-db` is not `catalogue`);
-- a queue that a repo declares but never consumes.
+- a queue that a repo declares but never consumes;
+- the same schema in two copies of one app (copies often use a database each, so no link);
+- Firestore's `db.collection(...)`, which looks like MongoDB's.
 
 Evaluation workspaces in the test suite keep every one of these at precision 1.0.
 
