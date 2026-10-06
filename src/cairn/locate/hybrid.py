@@ -15,7 +15,7 @@ from pathlib import Path
 from cairn.discover.files import read_text
 from cairn.locate.grep import grep_locate
 from cairn.locate.model import GrepResult, LocateHit, LocateResult
-from cairn.locate.terms import concept_terms, is_chain_question, literal_terms
+from cairn.locate.terms import concept_terms, is_chain_question, is_weak, literal_terms
 from cairn.providers.graph import Graph, rank
 
 
@@ -50,11 +50,12 @@ def hybrid_locate(
 def _grep(root: Path, question: str, limit: int) -> tuple[GrepResult, str]:
     """The question's literal terms; failing those (none, or none in the code), its words."""
     literal = literal_terms(question)
-    if literal:
+    if any(not is_weak(term) for term in literal):
         found = grep_locate(root, literal, limit=limit)
         if found.hits:
             return found, f"literal: {', '.join(literal)}"
-    words = concept_terms(question)
+    # Only weak literals ("real-time"), none found, or none at all: the question's words too.
+    words = tuple(dict.fromkeys([*(t for t in literal if is_weak(t)), *concept_terms(question)]))
     if not words:
         return GrepResult((), 0, False), "nothing in the question to search for"
     return grep_locate(root, words, limit=limit), f"words: {', '.join(words)}"

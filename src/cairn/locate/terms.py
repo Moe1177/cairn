@@ -11,6 +11,7 @@ _FILE = re.compile(r"[\w-]+\.(?:[a-z]{1,5})")
 _CAMEL = re.compile(r"[a-z0-9][A-Z]|[A-Z]{2}[a-z]")  # getOrder, OrderService, HTTPServer
 _PASCAL_HUMPS = re.compile(r"[A-Z][a-z0-9]+[A-Z]")  # OrderService (two humps at least)
 _KEBAB = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
+_PLURAL_CAPS = re.compile(r"[A-Z]{2,}s")
 _SCREAMING = re.compile(r"[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+")
 _PARAM = re.compile(r"[{:<*]")
 _CONTENT = re.compile(r"[a-z0-9]+")
@@ -187,6 +188,15 @@ def concept_terms(question: str) -> tuple[str, ...]:
 def is_chain_question(question: str) -> bool:
     """Callers, users, impact: answers that are a chain of symbols, not one place."""
     return bool(_CHAIN.search(question[:4000]))
+
+
+def is_weak(term: str) -> bool:
+    """A literal that is often just English: hyphenated words without a digit ("real-time",
+    "up-to-date") and capital plurals ("APIs", "IDs"). Searched alongside the question's other
+    words, never instead of them."""
+    if _KEBAB.fullmatch(term) and not any(ch.isdigit() for ch in term):
+        return True
+    return bool(_PLURAL_CAPS.fullmatch(term))
 
 
 def _is_literal(word: str) -> bool:
