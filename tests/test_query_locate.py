@@ -83,10 +83,19 @@ def test_related_repos_are_searched_when_the_repo_has_nothing(ws: Path) -> None:
     assert "billing/refunds.py:1" in answer and "related" in answer
 
 
-def test_related_repos_are_not_searched_when_the_repo_answers(ws: Path) -> None:
+def test_related_repos_are_not_searched_when_a_literal_answers(ws: Path) -> None:
     _relate(ws)
-    answer = tools.query_text(ws, "app", "where is login defined?")
-    assert "billing" not in answer
+    answer = tools.query_text(ws, "app", 'where is "def login" written?')
+    assert "auth.py:1" in answer and "billing" not in answer
+
+
+def test_related_repos_are_searched_when_the_repo_has_only_loose_matches(ws: Path) -> None:
+    """Cross-repo questions rarely name the other repo, and the asked repo usually has a few
+    word matches: those must not stop the search at the asked repo."""
+    _relate(ws)
+    (ws / "app" / "notes.py").write_text("# the payment page link\n", encoding="utf-8")
+    answer = tools.query_text(ws, "app", "where are refunds issued for a payment?")
+    assert "billing/refunds.py:1" in answer and "related" in answer
 
 
 def test_the_graph_answers_when_grep_cannot_and_says_when_stale(ws: Path) -> None:

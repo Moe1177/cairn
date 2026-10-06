@@ -5,7 +5,6 @@ that order). Searches the repo asked about and any other repo the question names
 have nothing, the repos the map relates to it. Says which locator answered and why.
 """
 
-import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -15,16 +14,14 @@ from cairn import providers
 from cairn.discover.git import head_sha
 from cairn.locate.hybrid import hybrid_locate
 from cairn.locate.model import LocateHit, LocateResult
-from cairn.locate.workspace import fan_out
-from cairn.model.graph import Confidence, Repo, Workspace
+from cairn.locate.workspace import fan_out, scoped_locate
+from cairn.model.graph import Repo, Workspace
 from cairn.providers.graph import Graph, load_graph_cached
 from cairn.providers.graphify import GraphifyProvider
 from cairn.providers.meta import read_deep_meta
 from cairn.security.text import clean_inline
 
 HITS = 10
-NAMED_MAX = 4
-RELATED_MAX = 5
 _WORKERS = 8
 # Agents ask in bursts. Checking a deep index for staleness runs `git status`, so a verdict is
 # reused for a few seconds per (repo, HEAD, build): an edit shows up on the next query after that.
@@ -37,12 +34,11 @@ def answer(
     ws_root: Path, workspace: Workspace, repo: Repo, question: str
 ) -> tuple[str, list[str], list[str]]:
     """(header, hit lines, notes) for `question` asked about `repo`."""
-    named = _named(workspace, repo, question)
-    results = _locate(ws_root, [repo, *named], question)
-    related: list[Repo] = []
-    if not any(result.hits for result in results.values()):
-        related = _related(workspace, repo, exclude={repo.id, *(r.id for r in named)})
-        results.update(_locate(ws_root, related, question))
+    results, named_ids, related_ids = scoped_locate(
+        workspace, repo.id, question, lambda ids: _locate(ws_root, _repos(workspace, ids), question)
+    )
+    named = _repos(workspace, named_ids)
+    related = _repos(workspace, related_ids)
     notes = _incomplete(ws_root, [repo, *named, *related])
     if any(result.partial for result in results.values()):
         notes.append("(a search stopped early at its time or size limit: ask a narrower question)")
@@ -60,11 +56,10 @@ def answer(
     if "may be stale" in top.reason:
         header += f", rebuild with `cairn deep build {top_repo}`"
     header += ")"
-    if related:
-        header += f"; nothing in {repo.id}, so searched related repos: "
-        header += ", ".join(r.id for r in related)
-    elif named:
+    if named:
         header += f"; also searched {', '.join(r.id for r in named)}"
+    if related:
+        header += f"; also searched related repos: {', '.join(r.id for r in related)}"
     lines = [_line(hit, repo.id) for hit in hits]
     if any(result.truncated for result in results.values()):
         notes.append("(more files matched: ask a narrower question for the rest)")
@@ -113,30 +108,8 @@ def _deep_stale(
     return stale
 
 
-def _named(workspace: Workspace, repo: Repo, question: str) -> list[Repo]:
-    """Other repos the question names by id or alias, as whole words."""
-    text = question[:4000].lower()
-    found = []
-    for other in workspace.repos:
-        if other.id == repo.id:
-            continue
-        names = (other.id.lower(), *(a.lower() for a in other.aliases))
-        if any(re.search(rf"(?<![\w-]){re.escape(n)}(?![\w-])", text) for n in names if n):
-            found.append(other)
-    return found[:NAMED_MAX]
-
-
-def _related(workspace: Workspace, repo: Repo, exclude: set[str]) -> list[Repo]:
-    edges = sorted(
-        (e for e in workspace.edges_for(repo.id) if e.confidence is not Confidence.AMBIGUOUS),
-        key=lambda e: (-e.confidence.rank, -e.score, e.key),
-    )
-    found: list[Repo] = []
-    for edge in edges:
-        other = workspace.repo(edge.target if edge.source == repo.id else edge.source)
-        if other is not None and other.id not in exclude and other not in found:
-            found.append(other)
-    return found[:RELATED_MAX]
+def _repos(workspace: Workspace, ids: list[str]) -> list[Repo]:
+    return [r for r in (workspace.repo(i) for i in ids) if r is not None]
 
 
 def _incomplete(ws_root: Path, repos: list[Repo]) -> list[str]:

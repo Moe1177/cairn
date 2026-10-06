@@ -58,6 +58,11 @@ def _suite(tmp_path: Path, *, graphs: bool = True) -> Path:
         for rel, text in files.items():
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
             (root / rel).write_text(text, encoding="utf-8")
+    relations = suite / "fixtures" / "dot-cairn" / "relations.yaml"
+    relations.parent.mkdir(parents=True)
+    relations.write_text(
+        "edges:\n  - {from: shop, to: mail, type: calls_http, note: receipts}\n", encoding="utf-8"
+    )
     (suite / "suite.yaml").write_text(
         "name: tiny\nworkspace: fixtures\nrelated_repos_doc: r.md\ntasks: []\n", encoding="utf-8"
     )
@@ -106,7 +111,7 @@ def test_each_locator_is_scored_per_query(tmp_path: Path) -> None:
     rank = {(o.query_id, o.mode): o.rank for o in outcomes}
     assert rank[("q-lit", "grep")] == 1 and rank[("q-lit", "hybrid")] == 1
     assert rank[("q-voc", "graph")] == 1 and rank[("q-voc", "hybrid")] == 1
-    assert rank[("q-x", "grep")] == 1  # cross-repo questions search the whole workspace
+    assert rank[("q-x", "grep")] == 1  # not in shop: its related repo, mail, is searched too
     assert rank[("q-miss", "hybrid")] is None
     assert all(o.tokens >= 0 and o.ms >= 0 for o in outcomes)
     route = {(o.query_id, o.mode): o.route for o in outcomes}
@@ -173,3 +178,13 @@ def test_fan_out_interleaves_repos_by_rank() -> None:
 def test_queries_name_workspace_paths() -> None:
     with pytest.raises(ValueError):
         LocateQuery(id="a", category="literal", repo="shop", question="q", answers=())
+
+
+def test_scoring_searches_the_way_query_does(tmp_path: Path) -> None:
+    """No category gets a wider search than query would give it: a cross-repo answer in a repo
+    the map doesn't relate is not found."""
+    suite = _suite(tmp_path)
+    (suite / "fixtures" / "dot-cairn" / "relations.yaml").unlink()
+    ws, graphs = prepare_locate_workspace(suite, tmp_path / "cache", provider=None)
+    outcomes = evaluate(ws, graphs, load_locate_set(suite), ("grep",))
+    assert {(o.query_id, o.rank) for o in outcomes if o.query_id == "q-x"} == {("q-x", None)}
