@@ -5,19 +5,30 @@ import subprocess
 from collections.abc import Mapping
 from pathlib import Path
 
-_GIT = ["git", "-c", "user.name=cairn-bench", "-c", "user.email=bench@example.com"]
-_GIT += ["-c", "commit.gpgsign=false"]
+from cairn.discover.git import GIT
+
+# cairn's hardened git (no hooks, no fsmonitor), plus a fixed identity for fixture commits.
+_GIT = [*GIT, "-c", "user.name=cairn-bench", "-c", "user.email=bench@example.com"]
+_GIT += ["-c", "commit.gpgsign=false", "-c", "core.symlinks=false"]
 
 
 def _git(cwd: Path, *args: str) -> None:
     subprocess.run([*_GIT, *args], cwd=cwd, check=True, capture_output=True)
 
 
-def materialize(source: Path, dest: Path, *, remotes: Mapping[str, str] | None = None) -> Path:
-    """Copy `source` to `dest`, turn `dot-x` names into `.x`, and commit each `.fixture-repo` folder."""
+def materialize(
+    source: Path,
+    dest: Path,
+    *,
+    remotes: Mapping[str, str] | None = None,
+    rename_dots: bool = True,
+) -> Path:
+    """Copy `source` to `dest`, turn `dot-x` names into `.x` (checked-in fixtures only: a
+    fetched upstream tree is copied as is), and commit each `.fixture-repo` folder."""
     shutil.copytree(source, dest)
-    for path in sorted(dest.rglob("dot-*"), key=lambda p: len(p.parts), reverse=True):
-        path.rename(path.with_name("." + path.name[len("dot-") :]))
+    if rename_dots:
+        for path in sorted(dest.rglob("dot-*"), key=lambda p: len(p.parts), reverse=True):
+            path.rename(path.with_name("." + path.name[len("dot-") :]))
     for marker in sorted(dest.rglob(".fixture-repo")):
         repo = marker.parent
         marker.unlink()

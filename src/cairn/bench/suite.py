@@ -1,10 +1,11 @@
 """Benchmark suite definitions (bench/suites/<name>/suite.yaml)."""
 
+import re
 from pathlib import Path
 from typing import Annotated, Literal
 
 import yaml
-from pydantic import StringConstraints, ValidationError
+from pydantic import StringConstraints, ValidationError, model_validator
 
 from cairn.errors import CairnInputError
 from cairn.model.graph import Frozen
@@ -33,6 +34,19 @@ class Suite(Frozen):
     related_repos_doc: str
     tasks: tuple[Task, ...]
     sources: tuple[Source, ...] = ()
+
+    @model_validator(mode="after")
+    def _portable_unique_sources(self) -> "Suite":
+        names = [s.name.lower() for s in self.sources]
+        if len(set(names)) != len(names):
+            raise ValueError("source names must be unique (case-insensitively)")
+        reserved = [n for n in names if _WINDOWS_RESERVED.fullmatch(n.split(".", 1)[0])]
+        if reserved:
+            raise ValueError(f"source names reserved on Windows: {', '.join(reserved)}")
+        return self
+
+
+_WINDOWS_RESERVED = re.compile(r"con|prn|aux|nul|com[0-9]|lpt[0-9]")
 
 
 def load_suite(suite_dir: Path) -> Suite:

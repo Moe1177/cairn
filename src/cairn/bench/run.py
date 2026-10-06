@@ -63,10 +63,21 @@ def run_bench(
     source = fetch_sources(suite_dir, suite)  # an OSS suite's repos, fetched once
     log = resume or out_dir / f"{now}.jsonl"
     stem = log.with_suffix("")
+    settings = {
+        "suite": suite.name,
+        "model": header.get("model"),
+        "runs": runs,
+        "conditions": list(conditions),
+    }
+    if resume is not None:
+        _check_same_settings(resume, settings)
+    # Every invocation leaves a header line, so a log says which settings and tools made it.
+    with log.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"_header": header}) + "\n")
     done = {
         (r.condition, r.task_id, r.run): r
         for r in (load_records(resume) if resume else [])
-        if not r.result.is_error
+        if not usage_limit(r.result)  # a genuine agent error is a result: it stands
     }
     records: list[RunRecord] = []
     for condition in conditions:
@@ -83,7 +94,7 @@ def run_bench(
                     ws = prepared.ws
                     repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
                     result = runner.run(task.prompt, ws / task.repo, ws, prepared.mcp_config)
-                    if _usage_limit(result):
+                    if usage_limit(result):
                         raise BenchStopped(
                             f"stopped: {result.result_text.strip()[:200]}. Measured runs are in "
                             f"{log}; continue later with `--resume {log}`."
@@ -100,6 +111,20 @@ def run_bench(
     return out
 
 
+def _check_same_settings(log: Path, settings: Mapping[str, object]) -> None:
+    """Refuse to resume a log made with another model, suite, run count or conditions."""
+    for line in log.read_text(encoding="utf-8").splitlines():
+        if not line.startswith('{"_header"'):
+            continue
+        earlier = json.loads(line)["_header"]
+        for key, value in settings.items():
+            if key in earlier and earlier[key] != value:
+                raise CairnError(
+                    f"{log} was made with {key} {earlier[key]!r}, not {value!r}: resume it with "
+                    f"the same --model, --runs and --conditions, or start a new run."
+                )
+
+
 class BenchStopped(CairnError):
     """A usage or rate limit: going on would only record failures."""
 
@@ -107,5 +132,6 @@ class BenchStopped(CairnError):
 _LIMIT = re.compile(r"(?i)(?:session|usage|rate|weekly) limit|hit your \w+ limit")
 
 
-def _usage_limit(result: RunResult) -> bool:
+def usage_limit(result: RunResult) -> bool:
+    """An attempt stopped by a plan or rate limit (not a result)."""
     return result.is_error and _LIMIT.search(result.result_text) is not None

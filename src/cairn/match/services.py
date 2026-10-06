@@ -129,17 +129,30 @@ def _resolve(
 
 
 def deploy_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
-    """Spec §24: a repo whose deploy files run another repo's image (`org/<repo>:tag`)."""
+    """Spec §24: a repo whose deploy files run another repo's image (`org/<repo>:tag`).
+
+    An image counts when its name is exactly one sibling repo and its org runs at least one
+    other sibling in the same deployer: `weaveworksdemos/catalogue` beside
+    `weaveworksdemos/carts` links, a lone `grafana/grafana` doesn't.
+    """
     found: dict[tuple[str, str], _Link] = {}
     for deployer in repos:
+        by_org: dict[str, dict[str, list]] = {}  # org -> target repo id -> facts
         for fact in deployer.contracts.consumes:
-            if fact.kind is not FactKind.DEPLOYS_IMAGE:
+            if fact.kind is not FactKind.DEPLOYS_IMAGE or "/" not in fact.value:
                 continue
-            named = [r for r in repos if fact.value in {n.lower() for n in (r.id, *r.aliases)}]
+            org, name = fact.value.rsplit("/", 1)
+            named = [r for r in repos if name in {n.lower() for n in (r.id, *r.aliases)}]
             if len(named) != 1 or named[0].id == deployer.id:
                 continue
-            link = found.setdefault((deployer.id, named[0].id), _Link(EdgeType.DEPLOYS))
-            link.add(Confidence.INFERRED, f"image:{fact.value}", fact.evidence)
+            by_org.setdefault(org, {}).setdefault(named[0].id, []).append(fact)
+        for targets in by_org.values():
+            if len(targets) < 2:
+                continue
+            for target, facts in targets.items():
+                link = found.setdefault((deployer.id, target), _Link(EdgeType.DEPLOYS))
+                for fact in facts:
+                    link.add(Confidence.INFERRED, f"image:{fact.value}", fact.evidence)
     return [link.edge(source, target) for (source, target), link in sorted(found.items())]
 
 

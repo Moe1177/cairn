@@ -13,10 +13,12 @@ import subprocess
 from pathlib import Path
 
 from cairn.bench.suite import Source, Suite
+from cairn.discover.git import GIT
 from cairn.errors import CairnError
 
 SOURCES_DIR = ".sources"
 _COMPLETE = ".complete"
+_FORMAT = "fetch-format 2"  # bump when what a fetch keeps changes, so old caches refetch
 _BINARY_SUFFIXES = frozenset(
     {
         ".png",
@@ -43,7 +45,7 @@ _BINARY_SUFFIXES = frozenset(
         ".psd",
     }
 )
-_GIT = ("git", "-c", "core.symlinks=false", "-c", "advice.detachedHead=false")
+_GIT = (*GIT, "-c", "core.symlinks=false", "-c", "advice.detachedHead=false")
 _TIMEOUT = 600
 
 
@@ -52,20 +54,25 @@ def fetch_sources(suite_dir: Path, suite: Suite) -> Path:
     if not suite.sources:
         return suite_dir / suite.workspace
     stamp = hashlib.sha1(
-        "\n".join(f"{s.name} {s.url} {s.sha}" for s in suite.sources).encode()
+        "\n".join([_FORMAT, *(f"{s.name} {s.url} {s.sha}" for s in suite.sources)]).encode()
     ).hexdigest()[:12]
     root = suite_dir / SOURCES_DIR
     target = root / stamp
     if (target / _COMPLETE).is_file():
         return target
     staging = root / f".tmp-{stamp}"
-    shutil.rmtree(staging, ignore_errors=True)
-    staging.mkdir(parents=True)
-    for source in suite.sources:
-        _fetch_one(source, staging / source.name)
-    (staging / _COMPLETE).write_text("", encoding="utf-8")
-    shutil.rmtree(target, ignore_errors=True)
-    staging.rename(target)
+    try:
+        if staging.exists():
+            _remove_tree(staging)  # a failed earlier fetch may have left read-only packs
+        staging.mkdir(parents=True)
+        for source in suite.sources:
+            _fetch_one(source, staging / source.name)
+        (staging / _COMPLETE).write_text("", encoding="utf-8")
+        if target.exists():
+            _remove_tree(target)
+        staging.rename(target)
+    except OSError as exc:
+        raise CairnError(f"couldn't prepare the sources of {suite.name}: {exc}") from exc
     return target
 
 
@@ -96,13 +103,21 @@ def _fetch_one(source: Source, dest: Path) -> None:
             raise CairnError(f"couldn't fetch {source.name} at {source.sha[:12]}: {detail}")
     _remove_tree(dest / ".git")
     for path in sorted(dest.rglob("*"), reverse=True):
-        if path.is_file() and path.suffix.lower() in _BINARY_SUFFIXES:
+        # Anything that could become git metadata or a second repo when materialised goes.
+        if path.name in (".git", "dot-git", ".fixture-repo") and path.exists():
+            if path.is_dir():
+                _remove_tree(path)
+            else:
+                path.unlink()
+        elif path.is_file() and path.suffix.lower() in _BINARY_SUFFIXES:
             path.unlink()
     (dest / ".fixture-repo").write_text("", encoding="utf-8")
 
 
 def _remove_tree(path: Path) -> None:
     """Git marks pack files read-only, which Windows won't delete: clear that first."""
+    with contextlib.suppress(OSError):
+        path.chmod(0o700)
     for item in path.rglob("*"):
         with contextlib.suppress(OSError):
             item.chmod(0o700)

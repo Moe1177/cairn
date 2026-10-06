@@ -45,7 +45,8 @@ def test_a_usage_limit_stops_the_run_and_keeps_the_good_ones(tmp_path: Path) -> 
         _run(tmp_path, reply)
     assert reply.calls == 3  # stopped at the first limit, not after every remaining cell
     log = tmp_path / "out" / "20261006-010000.jsonl"
-    lines = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    rows = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    lines = [r for r in rows if "_header" not in r]  # one header line per invocation
     assert len(lines) == 2 and not any(r["result"]["is_error"] for r in lines)
 
 

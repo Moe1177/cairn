@@ -34,7 +34,9 @@ def prepare(
 ) -> Prepared:
     """`source`: the fixture tree (fetched once per benchmark for an OSS suite)."""
     tree = source or fetch_sources(suite_dir, suite)
-    ws = materialize(tree, run_dir / "ws", remotes=remotes(suite))
+    # A fetched upstream tree keeps its own names: renaming dot-git to .git would let it plant
+    # hooks or config that the fixture commit would run.
+    ws = materialize(tree, run_dir / "ws", remotes=remotes(suite), rename_dots=not suite.sources)
     if condition in ("A", "B"):
         shutil.rmtree(cairn_dir(ws), ignore_errors=True)  # no authored summaries either
         if condition == "B":

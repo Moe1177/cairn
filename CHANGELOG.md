@@ -30,11 +30,16 @@ All notable changes to cairn are documented here. The format follows
 - The scan cache format is version 4, so the first scan after upgrading re-reads every repo.
 
 ### Benchmarks
-- 840 runs on four workspaces (two real, one held out), Haiku 4.5 and Sonnet 5.5, with
-  intervals and paired tests: cairn cut Haiku's cost per task by 25% (p = 0.04) and Sonnet's by
-  24% on Sock Shop (p = 0.02); success rates did not change significantly. The first run's claim
-  that Haiku reaches 100% with the INDEX did not replicate and is corrected in the README. See
+- 840 runs on four workspaces (Sock Shop as the development set, Supabase JS held out), Haiku 4.5
+  and Sonnet 5.5, with intervals and Holm-adjusted paired tests. Significant: Haiku used 19% fewer
+  fresh tokens with the INDEX, and Sonnet's INDEX runs cost 12% less than with a hand-written
+  doc. Other savings (up to -26% on Sock Shop) aren't significant after adjustment, success rates
+  didn't change, and some workspaces regressed. The first run's claim that Haiku reaches 100%
+  with the INDEX did not replicate and is corrected. See
   `bench/published/2026-10-06-real-world.md`.
+- Benchmark logs carry a settings header per invocation; `--resume` refuses another model, run
+  count or conditions, and re-runs only usage-limit failures. Fetched suites are copied as is
+  (no `dot-` renames, nested repos and git metadata removed) under hardened git.
 
 ## [0.4.0]
 

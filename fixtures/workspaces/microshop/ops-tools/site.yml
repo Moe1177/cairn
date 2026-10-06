@@ -1,0 +1,2 @@
+- hosts: "payments"
+  roles: [nginx]

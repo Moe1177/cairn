@@ -745,7 +745,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "kafka"
+      "value": "bitnami/kafka"
      },
      {
       "evidence": [

@@ -15,39 +15,58 @@ Conditions: **A** no map, **B** a hand-written related-repos doc (the strong hum
 
 Runs: headless Claude Code (`claude -p`), read-only tools, a fresh isolated workspace per run, no
 user memory or rules loaded.
-- `--model haiku`: Claude Code 2.1.290, cairn 0.5.0 code (its version string still read 0.4.0), models seen: claude-haiku-4-5-20251001
-- `--model sonnet`: Claude Code 2.1.290, cairn 0.5.0 code (its version string still read 0.4.0), models seen: claude-sonnet-5-5
+- `--model haiku`: Claude Code 2.1.290 at the last invocation (these logs predate per-invocation
+  headers, so earlier invocations' versions weren't recorded), cairn 0.5.0 code, models seen: claude-haiku-4-5-20251001
+- `--model sonnet`: Claude Code 2.1.290 at the last invocation (same caveat), cairn 0.5.0 code, models seen: claude-sonnet-5-5
 
 Statistics: 95% bootstrap intervals over tasks (each task's runs averaged first); paired
-two-sided Wilcoxon signed-rank tests over tasks (exact for n <= 25). Cost is Claude Code's
+two-sided Wilcoxon signed-rank tests over tasks (exact for n <= 25). Each paired table reports
+raw p and Holm-adjusted p (across its comparisons, per metric); a claim below is called
+significant only when it survives that adjustment. Tied per-task differences (k/3 fractions)
+are rounded before ranking. Cost is Claude Code's
 reported API-equivalent cost; these runs were made on a subscription.
 
 ## Findings
 
-1. **cairn cuts cost and tokens; the clearest effects are on the weaker model.** Haiku over all
-   28 tasks: the INDEX alone (C) cost **25% less per task** than no map ($0.047 vs $0.062,
-   p = 0.037) and used **19% fewer fresh tokens** (p = 0.003); INDEX + cards (D) used 15% fewer
-   tokens (p = 0.039).
-2. **On the real microservices workspace (Sock Shop), Sonnet saved 24-26% per task with every
-   cairn condition**, all significant (p = 0.008-0.023 over 8 tasks). Haiku saved up to 44% there
-   (D), but with 8 tasks that isn't significant.
-3. **Against the hand-written doc (B), cairn is cheaper for Sonnet**: C, D and E cost 10-12% less
-   per task than B (p = 0.005-0.031). For Haiku, cairn and the doc save similar amounts.
-4. **Success rates barely move.** Sonnet is at 99-100% in every condition (a ceiling). Haiku goes
-   from 86% (A) to 93% with the MCP server (E), but that isn't significant (p = 0.15).
-5. **On the held-out suite (supabase-js) the effects are small and not significant**: Sonnet
-   -7% to -10% cost with C/D/E; Haiku +17 pp success with E but -6 pp with D. Six tasks is too
-   few to say more. The hand-written doc made Sonnet *more* expensive there (+15%, p = 0.031).
-6. **Correction to the first (2026-10-05) results.** That run reported Haiku reaching 100% with
-   the INDEX. With 840 runs it doesn't replicate: Haiku with C scores 92% on fleetline and 89% on
-   shopverse, the same as with no map. The earlier claim came from too few runs.
+**Significant after Holm adjustment (two results):**
+1. **Haiku used 19% fewer fresh tokens with cairn's INDEX (C) than with no map**, over all 28
+   tasks (-2,358 per task; p = 0.003, adjusted 0.022).
+2. **Sonnet with the INDEX (C) cost 12% less per task than with the hand-written doc (B)**, over
+   all 28 tasks ($0.0503 vs $0.0569; p = 0.005, adjusted 0.037).
 
-What this means: cairn reliably makes an agent's cross-repo work cheaper, most of all on real
-service-to-service architectures and with smaller models. It doesn't, on this evidence, make a
-strong model more accurate: Sonnet already answers these tasks without help.
+**Consistent but not significant after adjustment:**
+- Haiku cost per task with the INDEX: -25% vs no map (p = 0.037 raw, 0.22 adjusted).
+- Sock Shop with Sonnet: every cairn condition was 24-26% cheaper than no map (raw p = 0.008-0.023,
+  adjusted 0.055-0.12). Sock Shop is the **development set**: cairn's new link types were built on
+  it, so this is not an independent test.
+- Held-out Supabase with Sonnet: C/D/E 7-10% cheaper than no map (n.s.), and 19-22% cheaper than
+  the hand-written doc (raw p = 0.031 for C and D, n.s. adjusted).
 
-Raw logs: `bench/results/lean/<model>/<suite>/*.jsonl` in the repository's local results (not
-committed); reproduce with `cairn bench` and `bench/combine_results.py`.
+**Success rates did not change significantly.** Sonnet is at 99-100% in every condition.
+Haiku rose from 86% (A) to 93% with the MCP server (E), but p = 0.15 before adjustment.
+
+**Where cairn did worse (all not significant, reported because the spec requires it):**
+- fleetline with Sonnet: C, D and E cost 7%, 10% and 10% *more* than no map.
+- Supabase with Haiku: D cost 12% more than no map and succeeded 6 pp less.
+- shopverse with Haiku: C, D and E used 1,400-2,200 *more* fresh tokens than the hand-written doc
+  (raw p = 0.031, n.s. adjusted).
+
+**The 0.5 detectors only change the map on Sock Shop.** On supabase-js, fleetline and shopverse
+the 0.5 map is identical to 0.4's, so those results speak to cairn in general, not to the new
+link types; the held-out evidence for the new link types is therefore limited.
+
+**Correction to the first (2026-10-05) results.** That run reported Haiku reaching 100% with the
+INDEX. It doesn't replicate: Haiku with C scored 92% on fleetline and 89% on shopverse, the same
+as no map.
+
+**What this means.** On this evidence cairn tends to make cross-repo work cheaper (fewer fresh
+tokens for Haiku; cheaper than a hand-written doc for Sonnet), with the largest raw savings on a
+real microservices workspace. It does not make these models measurably more accurate, the
+effects vary by workspace and include some regressions, and 6-8 tasks per suite gives limited
+power. A larger held-out suite is the next step.
+
+Raw logs: `bench/results/lean/<model>/<suite>/*.jsonl` (local, not committed); reproduce with
+`cairn bench` and `bench/combine_results.py`.
 
 ---
 
@@ -79,28 +98,28 @@ Conditions: A cold, B hand-written doc, C cairn INDEX, D INDEX + cards, E D + MC
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 28 | -1 pp | 0.621 | -0.0125 | 0.020 | -294 | 0.561 |
-| C vs A | 28 | +1 pp | 0.444 | -0.0157 | 0.037 | -2,358 | 0.003 |
-| D vs A | 28 | +1 pp | 0.357 | -0.0133 | 0.078 | -1,850 | 0.039 |
-| E vs A | 28 | +7 pp | 0.148 | -0.0121 | 0.183 | -961 | 0.161 |
-| C vs B | 28 | +2 pp | 0.832 | -0.0032 | 0.531 | -2,064 | 0.086 |
-| D vs B | 28 | +2 pp | 0.539 | -0.0008 | 0.811 | -1,556 | 0.393 |
-| E vs B | 28 | +8 pp | 0.307 | +0.0004 | 0.446 | -667 | 0.955 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 28 | -1 pp | 1.000 | 1.000 | -0.0125 | 0.020 | 0.137 | -294 | 0.561 | 1.000 |
+| C vs A | 28 | +1 pp | 1.000 | 1.000 | -0.0157 | 0.037 | 0.223 | -2,358 | 0.003 | 0.022 |
+| D vs A | 28 | +1 pp | 1.000 | 1.000 | -0.0133 | 0.078 | 0.388 | -1,850 | 0.039 | 0.236 |
+| E vs A | 28 | +7 pp | 0.148 | 1.000 | -0.0121 | 0.183 | 0.731 | -961 | 0.161 | 0.646 |
+| C vs B | 28 | +2 pp | 0.799 | 1.000 | -0.0032 | 0.531 | 1.000 | -2,064 | 0.086 | 0.428 |
+| D vs B | 28 | +2 pp | 0.690 | 1.000 | -0.0008 | 0.811 | 1.000 | -1,556 | 0.393 | 1.000 |
+| E vs B | 28 | +8 pp | 0.292 | 1.000 | +0.0004 | 0.446 | 1.000 | -667 | 0.955 | 1.000 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0125: pays for itself from the first task |
-| C break-even | saves $0.0157: pays for itself from the first task |
-| D break-even | saves $0.0133: pays for itself from the first task |
-| E break-even | saves $0.0121: pays for itself from the first task |
+| B break-even | saves $0.0125 per task (p = 0.020) (the doc's writing time is not counted) |
+| C break-even | saves $0.0157 per task (p = 0.037) |
+| D break-even | saves $0.0133 per task (p = 0.078, not significant) |
+| E break-even | saves $0.0121 per task (p = 0.183, not significant) |
 
 ## All suites / sonnet
 
@@ -126,28 +145,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 28 | +0 pp | 1.000 | -0.0004 | 0.690 | +200 | 0.250 |
-| C vs A | 28 | +1 pp | 1.000 | -0.0070 | 0.168 | -964 | 0.406 |
-| D vs A | 28 | +1 pp | 1.000 | -0.0059 | 0.459 | -611 | 0.759 |
-| E vs A | 28 | +0 pp | 1.000 | -0.0058 | 0.561 | -600 | 0.741 |
-| C vs B | 28 | +1 pp | 1.000 | -0.0066 | 0.005 | -1,164 | 0.009 |
-| D vs B | 28 | +1 pp | 1.000 | -0.0055 | 0.031 | -811 | 0.168 |
-| E vs B | 28 | +0 pp | 1.000 | -0.0054 | 0.031 | -800 | 0.114 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 28 | +0 pp | 1.000 | 1.000 | -0.0004 | 0.690 | 1.000 | +200 | 0.250 | 1.000 |
+| C vs A | 28 | +1 pp | 1.000 | 1.000 | -0.0070 | 0.168 | 0.673 | -964 | 0.406 | 1.000 |
+| D vs A | 28 | +1 pp | 1.000 | 1.000 | -0.0059 | 0.459 | 1.000 | -611 | 0.759 | 1.000 |
+| E vs A | 28 | +0 pp | 1.000 | 1.000 | -0.0058 | 0.561 | 1.000 | -600 | 0.741 | 1.000 |
+| C vs B | 28 | +1 pp | 1.000 | 1.000 | -0.0066 | 0.005 | 0.037 | -1,164 | 0.009 | 0.064 |
+| D vs B | 28 | +1 pp | 1.000 | 1.000 | -0.0055 | 0.031 | 0.188 | -811 | 0.168 | 0.842 |
+| E vs B | 28 | +0 pp | 1.000 | 1.000 | -0.0054 | 0.031 | 0.188 | -800 | 0.114 | 0.681 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0004: pays for itself from the first task |
-| C break-even | saves $0.0070: pays for itself from the first task |
-| D break-even | saves $0.0059: pays for itself from the first task |
-| E break-even | saves $0.0058: pays for itself from the first task |
+| B break-even | saves $0.0004 per task (p = 0.690, not significant) (the doc's writing time is not counted) |
+| C break-even | saves $0.0070 per task (p = 0.168, not significant) |
+| D break-even | saves $0.0059 per task (p = 0.459, not significant) |
+| E break-even | saves $0.0058 per task (p = 0.561, not significant) |
 
 ## fleetline / haiku
 
@@ -173,28 +192,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 8 | +0 pp | 1.000 | -0.0080 | 0.312 | -1,130 | 0.461 |
-| C vs A | 8 | +0 pp | 1.000 | -0.0128 | 0.148 | -2,198 | 0.055 |
-| D vs A | 8 | +8 pp | 0.500 | -0.0052 | 0.312 | -1,390 | 0.312 |
-| E vs A | 8 | +4 pp | 1.000 | -0.0031 | 0.742 | -1,554 | 0.250 |
-| C vs B | 8 | +0 pp | 1.000 | -0.0048 | 0.383 | -1,068 | 0.250 |
-| D vs B | 8 | +8 pp | 0.500 | +0.0028 | 0.742 | -260 | 1.000 |
-| E vs B | 8 | +4 pp | 1.000 | +0.0049 | 0.312 | -424 | 0.641 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0080 | 0.312 | 1.000 | -1,130 | 0.461 | 1.000 |
+| C vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0128 | 0.148 | 1.000 | -2,198 | 0.055 | 0.383 |
+| D vs A | 8 | +8 pp | 0.500 | 1.000 | -0.0052 | 0.312 | 1.000 | -1,390 | 0.312 | 1.000 |
+| E vs A | 8 | +4 pp | 1.000 | 1.000 | -0.0031 | 0.742 | 1.000 | -1,554 | 0.250 | 1.000 |
+| C vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0048 | 0.383 | 1.000 | -1,068 | 0.250 | 1.000 |
+| D vs B | 8 | +8 pp | 0.500 | 1.000 | +0.0028 | 0.742 | 1.000 | -260 | 1.000 | 1.000 |
+| E vs B | 8 | +4 pp | 1.000 | 1.000 | +0.0049 | 0.312 | 1.000 | -424 | 0.641 | 1.000 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0080: pays for itself from the first task |
-| C break-even | saves $0.0128: pays for itself from the first task |
-| D break-even | saves $0.0052: pays for itself from the first task |
-| E break-even | saves $0.0031: pays for itself from the first task |
+| B break-even | saves $0.0080 per task (p = 0.312, not significant) (the doc's writing time is not counted) |
+| C break-even | saves $0.0128 per task (p = 0.148, not significant) |
+| D break-even | saves $0.0052 per task (p = 0.312, not significant) |
+| E break-even | saves $0.0031 per task (p = 0.742, not significant) |
 
 ## shopverse / haiku
 
@@ -220,28 +239,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 6 | -6 pp | 1.000 | -0.0176 | 0.438 | -2,438 | 0.156 |
-| C vs A | 6 | +0 pp | 1.000 | -0.0216 | 0.156 | -975 | 0.312 |
-| D vs A | 6 | +0 pp | 1.000 | -0.0185 | 0.562 | -228 | 0.844 |
-| E vs A | 6 | +0 pp | 1.000 | -0.0180 | 0.312 | -1,039 | 0.438 |
-| C vs B | 6 | +6 pp | 1.000 | -0.0041 | 1.000 | +1,464 | 0.031 |
-| D vs B | 6 | +6 pp | 1.000 | -0.0010 | 1.000 | +2,210 | 0.031 |
-| E vs B | 6 | +6 pp | 1.000 | -0.0004 | 0.844 | +1,399 | 0.031 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 6 | -6 pp | 1.000 | 1.000 | -0.0176 | 0.438 | 1.000 | -2,438 | 0.156 | 0.625 |
+| C vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0216 | 0.156 | 1.000 | -975 | 0.312 | 0.938 |
+| D vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0185 | 0.562 | 1.000 | -228 | 0.844 | 0.938 |
+| E vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0180 | 0.312 | 1.000 | -1,039 | 0.438 | 0.938 |
+| C vs B | 6 | +6 pp | 1.000 | 1.000 | -0.0041 | 1.000 | 1.000 | +1,464 | 0.031 | 0.219 |
+| D vs B | 6 | +6 pp | 1.000 | 1.000 | -0.0010 | 1.000 | 1.000 | +2,210 | 0.031 | 0.219 |
+| E vs B | 6 | +6 pp | 1.000 | 1.000 | -0.0004 | 0.844 | 1.000 | +1,399 | 0.031 | 0.219 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0176: pays for itself from the first task |
-| C break-even | saves $0.0216: pays for itself from the first task |
-| D break-even | saves $0.0185: pays for itself from the first task |
-| E break-even | saves $0.0180: pays for itself from the first task |
+| B break-even | saves $0.0176 per task (p = 0.438, not significant) (the doc's writing time is not counted) |
+| C break-even | saves $0.0216 per task (p = 0.156, not significant) |
+| D break-even | saves $0.0185 per task (p = 0.562, not significant) |
+| E break-even | saves $0.0180 per task (p = 0.312, not significant) |
 
 ## sockshop / haiku
 
@@ -267,28 +286,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 8 | +8 pp | 0.500 | -0.0204 | 0.109 | +486 | 0.945 |
-| C vs A | 8 | +0 pp | 1.000 | -0.0211 | 0.945 | -3,909 | 0.250 |
-| D vs A | 8 | +0 pp | 1.000 | -0.0344 | 0.312 | -4,094 | 0.148 |
-| E vs A | 8 | +8 pp | 0.500 | -0.0278 | 0.383 | -1,831 | 0.383 |
-| C vs B | 8 | -8 pp | 0.750 | -0.0006 | 1.000 | -4,395 | 0.078 |
-| D vs B | 8 | -8 pp | 0.750 | -0.0140 | 0.461 | -4,580 | 0.055 |
-| E vs B | 8 | +0 pp | 1.000 | -0.0074 | 0.844 | -2,317 | 0.945 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 8 | +8 pp | 0.750 | 1.000 | -0.0204 | 0.109 | 0.766 | +486 | 0.945 | 1.000 |
+| C vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0211 | 0.945 | 1.000 | -3,909 | 0.250 | 1.000 |
+| D vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0344 | 0.312 | 1.000 | -4,094 | 0.148 | 0.742 |
+| E vs A | 8 | +8 pp | 0.500 | 1.000 | -0.0278 | 0.383 | 1.000 | -1,831 | 0.383 | 1.000 |
+| C vs B | 8 | -8 pp | 0.750 | 1.000 | -0.0006 | 1.000 | 1.000 | -4,395 | 0.078 | 0.469 |
+| D vs B | 8 | -8 pp | 0.750 | 1.000 | -0.0140 | 0.461 | 1.000 | -4,580 | 0.055 | 0.383 |
+| E vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0074 | 0.844 | 1.000 | -2,317 | 0.945 | 1.000 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0204: pays for itself from the first task |
-| C break-even | saves $0.0211: pays for itself from the first task |
-| D break-even | saves $0.0344: pays for itself from the first task |
-| E break-even | saves $0.0278: pays for itself from the first task |
+| B break-even | saves $0.0204 per task (p = 0.109, not significant) (the doc's writing time is not counted) |
+| C break-even | saves $0.0211 per task (p = 0.945, not significant) |
+| D break-even | saves $0.0344 per task (p = 0.312, not significant) |
+| E break-even | saves $0.0278 per task (p = 0.383, not significant) |
 
 ## supabase-js / haiku
 
@@ -314,28 +333,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 6 | -11 pp | 0.500 | -0.0027 | 0.844 | +1,926 | 0.312 |
-| C vs A | 6 | +6 pp | 0.500 | -0.0064 | 0.562 | -1,888 | 0.219 |
-| D vs A | 6 | -6 pp | 1.000 | +0.0094 | 0.688 | -1,094 | 0.562 |
-| E vs A | 6 | +17 pp | 0.250 | +0.0028 | 0.844 | +1,069 | 0.844 |
-| C vs B | 6 | +17 pp | 0.250 | -0.0037 | 0.562 | -3,814 | 0.156 |
-| D vs B | 6 | +6 pp | 0.625 | +0.0121 | 1.000 | -3,020 | 0.219 |
-| E vs B | 6 | +28 pp | 0.125 | +0.0055 | 0.688 | -858 | 0.688 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 6 | -11 pp | 0.500 | 1.000 | -0.0027 | 0.844 | 1.000 | +1,926 | 0.312 | 1.000 |
+| C vs A | 6 | +6 pp | 1.000 | 1.000 | -0.0064 | 0.562 | 1.000 | -1,888 | 0.219 | 1.000 |
+| D vs A | 6 | -6 pp | 1.000 | 1.000 | +0.0094 | 0.688 | 1.000 | -1,094 | 0.562 | 1.000 |
+| E vs A | 6 | +17 pp | 0.250 | 1.000 | +0.0028 | 0.844 | 1.000 | +1,069 | 0.844 | 1.000 |
+| C vs B | 6 | +17 pp | 0.250 | 1.000 | -0.0037 | 0.562 | 1.000 | -3,814 | 0.156 | 1.000 |
+| D vs B | 6 | +6 pp | 1.000 | 1.000 | +0.0121 | 1.000 | 1.000 | -3,020 | 0.219 | 1.000 |
+| E vs B | 6 | +28 pp | 0.125 | 0.875 | +0.0055 | 0.688 | 1.000 | -858 | 0.688 | 1.000 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0027: pays for itself from the first task |
-| C break-even | saves $0.0064: pays for itself from the first task |
-| D break-even | costs $0.0094 more (weigh against its success difference) |
-| E break-even | costs $0.0028 more (weigh against its success difference) |
+| B break-even | saves $0.0027 per task (p = 0.844, not significant) (the doc's writing time is not counted) |
+| C break-even | saves $0.0064 per task (p = 0.562, not significant) |
+| D break-even | costs $0.0094 more per task (p = 0.688, not significant) |
+| E break-even | costs $0.0028 more per task (p = 0.844, not significant) |
 
 ## fleetline / sonnet
 
@@ -361,28 +380,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 8 | +0 pp | 1.000 | +0.0080 | 0.023 | +1,172 | 0.055 |
-| C vs A | 8 | +0 pp | 1.000 | +0.0030 | 0.547 | +287 | 0.742 |
-| D vs A | 8 | +0 pp | 1.000 | +0.0048 | 0.148 | +1,372 | 0.055 |
-| E vs A | 8 | +0 pp | 1.000 | +0.0044 | 0.078 | +1,062 | 0.055 |
-| C vs B | 8 | +0 pp | 1.000 | -0.0050 | 0.195 | -885 | 0.109 |
-| D vs B | 8 | +0 pp | 1.000 | -0.0032 | 0.742 | +200 | 0.742 |
-| E vs B | 8 | +0 pp | 1.000 | -0.0036 | 0.312 | -110 | 0.844 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 8 | +0 pp | 1.000 | 1.000 | +0.0080 | 0.023 | 0.164 | +1,172 | 0.055 | 0.383 |
+| C vs A | 8 | +0 pp | 1.000 | 1.000 | +0.0030 | 0.547 | 1.000 | +287 | 0.742 | 1.000 |
+| D vs A | 8 | +0 pp | 1.000 | 1.000 | +0.0048 | 0.148 | 0.742 | +1,372 | 0.055 | 0.383 |
+| E vs A | 8 | +0 pp | 1.000 | 1.000 | +0.0044 | 0.078 | 0.469 | +1,062 | 0.055 | 0.383 |
+| C vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0050 | 0.195 | 0.781 | -885 | 0.109 | 0.438 |
+| D vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0032 | 0.742 | 1.000 | +200 | 0.742 | 1.000 |
+| E vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0036 | 0.312 | 0.938 | -110 | 0.844 | 1.000 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | costs $0.0080 more (weigh against its success difference) |
-| C break-even | costs $0.0030 more (weigh against its success difference) |
-| D break-even | costs $0.0048 more (weigh against its success difference) |
-| E break-even | costs $0.0044 more (weigh against its success difference) |
+| B break-even | costs $0.0080 more per task (p = 0.023) (the doc's writing time is not counted) |
+| C break-even | costs $0.0030 more per task (p = 0.547, not significant) |
+| D break-even | costs $0.0048 more per task (p = 0.148, not significant) |
+| E break-even | costs $0.0044 more per task (p = 0.078, not significant) |
 
 ## shopverse / sonnet
 
@@ -408,28 +427,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 6 | +0 pp | 1.000 | -0.0046 | 0.688 | -528 | 1.000 |
-| C vs A | 6 | +6 pp | 1.000 | -0.0062 | 0.438 | -1,174 | 1.000 |
-| D vs A | 6 | +6 pp | 1.000 | -0.0038 | 1.000 | -517 | 1.000 |
-| E vs A | 6 | +0 pp | 1.000 | -0.0039 | 1.000 | -448 | 0.844 |
-| C vs B | 6 | +6 pp | 1.000 | -0.0017 | 0.688 | -646 | 0.844 |
-| D vs B | 6 | +6 pp | 1.000 | +0.0008 | 1.000 | +11 | 1.000 |
-| E vs B | 6 | +0 pp | 1.000 | +0.0007 | 1.000 | +81 | 1.000 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0046 | 0.688 | 1.000 | -528 | 1.000 | 1.000 |
+| C vs A | 6 | +6 pp | 1.000 | 1.000 | -0.0062 | 0.438 | 1.000 | -1,174 | 1.000 | 1.000 |
+| D vs A | 6 | +6 pp | 1.000 | 1.000 | -0.0038 | 1.000 | 1.000 | -517 | 1.000 | 1.000 |
+| E vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0039 | 1.000 | 1.000 | -448 | 0.844 | 1.000 |
+| C vs B | 6 | +6 pp | 1.000 | 1.000 | -0.0017 | 0.688 | 1.000 | -646 | 0.844 | 1.000 |
+| D vs B | 6 | +6 pp | 1.000 | 1.000 | +0.0008 | 1.000 | 1.000 | +11 | 1.000 | 1.000 |
+| E vs B | 6 | +0 pp | 1.000 | 1.000 | +0.0007 | 1.000 | 1.000 | +81 | 1.000 | 1.000 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0046: pays for itself from the first task |
-| C break-even | saves $0.0062: pays for itself from the first task |
-| D break-even | saves $0.0038: pays for itself from the first task |
-| E break-even | saves $0.0039: pays for itself from the first task |
+| B break-even | saves $0.0046 per task (p = 0.688, not significant) (the doc's writing time is not counted) |
+| C break-even | saves $0.0062 per task (p = 0.438, not significant) |
+| D break-even | saves $0.0038 per task (p = 1.000, not significant) |
+| E break-even | saves $0.0039 per task (p = 1.000, not significant) |
 
 ## sockshop / sonnet
 
@@ -455,28 +474,28 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 8 | +0 pp | 1.000 | -0.0122 | 0.023 | -1,474 | 0.109 |
-| C vs A | 8 | +0 pp | 1.000 | -0.0194 | 0.008 | -2,540 | 0.023 |
-| D vs A | 8 | +0 pp | 1.000 | -0.0183 | 0.023 | -2,558 | 0.016 |
-| E vs A | 8 | +0 pp | 1.000 | -0.0192 | 0.016 | -2,418 | 0.023 |
-| C vs B | 8 | +0 pp | 1.000 | -0.0072 | 0.109 | -1,066 | 0.195 |
-| D vs B | 8 | +0 pp | 1.000 | -0.0061 | 0.195 | -1,084 | 0.250 |
-| E vs B | 8 | +0 pp | 1.000 | -0.0070 | 0.109 | -944 | 0.312 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0122 | 0.023 | 0.117 | -1,474 | 0.109 | 0.438 |
+| C vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0194 | 0.008 | 0.055 | -2,540 | 0.023 | 0.141 |
+| D vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0183 | 0.023 | 0.117 | -2,558 | 0.016 | 0.109 |
+| E vs A | 8 | +0 pp | 1.000 | 1.000 | -0.0192 | 0.016 | 0.094 | -2,418 | 0.023 | 0.141 |
+| C vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0072 | 0.109 | 0.328 | -1,066 | 0.195 | 0.586 |
+| D vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0061 | 0.195 | 0.328 | -1,084 | 0.250 | 0.586 |
+| E vs B | 8 | +0 pp | 1.000 | 1.000 | -0.0070 | 0.109 | 0.328 | -944 | 0.312 | 0.586 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | saves $0.0122: pays for itself from the first task |
-| C break-even | saves $0.0194: pays for itself from the first task |
-| D break-even | saves $0.0183: pays for itself from the first task |
-| E break-even | saves $0.0192: pays for itself from the first task |
+| B break-even | saves $0.0122 per task (p = 0.023) (the doc's writing time is not counted) |
+| C break-even | saves $0.0194 per task (p = 0.008) |
+| D break-even | saves $0.0183 per task (p = 0.023) |
+| E break-even | saves $0.0192 per task (p = 0.016) |
 
 ## supabase-js / sonnet
 
@@ -502,25 +521,25 @@ cairn's setup is a local scan: no tokens. Per-task cost against the cold baselin
 
 ### Paired tests
 
-Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).
+Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.
 
-| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |
-|---|---|---|---|---|---|---|---|
-| B vs A | 6 | +0 pp | 1.000 | +0.0083 | 0.031 | +1,867 | 0.031 |
-| C vs A | 6 | +0 pp | 1.000 | -0.0047 | 0.844 | -319 | 0.438 |
-| D vs A | 6 | +0 pp | 1.000 | -0.0057 | 0.562 | -752 | 0.438 |
-| E vs A | 6 | +0 pp | 1.000 | -0.0037 | 0.562 | -542 | 0.438 |
-| C vs B | 6 | +0 pp | 1.000 | -0.0129 | 0.031 | -2,186 | 0.062 |
-| D vs B | 6 | +0 pp | 1.000 | -0.0139 | 0.031 | -2,618 | 0.031 |
-| E vs B | 6 | +0 pp | 1.000 | -0.0119 | 0.156 | -2,408 | 0.094 |
+| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj | Fresh-token diff | p | p adj |
+|---|---|---|---|---|---|---|---|---|---|---|
+| B vs A | 6 | +0 pp | 1.000 | 1.000 | +0.0083 | 0.031 | 0.219 | +1,867 | 0.031 | 0.219 |
+| C vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0047 | 0.844 | 1.000 | -319 | 0.438 | 1.000 |
+| D vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0057 | 0.562 | 1.000 | -752 | 0.438 | 1.000 |
+| E vs A | 6 | +0 pp | 1.000 | 1.000 | -0.0037 | 0.562 | 1.000 | -542 | 0.438 | 1.000 |
+| C vs B | 6 | +0 pp | 1.000 | 1.000 | -0.0129 | 0.031 | 0.219 | -2,186 | 0.062 | 0.312 |
+| D vs B | 6 | +0 pp | 1.000 | 1.000 | -0.0139 | 0.031 | 0.219 | -2,618 | 0.031 | 0.219 |
+| E vs B | 6 | +0 pp | 1.000 | 1.000 | -0.0119 | 0.156 | 0.625 | -2,408 | 0.094 | 0.375 |
 
 ### Break-even
 
-cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:
+Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan is local (seconds, no tokens), but the synthetic suites ship pre-written repo summaries whose /cairn authoring tokens are not counted, nor is the time to write condition B's doc.
 
 | Condition | Per task vs A |
 |---|---|
-| B break-even | costs $0.0083 more (weigh against its success difference) |
-| C break-even | saves $0.0047: pays for itself from the first task |
-| D break-even | saves $0.0057: pays for itself from the first task |
-| E break-even | saves $0.0037: pays for itself from the first task |
+| B break-even | costs $0.0083 more per task (p = 0.031) (the doc's writing time is not counted) |
+| C break-even | saves $0.0047 per task (p = 0.844, not significant) |
+| D break-even | saves $0.0057 per task (p = 0.562, not significant) |
+| E break-even | saves $0.0037 per task (p = 0.562, not significant) |

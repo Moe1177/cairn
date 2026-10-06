@@ -1,5 +1,7 @@
 # cairn benchmark results (2026-10-05)
 
+> **Correction (2026-10-06).** This first run (3 runs per cell, two synthetic workspaces) reported Haiku answering every task correctly with cairn's INDEX. A larger run (840 runs, intervals and paired tests) did not replicate that: Haiku with the INDEX scored 92% on fleetline and 89% on shopverse, the same as with no map. See [2026-10-06-real-world.md](2026-10-06-real-world.md).
+
 Headless Claude Code (`cairn bench`), read-only tools, your own CLAUDE.md/rules excluded, a fresh
 copy of the workspace per run. Answers re-graded with the final deterministic grader.
 

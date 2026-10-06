@@ -35,7 +35,7 @@ def test_reports_show_paired_tests_against_the_cold_baseline() -> None:
     cells = [c.strip() for c in row.strip("|").split("|")]
     assert cells[1] == "6"  # tasks
     assert cells[2] == "+100 pp" and cells[3] == "0.031"  # exact: 2/64
-    assert cells[4] == "-0.0600" and cells[5] == "0.031"
+    assert cells[5] == "-0.0600" and cells[6] == "0.031"
 
 
 def test_reports_show_bootstrap_intervals_per_condition() -> None:
@@ -49,7 +49,7 @@ def test_break_even_says_when_cairn_pays_for_itself() -> None:
     md = render_markdown(_records())
     assert "Break-even" in md
     row = next(line for line in md.splitlines() if line.startswith("| C break-even |"))
-    assert "from the first task" in row
+    assert "saves $0.0600 per task (p = 0.031)" in row
 
 
 def test_run_logs_load_back_and_combine(tmp_path: Path) -> None:

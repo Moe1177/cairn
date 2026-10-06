@@ -15,6 +15,19 @@ from statistics import fmean
 
 EXACT_MAX_N = 25
 BOOTSTRAP_RESAMPLES = 5000
+_DIGITS = 12
+
+
+def holm(p_values: Sequence[float]) -> list[float]:
+    """Holm-Bonferroni adjusted p-values for one family of tests, in the input order."""
+    m = len(p_values)
+    order = sorted(range(m), key=lambda i: p_values[i])
+    adjusted = [0.0] * m
+    running = 0.0
+    for rank, i in enumerate(order):
+        running = max(running, min(1.0, (m - rank) * p_values[i]))
+        adjusted[i] = running
+    return adjusted
 
 
 @dataclass(frozen=True)
@@ -47,7 +60,10 @@ def bootstrap_ci(
 def wilcoxon(x: Sequence[float], y: Sequence[float]) -> WilcoxonResult:
     if len(x) != len(y):
         raise ValueError("wilcoxon needs paired samples of equal length")
-    diffs = [a - b for a, b in zip(x, y, strict=True) if a - b != 0]
+    # Per-task means are fractions like k/3, whose differences should tie but can differ in the
+    # last float bit (1 - 2/3 vs 2/3 - 1/3): round before testing for zero and ranking.
+    rounded = (round(a - b, _DIGITS) for a, b in zip(x, y, strict=True))
+    diffs = [d for d in rounded if d != 0]
     n = len(diffs)
     if n == 0:
         return WilcoxonResult(0, 0.0, 0.0, 1.0)

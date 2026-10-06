@@ -6,7 +6,10 @@ from pathlib import Path
 from statistics import fmean
 from typing import TYPE_CHECKING
 
-from cairn.bench.stats import bootstrap_ci, wilcoxon
+from cairn.bench.stats import bootstrap_ci, holm, wilcoxon
+
+METRICS = ("success", "cost", "tokens")
+SIGNIFICANCE = 0.05
 
 if TYPE_CHECKING:
     from cairn.bench.run import RunRecord
@@ -97,6 +100,8 @@ def load_records(path: Path) -> list["RunRecord"]:
         if not line.strip():
             continue
         raw = json.loads(line)
+        if "_header" in raw:  # one per invocation: the settings, not a run
+            continue
         result = dict(raw["result"])
         result["models"] = tuple(result.get("models", ()))
         records.append(
@@ -128,13 +133,17 @@ def _body(records: Sequence["RunRecord"], *, level: str) -> list[str]:
         "",
         f"{level} Paired tests",
         "",
-        "Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks).",
+        "Per-task differences, two-sided Wilcoxon signed-rank (exact up to 25 tasks). p is "
+        "unadjusted; p adj is Holm-adjusted across this table's comparisons, per metric.",
         "",
         *_paired(records),
         "",
         f"{level} Break-even",
         "",
-        "cairn's setup is a local scan: no tokens. Per-task cost against the cold baseline:",
+        "Per-task cost against the cold baseline. One-time costs are not counted: cairn's scan "
+        "is local (seconds, no tokens), but the synthetic suites ship pre-written repo "
+        "summaries whose /cairn authoring tokens are not counted, nor is the time to write "
+        "condition B's doc.",
         "",
         *_break_even(records),
     ]
@@ -193,9 +202,11 @@ def _uncertainty(records: Sequence["RunRecord"]) -> list[str]:
 
 def _paired(records: Sequence["RunRecord"]) -> list[str]:
     lines = [
-        "| Comparison | Tasks | Success diff | p | Cost diff (USD) | p | Fresh-token diff | p |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Comparison | Tasks | Success diff | p | p adj | Cost diff (USD) | p | p adj "
+        "| Fresh-token diff | p | p adj |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
+    rows = []  # (label, n, [(delta, p) per metric])
     conditions = _conditions(records)
     for base in ("A", "B"):
         if base not in conditions:
@@ -203,21 +214,26 @@ def _paired(records: Sequence["RunRecord"]) -> list[str]:
         for condition in conditions:
             if condition == base or (base == "B" and condition == "A"):
                 continue
-            cells = []
-            for metric in ("success", "cost", "tokens"):
+            metrics = []
+            n = 0
+            for metric in METRICS:
                 ours = _task_means(records, condition, metric)
                 theirs = _task_means(records, base, metric)
                 shared = sorted(set(ours) & set(theirs))
                 x = [ours[t] for t in shared]
                 y = [theirs[t] for t in shared]
-                delta = _mean(x) - _mean(y)
-                p = wilcoxon(x, y).p_value
-                cells.append((len(shared), delta, p))
-            (n, d_success, p_success), (_, d_cost, p_cost), (_, d_tokens, p_tokens) = cells
-            lines.append(
-                f"| {condition} vs {base} | {n} | {d_success * 100:+.0f} pp | {p_success:.3f} "
-                f"| {d_cost:+.4f} | {p_cost:.3f} | {d_tokens:+,.0f} | {p_tokens:.3f} |"
-            )
+                n = max(n, len(shared))
+                metrics.append((_mean(x) - _mean(y), wilcoxon(x, y).p_value))
+            rows.append((f"{condition} vs {base}", n, metrics))
+    # Holm within each metric: every comparison in this table is one family.
+    adjusted = [holm([row[2][m][1] for row in rows]) for m in range(len(METRICS))]
+    for i, (label, n, metrics) in enumerate(rows):
+        (d_s, p_s), (d_c, p_c), (d_t, p_t) = metrics
+        a_s, a_c, a_t = (adjusted[m][i] for m in range(len(METRICS)))
+        lines.append(
+            f"| {label} | {n} | {d_s * 100:+.0f} pp | {p_s:.3f} | {a_s:.3f} "
+            f"| {d_c:+.4f} | {p_c:.3f} | {a_c:.3f} | {d_t:+,.0f} | {p_t:.3f} | {a_t:.3f} |"
+        )
     return lines
 
 
@@ -234,11 +250,16 @@ def _break_even(records: Sequence["RunRecord"]) -> list[str]:
         shared = sorted(set(ours) & set(cold))
         if not shared:
             continue
-        delta = _mean([ours[t] for t in shared]) - _mean([cold[t] for t in shared])
+        x = [ours[t] for t in shared]
+        y = [cold[t] for t in shared]
+        delta = _mean(x) - _mean(y)
+        p = wilcoxon(x, y).p_value
+        evidence = f"p = {p:.3f}" + ("" if p < SIGNIFICANCE else ", not significant")
         verdict = (
-            f"saves ${-delta:.4f}: pays for itself from the first task"
+            f"saves ${-delta:.4f} per task ({evidence})"
             if delta < 0
-            else f"costs ${delta:.4f} more (weigh against its success difference)"
+            else f"costs ${delta:.4f} more per task ({evidence})"
         )
-        lines.append(f"| {condition} break-even | {verdict} |")
+        note = " (the doc's writing time is not counted)" if condition == "B" else ""
+        lines.append(f"| {condition} break-even | {verdict}{note} |")
     return lines

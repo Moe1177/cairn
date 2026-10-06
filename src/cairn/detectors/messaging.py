@@ -40,7 +40,10 @@ _GRPC_CALL = tuple(
 _PUBLISH = tuple(
     re.compile(p)
     for p in (
-        rf"(\w+)\.(?:send|produce|publish|Publish|send_and_wait|sendMessage|convertAndSend)\(\s*{_T}",
+        rf"(\w+)\.(?:send|produce|publish|Publish|send_and_wait|sendMessage)\(\s*{_T}",
+        # Spring AMQP: only convertAndSend("queue", message). With three arguments the first
+        # literal is an exchange and the second a routing key, neither of them a queue.
+        rf"(\w+)\.convertAndSend\(\s*{_T}\s*,\s*(?![\s'\"])",
         rf"(\w+)\.(?:send|produce)\(\s*\{{[^}}\n]{{0,200}}?topic\s*:\s*{_T}",
     )
 )

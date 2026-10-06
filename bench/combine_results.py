@@ -13,6 +13,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from cairn.bench.report import load_records, render_combined
+from cairn.bench.run import usage_limit
 
 
 def collect(root: Path) -> dict[str, list]:
@@ -23,12 +24,13 @@ def collect(root: Path) -> dict[str, list]:
             logs = sorted(suite_dir.glob("*.jsonl"))
             if not logs:
                 continue
-            # The latest log of this suite x model. A resumed log also holds the attempts that
-            # hit a usage limit: keep one record per cell, the good one when there is one.
+            # The latest log of this suite x model. A resumed log also holds attempts that hit a
+            # usage limit: one record per cell, where a later attempt replaces only those. A
+            # genuine agent error is a result and is never replaced.
             cells: dict = {}
             for record in load_records(logs[-1]):
                 key = (record.condition, record.task_id, record.run)
-                if key not in cells or cells[key].result.is_error:
+                if key not in cells or usage_limit(cells[key].result):
                     cells[key] = record
             records = list(cells.values())
             sections[f"{suite_dir.name} / {model_dir.name}"] = records

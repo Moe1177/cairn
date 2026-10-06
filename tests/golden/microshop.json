@@ -53,7 +53,7 @@
    "note": null,
    "score": 0.6,
    "signals": [
-    "image:basket"
+    "image:acme/basket"
    ],
    "source": "deploy",
    "target": "basket",
@@ -73,7 +73,7 @@
    "note": null,
    "score": 0.6,
    "signals": [
-    "image:catalogue"
+    "image:acme/catalogue"
    ],
    "source": "deploy",
    "target": "catalogue",
@@ -93,7 +93,7 @@
    "note": null,
    "score": 0.6,
    "signals": [
-    "image:checkout"
+    "image:acme/checkout"
    ],
    "source": "deploy",
    "target": "checkout",
@@ -113,7 +113,7 @@
    "note": null,
    "score": 0.6,
    "signals": [
-    "image:dispatch"
+    "image:acme/dispatch"
    ],
    "source": "deploy",
    "target": "dispatch",
@@ -133,7 +133,7 @@
    "note": null,
    "score": 0.6,
    "signals": [
-    "image:dispatch-worker"
+    "image:acme/dispatch-worker"
    ],
    "source": "deploy",
    "target": "dispatch-worker",
@@ -153,7 +153,7 @@
    "note": null,
    "score": 0.6,
    "signals": [
-    "image:payments"
+    "image:acme/payments"
    ],
    "source": "deploy",
    "target": "payments",
@@ -173,7 +173,7 @@
    "note": null,
    "score": 0.6,
    "signals": [
-    "image:storefront"
+    "image:acme/storefront"
    ],
    "source": "deploy",
    "target": "storefront",
@@ -384,7 +384,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "basket"
+      "value": "acme/basket"
      },
      {
       "evidence": [
@@ -397,7 +397,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "catalogue"
+      "value": "acme/catalogue"
      },
      {
       "evidence": [
@@ -410,7 +410,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "catalogue-db"
+      "value": "acme/catalogue-db"
      },
      {
       "evidence": [
@@ -423,7 +423,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "checkout"
+      "value": "acme/checkout"
      },
      {
       "evidence": [
@@ -436,7 +436,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "dispatch"
+      "value": "acme/dispatch"
      },
      {
       "evidence": [
@@ -449,7 +449,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "dispatch-worker"
+      "value": "acme/dispatch-worker"
      },
      {
       "evidence": [
@@ -462,7 +462,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "payments"
+      "value": "acme/payments"
      },
      {
       "evidence": [
@@ -475,7 +475,7 @@
       ],
       "hints": [],
       "kind": "deploys_image",
-      "value": "storefront"
+      "value": "acme/storefront"
      }
     ],
     "exposes": []
@@ -580,7 +580,21 @@
    ],
    "commands": [],
    "contracts": {
-    "consumes": [],
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "monitoring.yaml",
+        "line": 1,
+        "repo": "ops-tools",
+        "snippet": "image: acme/storefront:1.4.0"
+       }
+      ],
+      "hints": [],
+      "kind": "deploys_image",
+      "value": "acme/storefront"
+     }
+    ],
     "exposes": []
    },
    "errors": [],

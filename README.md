@@ -220,25 +220,29 @@ Tasks cover:
 Answers are graded deterministically on the files and facts they must name.
 
 **Results** (2026-10-06): 840 runs over four workspaces, two of them real open-source systems:
-Sock Shop (9 microservice repos) and the Supabase JS client family (6 repos, held out: never
-used to tune cairn). 28 tasks, 3 runs per cell, Haiku 4.5 and Sonnet 5.5.
+Sock Shop (9 microservice repos; cairn's newest link types were developed on it) and the
+Supabase JS client family (6 repos, held out: never used to tune cairn). 28 tasks, 3 runs per
+cell, Haiku 4.5 and Sonnet 5.5. A result is called significant only after Holm adjustment.
 
-| Cost per task vs no map (A) | Haiku 4.5 | Sonnet 5.5 |
+| Per task, cairn INDEX (C) | Haiku 4.5 | Sonnet 5.5 |
 |---|---|---|
-| All 28 tasks, cairn INDEX (C) | **-25%** (p = 0.04) | -12% (n.s.) |
-| Sock Shop, cairn INDEX + cards (D) | -44% (n.s., 8 tasks) | **-24%** (p = 0.02) |
-| Held-out Supabase, best cairn condition | -8% (n.s.) | -10% (n.s.) |
+| Fresh tokens vs no map | **-19%** (significant) | -10% (n.s.) |
+| Cost vs no map | -25% (n.s. after adjustment) | -12% (n.s.) |
+| Cost vs a hand-written doc | -6% (n.s.) | **-12%** (significant) |
+| Cost vs no map, Sock Shop only | -27% (n.s.) | -26% (borderline, adjusted p = 0.055) |
 
 What this shows:
-- **cairn makes cross-repo work cheaper**, most clearly with the smaller model and on the real
-  microservices workspace. Haiku also used 19% fewer fresh tokens with the INDEX (p = 0.003).
-- **It beats a hand-written related-repos doc on cost for Sonnet** (10-12% cheaper, p <= 0.03).
+- **cairn tends to make cross-repo work cheaper**: fewer fresh tokens for Haiku, and cheaper than
+  a hand-written related-repos doc for Sonnet. The largest raw savings were on Sock Shop.
 - **It doesn't measurably raise success.** Sonnet answers 99-100% of these tasks in every
   condition; Haiku rises from 86% to 93% with the MCP server, which isn't significant.
+- **It isn't a win everywhere.** On fleetline, Sonnet cost 7-10% more with cairn than without
+  (n.s.); the held-out Supabase effects are small and not significant.
 - **Correction:** our first, smaller run (2026-10-05) reported Haiku reaching 100% with the
   INDEX. With more runs that doesn't replicate (89-92%, the same as no map).
 
-Methods, every table with 95% intervals and paired Wilcoxon tests, and the held-out results:
+Methods, every table with 95% intervals, paired Wilcoxon tests (raw and Holm-adjusted), the
+regressions, and the held-out results:
 [bench/published/2026-10-06-real-world.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-06-real-world.md).
 The first run is kept at
 [2026-10-05-shopverse-fleetline.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-05-shopverse-fleetline.md).

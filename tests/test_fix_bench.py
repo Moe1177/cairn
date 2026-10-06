@@ -154,7 +154,11 @@ def test_each_run_is_saved_as_it_finishes(tmp_path: Path) -> None:
             out_dir=tmp_path,
             now="s",
         )
-    lines = (tmp_path / "s.jsonl").read_text(encoding="utf-8").splitlines()
+    lines = [
+        line
+        for line in (tmp_path / "s.jsonl").read_text(encoding="utf-8").splitlines()
+        if not line.startswith('{"_header"')  # one header line per invocation
+    ]
     assert len(lines) == 1 and json.loads(lines[0])["task_id"] == "cart-total"
 
 
