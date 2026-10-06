@@ -121,9 +121,26 @@ class Graph:
     nodes: dict[str, Node] = field(default_factory=dict)
     adjacency: dict[str, list[tuple[bool, str]]] = field(default_factory=dict)  # (outgoing, other)
     _index: _WordIndex | None = field(default=None, init=False, repr=False, compare=False)
+    _by_file: dict[str, list[tuple[int, str]]] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def degree(self, node_id: str) -> int:
         return len(self.adjacency.get(node_id, ()))
+
+    def enclosing(self, file: str, line: int) -> str | None:
+        """The symbol defined at or most recently before `line` in `file`: the function or class
+        a line belongs to, as far as definition order tells."""
+        if self._by_file is None:
+            by_file: dict[str, list[tuple[int, str]]] = {}
+            for node in self.nodes.values():
+                if node.file and node.line and not node.is_file:
+                    by_file.setdefault(node.file, []).append((node.line, node.label))
+            for symbols in by_file.values():
+                symbols.sort()
+            self._by_file = by_file
+        before = [label for start, label in self._by_file.get(file, ()) if start <= line]
+        return before[-1] if before else None
 
     def word_index(self) -> _WordIndex:
         # Built on first use; a cached graph keeps it, so later queries skip the work.

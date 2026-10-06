@@ -150,7 +150,7 @@ def _incomplete(ws_root: Path, repos: list[Repo]) -> list[str]:
 def _line(hit: LocateHit, asked: str) -> str:
     path = hit.file if hit.repo in (None, asked) else f"{hit.repo}/{hit.file}"
     where = f"{path}:{hit.line}" if hit.line else path
-    symbol = f" {hit.symbol}" if hit.symbol else ""
+    symbol = f" {hit.symbol} (graph)" if hit.symbol else ""
     return clean_inline(f"- {where}{symbol} — {hit.why}", 300)
 
 

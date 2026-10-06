@@ -4,11 +4,12 @@ Measured by the offline locate benchmark (plan B2, `cairn bench-locate`): grep m
 the graph on every kind of question, and sending questions to the graph instead lost answers
 (graphify's code graph holds functions and classes, not routes, constants or messages, and ranks
 by name), and filling grep's empty places with graph hits added tokens but no answers. So grep
-answers; for a chain question (who calls X) the file defining X goes last; the graph names the
-symbol on grep hits it agrees with, and answers alone only when grep finds nothing. Every answer
-says which locator answered and why.
+answers; for a chain question (who calls X) the file defining X goes last; a fresh graph names
+the symbol each grep line sits in, and the graph answers alone only when grep finds nothing (a
+stale one says so). Every answer says which locator answered and why.
 """
 
+from dataclasses import replace
 from pathlib import Path
 
 from cairn.discover.files import read_text
@@ -33,13 +34,15 @@ def hybrid_locate(
         reason = f"chain question; {reason}"
     if graph is None:
         return LocateResult(hits, "grep" if hits else "none", reason, found.truncated)
-    graph_hits = _graph_hits(repo_root, graph, question, limit)
-    stale = "; deep index may be stale" if graph_stale else ""
     if not hits:
+        graph_hits = _graph_hits(repo_root, graph, question, limit)
         if graph_hits:
+            stale = "; deep index may be stale" if graph_stale else ""
             return LocateResult(graph_hits, "graph", f"grep found nothing ({reason}){stale}")
         return LocateResult((), "none", reason)
-    return LocateResult(_agree(hits, graph_hits), "grep", reason, found.truncated)
+    if graph_stale:  # its symbols may have moved or gone: grep's lines stand alone
+        return LocateResult(hits, "grep", reason, found.truncated)
+    return LocateResult(_agree(hits, graph), "grep", reason, found.truncated)
 
 
 def _grep(root: Path, question: str, limit: int) -> tuple[GrepResult, str]:
@@ -89,25 +92,16 @@ def _graph_hits(root: Path, graph: Graph, question: str, limit: int) -> tuple[Lo
     return tuple(hits)
 
 
-def _agree(
-    grep_hits: tuple[LocateHit, ...], graph_hits: tuple[LocateHit, ...]
-) -> tuple[LocateHit, ...]:
-    """grep's hits as they are, each naming the graph's symbol where the graph agrees. The graph
-    adds no places of its own here: on bench-locate that added tokens and no answers."""
-    by_file = {hit.file: hit for hit in reversed(graph_hits)}  # best graph hit per file
-    return tuple(
-        LocateHit(
-            file=hit.file,
-            line=hit.line,
-            why=hit.why,
-            source="grep+graph",
-            symbol=by_file[hit.file].symbol,
-            score=hit.score,
+def _agree(grep_hits: tuple[LocateHit, ...], graph: Graph) -> tuple[LocateHit, ...]:
+    """grep's hits as they are, each naming the graph symbol its line sits in. The graph adds no
+    places of its own here: on bench-locate that added tokens and no answers."""
+    named = []
+    for hit in grep_hits:
+        symbol = graph.enclosing(hit.file, hit.line) if hit.line else None
+        named.append(
+            replace(hit, source="grep+graph", symbol=symbol) if symbol is not None else hit
         )
-        if hit.file in by_file
-        else hit
-        for hit in grep_hits
-    )
+    return tuple(named)
 
 
 MODES = ("grep", "graph", "hybrid")
