@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cairn import providers
+from cairn.discover.git import git_refused
 from cairn.discover.proc import run_text
 from cairn.errors import CairnError
 from cairn.integrations.harnesses import installed_harnesses
@@ -37,6 +38,7 @@ def run_checks(root: Path) -> list[Check]:
         *_map(root),
         _writable(root),
         _harnesses(root),
+        *_git_trust(root),
         *_graphify(root),
     ]
 
@@ -94,6 +96,27 @@ def _writable(root: Path) -> Check:
     except OSError as exc:
         return Check(FAIL, "write access", f"can't write to {target}: {exc.strerror or exc}")
     return Check(OK, "write access", str(target))
+
+
+def _git_trust(root: Path) -> list[Check]:
+    workspace = None
+    with contextlib.suppress(CairnError, OSError, ValueError):
+        workspace = load_workspace(root)
+    if workspace is None:
+        return []
+    refused = [root / r.path for r in workspace.repos if git_refused(root / r.path)]
+    if not refused:
+        return [Check(OK, "git trust", "git reads every repo")]
+    commands = "; ".join(
+        f"git config --global --add safe.directory {p.as_posix()}" for p in refused
+    )
+    return [
+        Check(
+            WARN,
+            "git trust",
+            f"{len(refused)} repo(s) owned by another user, so git won't read them. Run: {commands}",
+        )
+    ]
 
 
 def _harnesses(root: Path) -> Check:
