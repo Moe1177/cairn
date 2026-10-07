@@ -26,7 +26,7 @@ from cairn.paths import repo_cache_dir
 from cairn.store.atomic import atomic_write_text
 
 GIT_MEMO = "git-memo.json"
-CACHE_VERSION = 5  # bump whenever a cached detector's output changes
+CACHE_VERSION = 6  # bump whenever a cached detector's output changes (6: timed-out lineage)
 
 
 class CachedResult(Frozen):

@@ -7,6 +7,23 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.2]
+
+### Fixed
+- **Copies of one app were sometimes not linked after a full scan.** cairn finds copies through
+  each repo's first commit. Listing it walks the repo's history, which took up to 3 s per repo
+  on a real workspace. Under a full parallel scan it passed cairn's 5 s limit, and the copy
+  links were dropped silently; the empty answer could even be cached. Now:
+  - the lookup gets 30 s;
+  - its answer is remembered until HEAD moves or the history is reshaped (a shallow clone
+    deepened, a graft or replace ref), so an edit that isn't committed doesn't ask again;
+  - a timeout warns ("links between copies of one app may be missing") instead of being read
+    as "no copies", and is never cached.
+
+### Changed
+- The scan cache format is version 6, so the first scan after upgrading re-reads every repo.
+  This clears any "no copies" answers a timed-out lookup may have cached.
+
 ## [0.7.1]
 
 ### Fixed
