@@ -1,0 +1,341 @@
+{
+ "edges": [
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "render.yaml",
+     "line": 39,
+     "repo": "infra",
+     "snippet": "name: orders"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "render:orders.host"
+   ],
+   "source": "infra",
+   "target": "orders-svc",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "render.yaml",
+     "line": 17,
+     "repo": "infra",
+     "snippet": "name: orders"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "render_repo:orders-svc"
+   ],
+   "source": "infra",
+   "target": "orders-svc",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "render.yaml",
+     "line": 3,
+     "repo": "infra",
+     "snippet": "name: storefront"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "render_repo:storefront"
+   ],
+   "source": "infra",
+   "target": "storefront",
+   "type": "deploys",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "render.yaml",
+     "line": 24,
+     "repo": "infra",
+     "snippet": "name: auth"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "render:auth.env:SIGNING_KEY"
+   ],
+   "source": "orders-svc",
+   "target": "auth",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "render.yaml",
+     "line": 10,
+     "repo": "infra",
+     "snippet": "name: orders"
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "render:orders.hostport"
+   ],
+   "source": "storefront",
+   "target": "orders-svc",
+   "type": "calls_http",
+   "why": null
+  }
+ ],
+ "repos": {
+  "auth": {
+   "aliases": [
+    "auth"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "auth",
+        "snippet": "module example.com/auth"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:example.com/auth"
+     },
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 3,
+        "repo": "auth",
+        "snippet": "name: auth"
+       }
+      ],
+      "hints": [],
+      "kind": "platform_service",
+      "value": "render:auth"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go",
+    "render"
+   ]
+  },
+  "infra": {
+   "aliases": [
+    "infra",
+    "nightly-report"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 39,
+        "repo": "infra",
+        "snippet": "name: orders"
+       }
+      ],
+      "hints": [
+       "property:host"
+      ],
+      "kind": "platform_service",
+      "value": "render:nightly-report>orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 24,
+        "repo": "infra",
+        "snippet": "name: auth"
+       }
+      ],
+      "hints": [
+       "property:env:SIGNING_KEY"
+      ],
+      "kind": "platform_service",
+      "value": "render:orders>auth"
+     },
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 10,
+        "repo": "infra",
+        "snippet": "name: orders"
+       }
+      ],
+      "hints": [
+       "property:hostport"
+      ],
+      "kind": "platform_service",
+      "value": "render:storefront>orders"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 28,
+        "repo": "infra",
+        "snippet": "name: mailer"
+       }
+      ],
+      "hints": [
+       "repo:mailer"
+      ],
+      "kind": "platform_service",
+      "value": "render:mailer"
+     },
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 32,
+        "repo": "infra",
+        "snippet": "name: nightly-report"
+       }
+      ],
+      "hints": [],
+      "kind": "platform_service",
+      "value": "render:nightly-report"
+     },
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 17,
+        "repo": "infra",
+        "snippet": "name: orders"
+       }
+      ],
+      "hints": [
+       "repo:orders-svc"
+      ],
+      "kind": "platform_service",
+      "value": "render:orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "render.yaml",
+        "line": 3,
+        "repo": "infra",
+        "snippet": "name: storefront"
+       }
+      ],
+      "hints": [
+       "repo:storefront"
+      ],
+      "kind": "platform_service",
+      "value": "render:storefront"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "render"
+   ]
+  },
+  "orders-svc": {
+   "aliases": [
+    "orders-svc"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "pyproject.toml",
+        "line": 2,
+        "repo": "orders-svc",
+        "snippet": "name = \"orders-svc\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:orders-svc"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "python"
+   ]
+  },
+  "storefront": {
+   "aliases": [
+    "storefront"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "storefront",
+        "snippet": "\"name\": \"storefront\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:storefront"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  }
+ }
+}
