@@ -7,6 +7,21 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.2]
+
+### Added
+- **See which repos a repo links to.** `cairn links` (in a repo, or `cairn links <repo>`) and a
+  new `links` MCP tool give the same answer, one line per linked repo with its direction:
+  `→ one way` (this repo uses it), `← one way` (it uses this repo) or `↔ both ways`, then what
+  connects them ("calls it (2 routes)", "uses this repo's SQS queue jobs", "shares 10 tables").
+  Ask any agent "which repos does this repo link to?" and it answers with that list.
+  `--evidence` adds the file:line behind each link, `--all` includes unconfirmed links, `--json`
+  is for scripts. The Claude Code plugin adds `/cairn:links`.
+
+### Fixed
+- `cairn uninstall claude` said "cairn was not installed" when there was no CLAUDE.md block,
+  even though it removed the skill and the MCP server. It now says what it removed.
+
 ## [0.8.1]
 
 ### Added

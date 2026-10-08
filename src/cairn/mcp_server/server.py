@@ -56,6 +56,11 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
         return answer(lambda ws: tools.card_text(ws, repo))
 
     @server.tool()
+    def links(repo: str = "", include_unconfirmed: bool = False) -> str:
+        """Which repos a repo is linked to, one line each: "→ one way" (it uses that repo), "← one way" (that repo uses it) or "↔ both ways", and what connects them. Leave repo empty for the repo this session is in. When the user asks what a repo links to, show this list to them as is; call related for the evidence."""
+        return answer(lambda ws: tools.links_text(ws, repo, origin, include_unconfirmed))
+
+    @server.tool()
     def related(repo: str, edge_type: str | None = None, include_unconfirmed: bool = False) -> str:
         """Repos related to `repo`, with evidence. edge_type: calls_http, grpc, pubsub, uses_resource, compose_link, deploys, mirrors, shares_db, depends_on_package, path_ref, shares_env, mentions, manual."""
         return answer(lambda ws: tools.related_text(ws, repo, edge_type, include_unconfirmed))

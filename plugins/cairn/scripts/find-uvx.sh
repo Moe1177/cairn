@@ -2,7 +2,7 @@
 # Besides PATH it looks where uv's installer and pip put uv, so a uv that isn't on PATH (pip's
 # per-user Scripts folder often isn't) or was installed during this session still works: Claude
 # Code's PATH was fixed when it started.
-CAIRN_PIN="cairnmap==0.8.1"
+CAIRN_PIN="cairnmap==0.8.2"
 
 find_uvx() {
   if command -v uvx >/dev/null 2>&1; then

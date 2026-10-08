@@ -115,7 +115,8 @@ def _index_context(workspace: Path, limit: int) -> str:
     footer = (
         f"\n\nThis is the cairn map of {workspace.as_posix()}. Before exploring a repo, read "
         f"`.cairn/cards/<repo>.md` there, or ask the cairn MCP tools (resolve_repo, repo_card, "
-        "related, find_across, query)."
+        "related, find_across, query). Asked what a repo links to, call the `links` tool and show "
+        "its list as is."
     )
     return _fit(index.strip(), limit - len(footer), workspace) + footer
 

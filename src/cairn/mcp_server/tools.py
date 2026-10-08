@@ -15,6 +15,7 @@ from cairn.mcp_server.query import answer as query_answer
 from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.paths import cards_dir
 from cairn.render.card import relate_line
+from cairn.render.links import Neighbor, hidden_count, neighbors, render_links, repo_at
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
 from cairn.security.text import clean_inline
@@ -105,6 +106,55 @@ def _find(ws_root: Path, name: str) -> tuple[Workspace, Repo | None, str]:
         return workspace, workspace.repo(matches[0].repo_id), ""
     hint = ", ".join(m.repo_id for m in matches) or "none"
     return workspace, None, f"No repo named '{name}'. Did you mean: {hint}? (use resolve_repo)"
+
+
+def find_repo(ws_root: Path, name: str) -> tuple[Repo | None, str]:
+    """The repo a name or alias means, or None and a hint saying why not."""
+    _, found, message = _find(ws_root, name)
+    return found, message
+
+
+LinksView = tuple[str, tuple[Neighbor, ...], int]
+
+
+def links_view(
+    ws_root: Path, repo: str, start: Path | None, *, include_unconfirmed: bool = False
+) -> LinksView | str:
+    """(repo id, its linked repos, how many more only unconfirmed links reach), or a message.
+    No name means the repo that contains `start` (the folder the session runs in)."""
+    view, _ = _under_lock(ws_root, lambda: _links_view(ws_root, repo, start, include_unconfirmed))
+    return view
+
+
+def _links_view(
+    ws_root: Path, repo: str, start: Path | None, include_unconfirmed: bool
+) -> LinksView | str:
+    workspace = _workspace(ws_root)
+    if repo.strip():
+        found, message = find_repo(ws_root, repo)
+        if found is None:
+            return message
+    else:
+        found = repo_at(workspace, ws_root, start) if start is not None else None
+        if found is None:
+            return (
+                "Not inside one of this workspace's repos, so name one "
+                "(resolve_repo finds a repo from a description)."
+            )
+    workspace = _fresh(ws_root, found)
+    linked = neighbors(workspace, found.id, include_unconfirmed=include_unconfirmed)
+    hidden = 0 if include_unconfirmed else hidden_count(workspace, found.id)
+    return found.id, linked, hidden
+
+
+def links_text(
+    ws_root: Path, repo: str = "", start: Path | None = None, include_unconfirmed: bool = False
+) -> str:
+    view = links_view(ws_root, repo, start, include_unconfirmed=include_unconfirmed)
+    if isinstance(view, str):
+        return view
+    repo_id, linked, hidden = view
+    return render_links(repo_id, linked, hidden=hidden, show_all="include_unconfirmed=true")
 
 
 def _package_owners(workspace: Workspace, lowered: str) -> list[tuple[Repo, Package]]:

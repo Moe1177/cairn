@@ -161,6 +161,23 @@ for that repo. README text is deliberately kept out of always-loaded context.
 
 ## How to use it
 
+### See what a repo links to
+
+Inside any repo, run `cairn links`, or ask your agent "which repos does this repo link to?". Both
+give the same answer:
+
+```
+trips-svc is linked to 3 repos:
+  admin-console  ↔ both ways  shares 2 tables, mentions each other in docs
+  payments-svc   ← one way    calls this repo (2 routes)
+  rider-web      ← one way    calls this repo (3 routes)
+```
+
+`→ one way` means this repo uses the other one, `← one way` that the other one uses this repo,
+and `↔ both ways` that each uses the other or they share something, like a database. Add
+`--evidence` for the file and line behind each link. In Claude Code, the plugin's `/cairn:links`
+does the same.
+
 ### Day to day
 
 ```bash
@@ -188,6 +205,7 @@ and you can commit them so your team shares them.
 |---|---|
 | `resolve_repo` | "Which repo is 'the payments service'?" |
 | `repo_card` | The card for a repo (re-scanned first if its HEAD moved) |
+| `links` | Which repos a repo is linked to, one line each with its direction (→ one way, ← one way, ↔ both ways); empty means the repo the session is in |
 | `related` | Everything connected to a repo, with evidence |
 | `find_across` | Which repos expose or use a table, package, or path |
 | `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
@@ -390,6 +408,7 @@ how to report a vulnerability.
 | `cairn uninstall <name\|all>` | Remove it again |
 | `cairn hooks install\|uninstall` | Opt-in git hooks that refresh after commits and merges |
 | `cairn serve` | The MCP server (harnesses start it for you) |
+| `cairn links [REPO]` | Which repos a repo is linked to, one line each with its direction; the repo you're in by default (`--evidence`, `--all`, `--json`) |
 | `cairn context` | What a Claude Code session should know about its folder: the index, or an offer to build a map (the plugin's session hook runs it) |
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
