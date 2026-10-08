@@ -6,14 +6,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=find-uvx.sh
 . "$here/find-uvx.sh"
 
-# The plugin directory validator needs the launched program spelled by name, so extend
-# PATH with the usual uv install spots and run uvx literally instead of resolving it
-# into a variable.
-add_uv_dirs_to_path
-
-if command -v uvx >/dev/null 2>&1; then
-  # Version pinned literally: the plugin directory validator cannot follow variables.
-  exec uvx --from cairnmap==0.8.2 cairn context
+if uvx="$(find_uvx)"; then
+  exec "$uvx" --from "$CAIRN_PIN" cairn context
 fi
 
 json_string() {
