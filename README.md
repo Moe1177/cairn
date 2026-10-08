@@ -16,6 +16,8 @@ The agent knows where things live without re-exploring.
 > markers that guide coding agents to the right repo, and then to the right file.
 
 Works with **Claude Code, Codex, Gemini CLI, and Cursor**, on **Windows, macOS, and Linux**.
+Using Claude Code? [Install cairn as a plugin](#as-a-claude-code-plugin), or paste that section
+into Claude Code and it installs everything for you.
 
 ---
 
@@ -100,20 +102,48 @@ The package is called `cairnmap`; the command is `cairn`.
 
 ### As a Claude Code plugin
 
-If you use Claude Code, installing the plugin is the whole setup. It runs cairn from PyPI through
-[uv](https://docs.astral.sh/uv/). Without uv, your first session says so and Claude offers to
-install it with uv's official installer (only if you agree; restart Claude Code afterwards).
+If you use Claude Code, the plugin is the whole setup: it builds the map when you ask, loads it
+into every session, and starts cairn's MCP tools. It runs cairn from PyPI through
+[uv](https://docs.astral.sh/uv/).
+
+**Type it yourself** in Claude Code, then restart Claude Code:
 
 ```
 /plugin marketplace add Moe1177/cairn
 /plugin install cairn@cairn
 ```
 
-Open Claude Code inside any repo of a folder of repos. If the folder has no map yet, Claude offers
-to build one (with `/cairn`, which runs `cairn init` there); after that, every session starts with
-the map, and the cairn MCP tools are ready. The plugin loads the index itself, so it never edits
-`CLAUDE.md`. Already ran `cairn install claude`? Run `cairn uninstall claude` so the tools and the
-skill don't appear twice. Codex, Gemini CLI and Cursor still use `cairn install`.
+**Or ask Claude Code to do it.** Paste this section, or the link to it, into Claude Code and say
+"install this". The steps below are written so Claude Code can follow them.
+
+1. Check that uv is installed: `uvx --version`. If it isn't found:
+   - uv may be installed but not on PATH (`pip install --user uv` puts it in
+     `%APPDATA%\Python\Python3*\Scripts` on Windows, `~/Library/Python/3.*/bin` on macOS). If it's
+     there, tell the user to add that folder to PATH instead of installing uv again.
+   - Otherwise, ask the user before installing uv with its official installer:
+     - macOS and Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+     - Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+2. Add the marketplace and install the plugin:
+   ```
+   claude plugin marketplace add Moe1177/cairn
+   claude plugin install cairn@cairn
+   ```
+3. Check it: `claude plugin list` shows `cairn@cairn` as enabled.
+4. If `~/.claude/skills/cairn/SKILL.md` exists, cairn was also installed with
+   `cairn install claude`. Run `cairn uninstall claude`, or every cairn tool appears twice.
+5. Tell the user to restart Claude Code, then open it inside any repo of their folder of repos.
+   If that folder has no map yet, Claude offers to build one (or say "build the cairn map").
+
+After that, every session starts with the map, and the cairn MCP tools are ready. The plugin never
+edits `CLAUDE.md`. If uv goes missing later, the first session says so and Claude offers to install
+it, only if you agree.
+
+| To | Run |
+|---|---|
+| Update | `claude plugin marketplace update cairn`, then `claude plugin update cairn@cairn` |
+| Remove | `claude plugin uninstall cairn@cairn` |
+
+Codex, Gemini CLI and Cursor use `cairn install` instead (see Quick start).
 
 ## Quick start
 
