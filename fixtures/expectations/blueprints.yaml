@@ -1,0 +1,13 @@
+edges:
+  # infra's render.yaml deploys services whose code lives in sibling repos:
+  - {from: infra, to: storefront, type: deploys, confidence: extracted}
+  - {from: infra, to: orders-svc, type: deploys, confidence: extracted}
+  # fromService references link the code repos, wherever the blueprint sits:
+  - {from: storefront, to: orders-svc, type: calls_http, confidence: extracted}
+  - {from: infra, to: orders-svc, type: calls_http, confidence: extracted}
+  - {from: orders-svc, to: auth, type: uses_resource, confidence: extracted}
+  # mailer's repo is outside the workspace; shop-db and shared-settings are Render resources.
+phrasings:
+  - {query: "infra", repo: infra}
+  - {query: "storefront", repo: storefront}
+  - {query: "orders-svc", repo: orders-svc}

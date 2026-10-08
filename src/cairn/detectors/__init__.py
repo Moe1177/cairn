@@ -15,6 +15,7 @@ from cairn.detectors.messaging import MessagingDetector
 from cairn.detectors.packages import PackagesDetector
 from cairn.detectors.pathrefs import PathRefsDetector, is_config_file
 from cairn.detectors.profile import ProfileDetector
+from cairn.detectors.render import RenderDetector
 
 IDENTITY_DETECTORS: tuple[Detector, ...] = (IdentityDetector(), ProfileDetector())
 RELATION_DETECTORS: tuple[Detector, ...] = (
@@ -28,6 +29,7 @@ RELATION_DETECTORS: tuple[Detector, ...] = (
     MessagingDetector(),
     InfraDetector(),
     AwsDetector(),
+    RenderDetector(),
     EnvVarsDetector(),
     DocsDetector(),
 )
