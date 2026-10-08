@@ -15,4 +15,5 @@ if ! command -v uvx >/dev/null 2>&1; then
   exit 127
 fi
 export CAIRN_PLUGIN=1
-exec uvx --from "$CAIRN_PIN" cairn "$@"
+# Version pinned literally: the plugin directory validator cannot follow variables.
+exec uvx --from cairnmap==0.8.2 cairn "$@"

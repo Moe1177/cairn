@@ -12,7 +12,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 add_uv_dirs_to_path
 
 if command -v uvx >/dev/null 2>&1; then
-  exec uvx --from "$CAIRN_PIN" cairn context
+  # Version pinned literally: the plugin directory validator cannot follow variables.
+  exec uvx --from cairnmap==0.8.2 cairn context
 fi
 
 json_string() {
