@@ -8,6 +8,11 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **SSM parameters that no IaC creates** (written by a deploy script, say) link to the repo their
+  path names: `/amplify/${stage}/amplify-admin/TABLE` links to the repo whose serverless service,
+  id or alias is exactly `amplify-admin`. Only an exact name counts, never a shared word, and
+  never the app prefix (the path's first segment). Cards say "reads SSM parameter … (its path
+  names this repo)".
 - **Lambda functions** join the AWS resources: a function is created by Terraform
   (`aws_lambda_function`, the lambda module), CloudFormation/SAM (`FunctionName`), CDK
   (`functionName`) or serverless, whose functions are named `<service>-<stage>-<key>`. A repo

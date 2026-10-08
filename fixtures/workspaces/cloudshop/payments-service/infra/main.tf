@@ -19,3 +19,8 @@ resource "aws_ssm_parameter" "api_url" {
 data "aws_sqs_queue" "shipments" {
   name = "shipments-${var.environment}"
 }
+
+# Written by orders-service's deploy script, not by any IaC here.
+data "aws_ssm_parameter" "orders_table" {
+  name = "/cloudshop/${var.environment}/orders-service/table-name"
+}

@@ -168,6 +168,26 @@
    "evidence": [
     {
      "file": "infra/main.tf",
+     "line": 25,
+     "repo": "payments-service",
+     "snippet": "name = \"/cloudshop/${var.environment}/orders-service/table-name\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "ssm_named:ssm:/cloudshop/orders-service/table-name"
+   ],
+   "source": "payments-service",
+   "target": "orders-service",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "infra/main.tf",
      "line": 20,
      "repo": "payments-service",
      "snippet": "name = \"shipments-${var.environment}\""
@@ -641,6 +661,19 @@
       "hints": [],
       "kind": "cloud_resource",
       "value": "sqs:shipments"
+     },
+     {
+      "evidence": [
+       {
+        "file": "infra/main.tf",
+        "line": 25,
+        "repo": "payments-service",
+        "snippet": "name = \"/cloudshop/${var.environment}/orders-service/table-name\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "ssm:/cloudshop/orders-service/table-name"
      }
     ],
     "exposes": [

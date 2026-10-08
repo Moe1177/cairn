@@ -228,7 +228,11 @@ def _describe(edge: Edge) -> str:
             return "publishes EventBridge events " + _join([t[len(EVENT_SOURCE) :] for t in topics])
         return "publishes " + _join(topics)
     if edge.type is EdgeType.USES_RESOURCE:
-        return "uses " + _join([_resource(v) for v in _signal_values(edge, "resource:")])
+        used = [_resource(v) for v in _signal_values(edge, "resource:")]
+        named = [_resource(v) for v in _signal_values(edge, "ssm_named:")]
+        parts = ["uses " + _join(used)] if used else []
+        parts += [f"reads {_join(named)} (its path names this repo)"] if named else []
+        return "; ".join(parts)
     if edge.type is EdgeType.COMPOSE_LINK:
         return "compose: depends on"
     if edge.type is EdgeType.SHARES_ENV:
