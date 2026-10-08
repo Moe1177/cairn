@@ -192,20 +192,65 @@ def test_the_marketplace_lists_the_plugin_folder() -> None:
     assert (ROOT / entry["source"] / ".claude-plugin" / "plugin.json").is_file()
 
 
+# Each launcher and the exact `exec` line that starts cairn. The plugin directory's validator
+# needs the program (`uvx`) and the pin spelled out, so neither may come from a variable.
+LAUNCHERS = {
+    "scripts/session-start.sh": f"exec uvx --from {PIN} cairn context",
+    "scripts/mcp-serve": f'exec uvx --from {PIN} cairn serve --from "${{CLAUDE_PROJECT_DIR:-$PWD}}" "$@"',
+    "bin/cairn": f'exec uvx --from {PIN} cairn "$@"',
+}
+# What Windows runs for scripts/mcp-serve: Claude Code picks the .cmd beside an extensionless
+# command there, as with npm's shims.
+WINDOWS_SERVE = f'uvx --from {PIN} cairn serve --from "%CLAUDE_PROJECT_DIR%" %*'
+
+
 def test_every_launcher_runs_the_release_this_plugin_ships_with() -> None:
     manifest = _json("plugins/cairn/.claude-plugin/plugin.json")
     assert manifest["name"] == "cairn" and manifest["version"] == cairn.__version__
     server = _json("plugins/cairn/.mcp.json")["mcpServers"]["cairn"]
-    assert server["command"] == "uvx" and server["args"][:2] == ["--from", PIN]
-    assert server["env"][PLUGIN_ENV] == "1"
+    # The server is a script in the plugin, which finds uv like the hook and the wrapper do,
+    # and reads the project folder from CLAUDE_PROJECT_DIR, which Claude Code sets for it.
+    assert server["command"] == "${CLAUDE_PLUGIN_ROOT}/scripts/mcp-serve"
+    assert "args" not in server and server["env"][PLUGIN_ENV] == "1"
     (hook,) = _json("plugins/cairn/hooks/hooks.json")["hooks"]["SessionStart"][0]["hooks"]
-    # The hook and the wrapper find uv themselves (tests/test_plugin_scripts.py runs them).
+    # The scripts find uv themselves (tests/test_plugin_scripts.py runs them).
     assert hook["command"] == 'bash "${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"'
-    lookup = (PLUGIN / "scripts" / "find-uvx.sh").read_text(encoding="utf-8")
-    assert f'CAIRN_PIN="{PIN}"' in lookup
-    wrapper = (PLUGIN / "bin" / "cairn").read_text(encoding="utf-8")
-    assert 'exec "$uvx" --from "$CAIRN_PIN" cairn "$@"' in wrapper
-    assert f"export {PLUGIN_ENV}=1" in wrapper
+    for rel, launch in LAUNCHERS.items():
+        text = (PLUGIN / rel).read_text(encoding="utf-8")
+        execs = [line.strip() for line in text.splitlines() if line.strip().startswith("exec ")]
+        assert execs == [launch], rel
+    for rel in ("scripts/mcp-serve", "bin/cairn"):
+        assert f"export {PLUGIN_ENV}=1" in (PLUGIN / rel).read_text(encoding="utf-8"), rel
+    windows = (PLUGIN / "scripts" / "mcp-serve.cmd").read_text(encoding="utf-8")
+    assert windows.splitlines()[-1] == WINDOWS_SERVE
+    assert f'set "{PLUGIN_ENV}=1"' in windows
+    # The checkout has LF line endings, where cmd.exe can misread labels: none, and no goto.
+    code = [line for line in windows.splitlines() if not line.lower().startswith("rem ")]
+    assert not [line for line in code if re.search(r"^\s*:|\bgoto\b|\bcall\s+:", line, re.I)]
+
+
+def test_mcp_and_hook_commands_name_no_variable_but_the_plugin_root() -> None:
+    """The directory blocks any other variable in them when the plugin is a subfolder."""
+    server = _json("plugins/cairn/.mcp.json")["mcpServers"]["cairn"]
+    hooks = _json("plugins/cairn/hooks/hooks.json")["hooks"]["SessionStart"][0]["hooks"]
+    commands = [server["command"], *server.get("args", []), *(h["command"] for h in hooks)]
+    for command in commands:
+        assert set(re.findall(r"\$\{?(\w+)", command)) == {"CLAUDE_PLUGIN_ROOT"}, command
+
+
+def test_no_pin_in_the_plugin_drifts_from_the_package_version() -> None:
+    """A version bump must update every literal pin: cairn.__version__ is the one source."""
+    texts = {
+        path.relative_to(PLUGIN).as_posix(): path.read_text(encoding="utf-8")
+        for path in PLUGIN.rglob("*")
+        if path.is_file()
+    }
+    pins = {rel: re.findall(r"cairnmap==([^\s\"'`]+)", text) for rel, text in texts.items()}
+    for rel in LAUNCHERS:
+        assert pins[rel], f"{rel} has no cairnmap== pin"
+    drifted = {rel: found for rel, found in pins.items() if set(found) - {cairn.__version__}}
+    assert not drifted, f"pins other than {PIN}: {drifted}"
+    assert not [rel for rel, text in texts.items() if "CAIRN_PIN" in text]
 
 
 def test_the_plugin_skill_is_the_skill_cairn_installs() -> None:
@@ -220,5 +265,6 @@ def test_the_plugin_readme_passes_the_directory_minimum() -> None:
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the executable bit is a POSIX notion")
-def test_the_wrapper_is_executable() -> None:
+def test_the_wrapper_and_the_mcp_server_are_executable() -> None:
     assert os.access(PLUGIN / "bin" / "cairn", os.X_OK)
+    assert os.access(PLUGIN / "scripts" / "mcp-serve", os.X_OK)

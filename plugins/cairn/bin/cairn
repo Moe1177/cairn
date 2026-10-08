@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # cairn for the Claude Code plugin: the PyPI release this plugin was built with, run through uv.
+# The pin is spelled out in each launcher; tests/test_plugin.py keeps it equal to cairn's version.
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../scripts/find-uvx.sh
 . "$here/../scripts/find-uvx.sh"
 
-if ! uvx="$(find_uvx)"; then
+if ! put_uvx_on_path; then
   echo "cairn: this plugin runs cairn with uv (https://docs.astral.sh/uv/), but couldn't find it." >&2
   echo "Install it with: $(uv_install_command)" >&2
-  echo "Or install cairn yourself: pipx install $CAIRN_PIN" >&2
+  echo "Or install cairn yourself: pipx install cairnmap==0.8.2" >&2
   exit 127
 fi
 export CAIRN_PLUGIN=1
-exec "$uvx" --from "$CAIRN_PIN" cairn "$@"
+exec uvx --from cairnmap==0.8.2 cairn "$@"

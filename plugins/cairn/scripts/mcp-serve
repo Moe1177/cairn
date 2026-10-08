@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# The plugin's MCP server (.mcp.json) on macOS and Linux: `cairn serve` from the PyPI release this
+# plugin was built with, run through uv, for the session's project folder. On Windows, Claude
+# Code runs mcp-serve.cmd beside it instead. Nothing may reach stdout before cairn starts: it is
+# the MCP channel.
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=find-uvx.sh
+. "$here/find-uvx.sh"
+
+if ! put_uvx_on_path; then
+  echo "cairn plugin: couldn't find uv (https://docs.astral.sh/uv/), so cairn's MCP server can't start." >&2
+  echo "Install it with: $(uv_install_command), then restart Claude Code." >&2
+  exit 127
+fi
+export CAIRN_PLUGIN=1
+exec uvx --from cairnmap==0.8.2 cairn serve --from "${CLAUDE_PROJECT_DIR:-$PWD}" "$@"

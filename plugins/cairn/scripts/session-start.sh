@@ -6,8 +6,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=find-uvx.sh
 . "$here/find-uvx.sh"
 
-if uvx="$(find_uvx)"; then
-  exec "$uvx" --from "$CAIRN_PIN" cairn context
+if put_uvx_on_path; then
+  exec uvx --from cairnmap==0.8.2 cairn context
 fi
 
 json_string() {
