@@ -245,6 +245,55 @@ def init(
 
 
 @app.command()
+def links(
+    repo: Annotated[
+        str | None, typer.Argument(help="A repo name or alias (default: the repo you're in).")
+    ] = None,
+    evidence: Annotated[
+        bool, typer.Option("--evidence", help="Show each link's file:line evidence.")
+    ] = False,
+    show_all: Annotated[bool, typer.Option("--all", help="Include unconfirmed links.")] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Print JSON for scripts.")] = False,
+) -> None:
+    """List the repos a repo is linked to: one line each, with its direction."""
+    import json
+
+    from cairn.integrations.registry import find_workspace
+    from cairn.mcp_server.tools import links_view
+    from cairn.render.links import links_json, render_links
+
+    here = Path.cwd()
+    ws_root = find_workspace(here)
+    if ws_root is None:
+        _fail("No cairn map here. Run `cairn init` in the folder that contains your repos.")
+    try:
+        view = links_view(ws_root, repo or "", here, include_unconfirmed=show_all)
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    if isinstance(view, str):
+        if not repo:
+            _fail("You're not inside one of the mapped repos. Name one: `cairn links <repo>`.")
+        _fail(view)
+    repo_id, linked, hidden = view
+    if as_json:
+        typer.echo(json.dumps(links_json(repo_id, linked), indent=2))
+    else:
+        typer.echo(_printable(render_links(repo_id, linked, evidence=evidence, hidden=hidden)))
+
+
+_ARROWS = str.maketrans({"→": "->", "←": "<-", "↔": "<->", "·": "-", "…": "..."})
+
+
+def _printable(text: str) -> str:
+    """Arrows a legacy console can't show become ASCII ones: "?" would hide the direction."""
+    try:
+        text.encode(sys.stdout.encoding or "utf-8")
+    except (UnicodeEncodeError, LookupError):
+        return text.translate(_ARROWS)
+    return text
+
+
+@app.command()
 def context(
     from_dir: Annotated[
         Path | None,

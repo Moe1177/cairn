@@ -4,7 +4,7 @@
       "command": "uvx",
       "args": [
         "--from",
-        "cairnmap==0.8.1",
+        "cairnmap==0.8.2",
         "cairn",
         "serve",
         "--from",

@@ -1,6 +1,6 @@
 {
   "name": "cairn",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "A map of all your repos for Claude Code: which repo calls, deploys, or shares data with which, loaded into every session, with MCP tools for repo cards and cross-repo lookups.",
   "author": {
     "name": "Mohamad Addasi"

@@ -122,10 +122,17 @@ def _register_mcp() -> str:
 
 
 def _uninstall_claude(ws_root: Path) -> Lines:
-    removed = uninstall_claude(ws_root)
-    cf.remove_owned(claude_home() / "skills" / "cairn" / "SKILL.md")
-    _claude_cli(["mcp", "remove", "--scope", "user", "cairn"])
-    return ("Claude Code: cairn removed." if removed else "Claude Code: cairn was not installed.",)
+    removed = []
+    if uninstall_claude(ws_root):
+        removed.append("the index block in CLAUDE.md")
+    if cf.remove_owned(claude_home() / "skills" / "cairn" / "SKILL.md"):
+        removed.append("the /cairn skill")
+    done = _claude_cli(["mcp", "remove", "--scope", "user", "cairn"])
+    if done is not None and done[0] == 0:
+        removed.append("the cairn MCP server")
+    if not removed:
+        return ("Claude Code: nothing to remove (no index block, skill or MCP server).",)
+    return ("Claude Code: removed " + ", ".join(removed) + ".",)
 
 
 def _install_codex(ws_root: Path, _per_repo: bool) -> Lines:

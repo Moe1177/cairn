@@ -39,7 +39,8 @@ def pointer_text(workspaces: Sequence[str]) -> str:
             "If your working directory is inside one of these folders, or the user names a repo "
             "you can't see, read `<folder>/.cairn/INDEX.md`, then `<folder>/.cairn/cards/<repo>.md`, "
             "before exploring. The `cairn` MCP tools (resolve_repo, repo_card, related, find_across) "
-            "answer the same questions.",
+            "answer the same questions. Asked what a repo links to, call `links` (or run "
+            "`cairn links`) and show its list as is.",
             *listed,
         ]
     )

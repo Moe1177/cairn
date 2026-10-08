@@ -12,7 +12,8 @@ Install, then open Claude Code inside any repo of a multi-repo folder:
 /plugin install cairn@cairn
 ```
 
-If the folder has no map yet, Claude offers to build one with `/cairn` (it only reads your repos
+Ask "which repos does this repo link to?", or type `/cairn:links`, for one line per linked
+repo with its direction. If the folder has no map yet, Claude offers to build one with `/cairn` (it only reads your repos
 and writes `.cairn/` in the parent folder). The plugin runs cairn from PyPI through
 [uv](https://docs.astral.sh/uv/). If uv isn't installed, the first session tells you and Claude
 offers to install it with uv's official installer, only if you agree; restart Claude Code after.
