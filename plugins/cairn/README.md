@@ -14,5 +14,7 @@ Install, then open Claude Code inside any repo of a multi-repo folder:
 
 If the folder has no map yet, Claude offers to build one with `/cairn` (it only reads your repos
 and writes `.cairn/` in the parent folder). The plugin runs cairn from PyPI through
-[uv](https://docs.astral.sh/uv/), so uv must be installed. Everything stays on your machine: cairn
+[uv](https://docs.astral.sh/uv/). If uv isn't installed, the first session tells you and Claude
+offers to install it with uv's official installer, only if you agree; restart Claude Code after.
+On Windows the plugin's scripts need Git Bash, which Claude Code normally uses. Everything stays on your machine: cairn
 makes no network calls and collects no telemetry. See the main README for what cairn detects.

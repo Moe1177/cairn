@@ -16,6 +16,10 @@ All notable changes to cairn are documented here. The format follows
   a session-start hook instead of a block in CLAUDE.md. In one repo of a folder of repos with no
   map, Claude offers to build one; the `/cairn` skill now knows how (confirm the folder, run
   `cairn init`).
+- **Without uv, the plugin says so.** The first session shows a warning, and Claude offers once
+  to install uv with its official installer, running it only if the user agrees (Claude Code
+  asks before it runs). The plugin's scripts also find a uv installed during the session where
+  its installer puts it; the MCP server needs a restart of Claude Code.
 - **`cairn context`** prints what a session should know about its folder: the index (cut at a
   whole line to fit Claude Code's hook limit, saying how many repos were left out), an offer to
   build a map, or nothing. It prints nothing when CLAUDE.md already loads the index.

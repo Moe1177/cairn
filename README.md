@@ -100,8 +100,9 @@ The package is called `cairnmap`; the command is `cairn`.
 
 ### As a Claude Code plugin
 
-If you use Claude Code, installing the plugin is the whole setup. You need
-[uv](https://docs.astral.sh/uv/); the plugin runs cairn from PyPI through it.
+If you use Claude Code, installing the plugin is the whole setup. It runs cairn from PyPI through
+[uv](https://docs.astral.sh/uv/). Without uv, your first session says so and Claude offers to
+install it with uv's official installer (only if you agree; restart Claude Code afterwards).
 
 ```
 /plugin marketplace add Moe1177/cairn

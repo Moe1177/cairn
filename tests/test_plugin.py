@@ -199,9 +199,12 @@ def test_every_launcher_runs_the_release_this_plugin_ships_with() -> None:
     assert server["command"] == "uvx" and server["args"][:2] == ["--from", PIN]
     assert server["env"][PLUGIN_ENV] == "1"
     (hook,) = _json("plugins/cairn/hooks/hooks.json")["hooks"]["SessionStart"][0]["hooks"]
-    assert hook["command"] == f"uvx --from {PIN} cairn context"
+    # The hook and the wrapper find uv themselves (tests/test_plugin_scripts.py runs them).
+    assert hook["command"] == 'bash "${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"'
+    lookup = (PLUGIN / "scripts" / "find-uvx.sh").read_text(encoding="utf-8")
+    assert f'CAIRN_PIN="{PIN}"' in lookup
     wrapper = (PLUGIN / "bin" / "cairn").read_text(encoding="utf-8")
-    assert f'exec uvx --from "{PIN}" cairn "$@"' in wrapper
+    assert 'exec "$uvx" --from "$CAIRN_PIN" cairn "$@"' in wrapper
     assert f"export {PLUGIN_ENV}=1" in wrapper
 
 
