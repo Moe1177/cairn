@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# cairn for the Claude Code plugin: the PyPI release this plugin was built with, run through uv.
+if ! command -v uvx >/dev/null 2>&1; then
+  echo "cairn: this plugin runs cairn with uv (https://docs.astral.sh/uv/). Install uv, or run: pipx install cairnmap==0.8.1" >&2
+  exit 127
+fi
+export CAIRN_PLUGIN=1
+exec uvx --from "cairnmap==0.8.1" cairn "$@"

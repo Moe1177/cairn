@@ -92,6 +92,12 @@ def _refresh_pointers() -> None:
 
 
 def _install_claude(ws_root: Path, _per_repo: bool) -> Lines:
+    from cairn.integrations.plugin import plugin_enabled
+
+    if plugin_enabled():
+        # The plugin brings the skill, the MCP server and the index; a second copy of each
+        # would only duplicate tools and context.
+        return ("Claude Code: the cairn plugin is enabled and already loads all of this.",)
     target = install_claude(ws_root)
     skill = claude_home() / "skills" / "cairn" / "SKILL.md"
     cf.write_owned(skill, skill_markdown())

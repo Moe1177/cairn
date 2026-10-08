@@ -27,6 +27,7 @@ from cairn.integrations.harnesses import (
     installed_harnesses,
     uninstall_harness,
 )
+from cairn.integrations.plugin import plugin_enabled, session_context, session_start
 from cairn.load import load_authored
 from cairn.model.graph import Confidence, Repo, Workspace
 from cairn.paths import cairn_dir
@@ -225,7 +226,11 @@ def init(
                 "Run `cairn init` from the folder that contains your repos."
             )
             return
-        if no_install:
+        if plugin_enabled():
+            typer.echo("The cairn Claude Code plugin loads this map into each session.")
+            return
+        if no_install or not (yes or sys.stdin.isatty()):
+            # No one to ask (an agent's shell, CI): never block on a prompt.
             typer.echo("Run `cairn install claude` to load the index into Claude Code.")
             return
         prompt = (
@@ -237,6 +242,24 @@ def init(
             typer.echo("Skipped. Run `cairn install claude` any time.")
     except (CairnError, OSError) as exc:
         _fail(str(exc))
+
+
+@app.command()
+def context(
+    from_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--from", help="The session's folder (default: $CLAUDE_PROJECT_DIR, else here)."
+        ),
+    ] = None,
+) -> None:
+    """Print what a Claude Code session should know about its workspace (the plugin's hook)."""
+    try:
+        text = session_context(session_start(from_dir))
+    except (CairnError, OSError, ValueError):
+        return  # a session-start hook must never get in the way of starting a session
+    if text:
+        typer.echo(text)
 
 
 @app.command()
@@ -257,6 +280,12 @@ def uninstall(harness: str, path: PathArg = Path(".")) -> None:
     """Remove cairn from a harness: claude, codex, gemini, cursor, or all."""
     root = path.resolve()
     _run_for(_harness_names(harness), lambda name: uninstall_harness(name, root))
+
+
+def _claude_integration(root: Path) -> str:
+    if plugin_enabled():
+        return "the cairn plugin (loads the index into each session)"
+    return "installed" if is_installed(root) else "not installed"
 
 
 @app.command()
@@ -285,7 +314,7 @@ def status(path: PathArg = Path(".")) -> None:
         f"Repos without an authored summary: {', '.join(missing) or 'none'}",
         f"Possibly stale summaries: {', '.join(stale) or 'none'}",
         f"Detector errors: {'; '.join(errors) or 'none'}",
-        f"Claude Code integration: {'installed' if is_installed(root) else 'not installed'}",
+        f"Claude Code integration: {_claude_integration(root)}",
         f"Harnesses: {', '.join(installed_harnesses(root)) or 'none'}",
         f"Deep indexes: {', '.join(indexed_repos(root)) or 'none'}",
     ]

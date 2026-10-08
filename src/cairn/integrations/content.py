@@ -12,6 +12,10 @@ SKILL_BODY = """# cairn
 
 Keep the cairn workspace map accurate. Work from the workspace root (the folder containing `.cairn/`).
 
+0. If there is no map yet (no `.cairn/` in this folder or above it, or `cairn status` says "No map found"):
+   - Find the folder that holds the user's repos: usually the parent of the current repo, the one with several git repos in it.
+   - Ask the user to confirm that folder. Building the map only reads the repos; it writes `.cairn/` in that folder.
+   - Run `cairn init <folder>` and report the summary line it prints, then continue from step 1 in that folder.
 1. Run `cairn status`.
 2. For each repo under "Repos without an authored summary" or "Possibly stale summaries":
    - Read `.cairn/cards/<repo>.md`, then the repo's README if needed (stop after ~200 lines).

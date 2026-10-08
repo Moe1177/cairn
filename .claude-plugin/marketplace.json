@@ -1,0 +1,14 @@
+{
+  "name": "cairn",
+  "owner": {
+    "name": "Mohamad Addasi"
+  },
+  "description": "cairn: a map of all your repos for Claude Code (cross-repo links, repo cards, MCP tools).",
+  "plugins": [
+    {
+      "name": "cairn",
+      "source": "./plugins/cairn",
+      "description": "A map of all your repos for Claude Code: which repo calls, deploys, or shares data with which, loaded into every session, with MCP tools for repo cards and cross-repo lookups."
+    }
+  ]
+}
