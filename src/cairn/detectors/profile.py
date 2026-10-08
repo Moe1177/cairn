@@ -3,7 +3,6 @@
 import re
 from pathlib import Path
 
-from cairn.detectors.aws import deploy_stack
 from cairn.detectors.base import DetectorContext, DetectorResult
 from cairn.detectors.manifests import (
     dig,
@@ -14,6 +13,7 @@ from cairn.detectors.manifests import (
     parse_go_mod,
     python_requirement_names,
 )
+from cairn.detectors.platforms import deploy_stack
 from cairn.discover.files import DEFAULT_IGNORE_DIRS, is_link
 from cairn.model.graph import Command, LayoutEntry
 

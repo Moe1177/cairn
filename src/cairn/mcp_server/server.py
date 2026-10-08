@@ -97,7 +97,7 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
 
     @server.tool()
     def find_across(query: str, kind: str | None = None) -> str:
-        """Which repos expose or consume something: a route, table, topic, gRPC service, AWS resource (sqs:orders), package, or path. kind: http_route, db_table, topic, grpc_service, cloud_resource, package, env_var_name, path_ref."""
+        """Which repos expose or consume something: a route, table, topic, gRPC service, AWS resource (sqs:orders), package, or path. kind: http_route, db_table, topic, grpc_service, cloud_resource, platform_service, package, env_var_name, path_ref."""
         return _safe(lambda: tools.find_across_text(ws_root, query, kind))
 
     @server.tool()

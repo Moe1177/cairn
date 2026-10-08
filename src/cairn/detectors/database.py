@@ -18,7 +18,11 @@ from cairn.detectors.manifests import (
 from cairn.detectors.mongo import mongo_tables, uses_mongo
 from cairn.model.graph import Fact, FactKind
 
-_IDENT = r'"?(?:[A-Za-z_]\w*"?\.)?"?([A-Za-z_]\w*)"?'
+# An optionally schema-qualified name, quoted the ANSI ("t"), MySQL (`t`) or SQL Server ([t])
+# way. Without the MySQL form, CREATE TABLE IF NOT EXISTS `assets` read IF as the table.
+_Q_OPEN = r'["`\[]?'
+_Q_CLOSE = r'["`\]]?'
+_IDENT = rf"{_Q_OPEN}(?:[A-Za-z_]\w*{_Q_CLOSE}\.{_Q_OPEN})?([A-Za-z_]\w*){_Q_CLOSE}"
 CREATE_TABLE = re.compile(r"(?i)\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?" + _IDENT)
 SQL_REF = re.compile(r"\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:ONLY\s+)?" + _IDENT)
 SQL_REF_ANYCASE = re.compile(SQL_REF.pattern, re.IGNORECASE)
@@ -80,6 +84,14 @@ SQL_NOT_TABLES = frozenset(
         "restrict",
         "null",
         "default",
+        # `ON UPDATE CURRENT_TIMESTAMP` is a column default, not an UPDATE of a table.
+        "current_timestamp",
+        "current_date",
+        "current_time",
+        "localtimestamp",
+        "localtime",
+        "if",
+        "exists",
     }
 )
 _SYSTEM_PREFIXES = ("pg_", "sqlite_")

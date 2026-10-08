@@ -8,6 +8,8 @@ edges:
   - {from: shipping-service, to: orders-service, type: uses_resource, confidence: extracted}
   - {from: shipping-service, to: payments-service, type: uses_resource, confidence: inferred}
   - {from: payments-service, to: shipping-service, type: uses_resource, confidence: inferred}
+  # Nothing creates /cloudshop/orders-service/table-name; its path names orders-service:
+  - {from: payments-service, to: orders-service, type: uses_resource, confidence: inferred}
   - {from: notifications-service, to: platform-infra, type: uses_resource, confidence: inferred}
   - {from: notifications-service, to: orders-service, type: uses_resource, confidence: inferred}
   # legacy-reports shares only the Terraform state bucket, and its "orders" is a Postgres table.

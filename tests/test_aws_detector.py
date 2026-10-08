@@ -346,7 +346,13 @@ def test_cloudshop_cards_and_index_describe_aws_links(tmp_path: Path) -> None:
     assert "uses SQS queue payment-requests" in card
     assert "publishes EventBridge events cloudshop.orders" in render_card(orders, workspace)
     index = render_index(workspace, {})
-    assert "used by notifications-service, shipping-service" in index
+    assert "used by notifications-service, payments-service, shipping-service" in index
+    payments = workspace.repo("payments-service")
+    assert payments is not None
+    assert (
+        "reads SSM parameter /cloudshop/orders-service/table-name (its path names this repo)"
+        in (render_card(payments, workspace))
+    )
     assert not workspace.edges_for("legacy-reports")
     assert "serverless" in orders.stack
     assert any(e.type is EdgeType.USES_RESOURCE for e in workspace.edges)

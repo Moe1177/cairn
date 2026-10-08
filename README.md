@@ -152,17 +152,18 @@ and you can commit them so your team shares them.
 |---|---|
 | HTTP calls | Next.js routes, Express/Fastify/Hono, FastAPI/Flask, Go (net/http, chi, gin, echo) and OpenAPI routes, matched with `fetch`/`axios`, `requests`/`httpx`, and Go `http` client calls |
 | gRPC | Go, Python, TypeScript and Java servers matched with their client stubs |
-| Service names | Calls addressed to a sibling's service name, as Docker and Kubernetes DNS do: `http://catalogue`, `http://carts:8080/carts`, `*.svc.cluster.local`, `Hostname("payment")` |
+| Service names | Calls addressed to a sibling's service name, as Docker and Kubernetes DNS do: `http://catalogue`, `http://carts:8080/carts`, `*.svc.cluster.local`, `Hostname("payment")`; Railway's private network (`api.railway.internal`, also in Caddyfiles, `*.conf` and env templates) and its reference variables for another service's address (`${{api.RAILWAY_PRIVATE_DOMAIN}}`); Fly.io apps by their `fly.toml` app name (`orders.internal`, `iad.orders.internal`, `orders.flycast`, `orders.fly.dev`) |
 | Pub/sub topics | Kafka, NATS, Redis and RabbitMQ (Spring AMQP) publishers matched with subscribers (`trip.completed`) |
 | docker-compose | `depends_on` between services built from (or named after) your repos |
-| Deploy repos | compose, Kubernetes and Helm files that run your repos' images (`image: acme/catalogue:1.2`) |
+| Deploy repos | compose, Kubernetes and Helm files that run your repos' images (`image: acme/catalogue:1.2`); Render Blueprints (`render.yaml`) whose services deploy from a sibling repo (`repo: https://github.com/acme/orders`) |
+| Render services | `fromService` references in a Blueprint link the repo of the service that reads another's address (`property: hostport`) or env var to the repo of the service it reads, wherever the Blueprint sits |
 | Package dependencies | npm (`workspace:*`, scoped packages), PyPI, Go modules, Cargo |
 | Packages inside monorepos | npm/yarn/pnpm, Cargo, `go.work` and uv workspaces, listed on the card and resolvable by name |
 | Shared database tables | SQL migrations and queries, Prisma, Drizzle, Supabase, MongoDB (Mongoose models, `db.collection("x")`) |
 | Copies of one app | Repos that share their first commit (an app cloned per event or per client): "change one, check the other". The same package name only suggests it |
 | Path references | `../trips-svc` in docker-compose, tsconfig, and other config files |
 | Documentation | READMEs and docs that mention a sibling repo |
-| AWS resources | Which repo creates each SQS queue, SNS topic, DynamoDB table, S3 bucket, EventBridge bus, Kinesis stream, Lambda function, SSM parameter and CloudFormation export (Terraform, CloudFormation/SAM, Serverless Framework, CDK), and which repos use it: ARNs, queue URLs, `${ssm:}`/`${cf:}` lookups, `Fn::ImportValue`, Terraform `data` blocks, SAM policy templates, SDK calls, env vars like `ORDERS_TABLE`. EventBridge `PutEvents` sources are matched with rule patterns |
+| AWS resources | Which repo creates each SQS queue, SNS topic, DynamoDB table, S3 bucket, EventBridge bus, Kinesis stream, Lambda function, SSM parameter and CloudFormation export (Terraform, CloudFormation/SAM, Serverless Framework, CDK), and which repos use it: ARNs, queue URLs, `${ssm:}`/`${cf:}` lookups (an SSM parameter nothing creates links to the repo its path names exactly), `Fn::ImportValue`, Terraform `data` blocks, SAM policy templates, SDK calls, env vars like `ORDERS_TABLE`. EventBridge `PutEvents` sources are matched with rule patterns |
 | Shared env vars | Specific names read by both sides. These only back up another link; they never make one on their own |
 
 Look-alikes are deliberately ignored:

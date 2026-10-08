@@ -1,0 +1,10 @@
+name: deploy
+on: push
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: railway up --detach --service web
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          API_URL: ${{ secrets.BACKEND_URL }}

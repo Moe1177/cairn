@@ -168,3 +168,26 @@ def test_firebase_is_not_a_database_provider(tmp_path: Path) -> None:
     repo = make_repo(tmp_path, "app", {"package.json": '{"dependencies": {"firebase": "10"}}'})
     result = DatabaseDetector().run(ctx_for(tmp_path, repo))
     assert [f for f in result.consumes if f.kind is FactKind.DB_PROVIDER] == []
+
+
+def test_mysql_and_sql_server_quoting_names_the_table_not_if(tmp_path: Path) -> None:
+    sql = (
+        "CREATE TABLE IF NOT EXISTS `assets` (\n  id BIGINT\n);\n"
+        "CREATE TABLE `shop`.`asset_orders` (\n  id BIGINT\n);\n"
+        "CREATE TABLE [dbo].[invoices] (\n  id INT\n);\n"
+    )
+    repo = make_repo(tmp_path, "svc", {"migrations/001.sql": sql})
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    assert sorted(_tables(result.exposes)) == ["asset_orders", "assets", "invoices"]
+
+
+def test_on_update_current_timestamp_is_a_column_default_not_a_table(tmp_path: Path) -> None:
+    sql = (
+        "CREATE TABLE `ledger` (\n"
+        "  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) "
+        "ON UPDATE CURRENT_TIMESTAMP(3)\n);\n"
+    )
+    repo = make_repo(tmp_path, "svc", {"migrations/001.sql": sql})
+    result = DatabaseDetector().run(ctx_for(tmp_path, repo))
+    assert _tables(result.exposes) == ["ledger"]
+    assert _tables(result.consumes) == []

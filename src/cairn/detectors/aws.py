@@ -21,7 +21,6 @@ _LINE_MAX = 2000
 _CODE = frozenset({".ts", ".js", ".mjs", ".cjs", ".py", ".go", ".java", ".kt", ".cs"})
 _DATA = frozenset({".yml", ".yaml", ".json"})
 _SKIPPED = ("lock.json", ".d.ts", ".min.js", "package.json")
-_DEPLOY_FILES = frozenset({"serverless.yml", "serverless.yaml", "samconfig.toml", "cdk.json"})
 _COMMENT = ("#", "//", "/*", "*", "--")
 # Any of these somewhere in a file, or it can't mention an AWS resource we'd read.
 _GATE = (
@@ -151,33 +150,6 @@ def _wanted(name: str) -> bool:
         return False
     suffix = PurePosixPath(lowered).suffix
     return suffix in _CODE or suffix in _DATA or suffix == ".tf" or lowered == "samconfig.toml"
-
-
-def deploy_stack(ctx: DetectorContext) -> list[str]:
-    """Stack labels for how a repo deploys to AWS, from the files that say so."""
-    names = {p.name.lower(): p for p in ctx.files(_deploy_file)}
-    labels = []
-    if "serverless.yml" in names or "serverless.yaml" in names:
-        labels.append("serverless")
-    templates = [p for p in ctx.files(_sam_template)]
-    if "samconfig.toml" in names or any(
-        "AWS::Serverless" in (ctx.read(p) or "") for p in templates
-    ):
-        labels.append("aws-sam")
-    if "cdk.json" in names:
-        labels.append("aws-cdk")
-    if any(name.endswith(".tf") for name in names):
-        labels.append("terraform")
-    return labels
-
-
-def _deploy_file(name: str) -> bool:
-    lowered = name.lower()
-    return lowered in _DEPLOY_FILES or lowered.endswith(".tf")
-
-
-def _sam_template(name: str) -> bool:
-    return name.lower() in ("template.yaml", "template.yml")
 
 
 def _relevant(name: str, text: str) -> bool:

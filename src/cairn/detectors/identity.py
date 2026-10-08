@@ -13,6 +13,7 @@ from cairn.detectors.manifests import (
     parse_go_mod,
     project_name,
 )
+from cairn.detectors.render import BLUEPRINTS, own_service_names
 from cairn.security.redact import redact
 from cairn.security.text import valid_alias
 
@@ -126,6 +127,15 @@ def _manifest_names(ctx: DetectorContext, root: Path) -> list[str]:
     cargo_name = dig(load_toml(root / "Cargo.toml", max_bytes), "package", "name")
     if isinstance(cargo_name, str):
         names.append(cargo_name)
+    # Fly.io addresses an app by the name in fly.toml (`orders.internal`, `orders.fly.dev`).
+    fly_app = dig(load_toml(root / "fly.toml", max_bytes), "app")
+    if isinstance(fly_app, str):
+        names.append(fly_app)
+    # Render reaches a blueprint's own services by name on its private network.
+    for blueprint in BLUEPRINTS:
+        text = ctx.read(root / blueprint)
+        if text:
+            names += own_service_names(text)
     return names
 
 
