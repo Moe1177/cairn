@@ -36,6 +36,8 @@ _OWNED = {
     "AWS::Events::EventBus": ("events", "Name"),
     "AWS::Kinesis::Stream": ("kinesis", "Name"),
     "AWS::SSM::Parameter": ("ssm", "Name"),
+    "AWS::Lambda::Function": ("lambda", "FunctionName"),
+    "AWS::Serverless::Function": ("lambda", "FunctionName"),
 }
 # Keys naming a resource used from elsewhere: SAM policy templates, rule targets, data sources,
 # a serverless eventBridge event's bus.
@@ -47,6 +49,7 @@ _USED = {
     "EventBusName": "events",
     "StreamName": "kinesis",
     "ParameterName": "ssm",
+    "FunctionName": "lambda",
     "eventBus": "events",
 }
 _PATTERN_KEYS = frozenset({"pattern", "Pattern", "EventPattern", "eventPattern"})
@@ -257,16 +260,19 @@ def _ssm_parameters(parameters: object, lines: "Lines") -> list[Found]:
 
 
 def _service(doc: dict, lines: "Lines", expand: Expand) -> list[Found]:
-    """The service is a stack; an `sns: name` event (not an ARN) makes serverless create it."""
+    """The service is a stack and each function a Lambda (`<service>-<stage>-<key>` unless
+    it sets `name:`); an `sns: name` event (not an ARN) makes serverless create the topic."""
     found = []
     raw = doc.get("service")
     raw = raw.get("name") if isinstance(raw, dict) else raw
-    if isinstance(raw, str):
-        stack = value("stack", expand(raw))
+    service = expand(raw) if isinstance(raw, str) else None
+    if isinstance(raw, str) and service:
+        stack = value("stack", service)
         if stack:
             found.append(Found("exposes", stack, lines.find(raw, "service") or 1))
     functions = doc.get("functions")
-    for spec in list(functions.values())[:_MAX_NODES] if isinstance(functions, dict) else ():
+    for key, spec in list(functions.items())[:_MAX_NODES] if isinstance(functions, dict) else ():
+        found += _function(str(key), spec, service, lines, expand)
         events = spec.get("events") if isinstance(spec, dict) else None
         for event in events[:_MAX_NODES] if isinstance(events, list) else ():
             sns = event.get("sns") if isinstance(event, dict) else None
@@ -276,6 +282,20 @@ def _service(doc: dict, lines: "Lines", expand: Expand) -> list[Found]:
                 if topic:
                     found.append(Found("exposes", topic, lines.find(raw_topic) or 1))
     return found
+
+
+def _function(
+    key: str, spec: object, service: str | None, lines: "Lines", expand: Expand
+) -> list[Found]:
+    custom = spec.get("name") if isinstance(spec, dict) else None
+    if isinstance(custom, str):
+        raw, line = expand(custom), lines.find(custom, "name")
+    elif service:
+        raw, line = f"{service}-${{sls:stage}}-{key}", lines.find(key)
+    else:
+        return []
+    function = value("lambda", raw)
+    return [Found("exposes", function, line or 1)] if function else []
 
 
 def _walk(

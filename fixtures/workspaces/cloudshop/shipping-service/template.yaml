@@ -18,6 +18,7 @@ Resources:
   ShipOrderFunction:
     Type: AWS::Serverless::Function
     Properties:
+      FunctionName: !Sub "ship-order-${Stage}"
       Handler: app.handler
       Runtime: python3.12
       Events:

@@ -25,6 +25,7 @@ _RESOURCES = {
     "aws_kinesis_stream": ("kinesis", "name"),
     "aws_cloudwatch_event_bus": ("events", "name"),
     "aws_ssm_parameter": ("ssm", "name"),
+    "aws_lambda_function": ("lambda", "function_name"),
 }
 _DATA = {
     **_RESOURCES,
@@ -38,6 +39,7 @@ _MODULES = {
     "dynamodb-table": ("dynamodb", "name"),
     "s3-bucket": ("s3", "bucket"),
     "eventbridge": ("events", "bus_name"),
+    "lambda": ("lambda", "function_name"),
 }
 
 

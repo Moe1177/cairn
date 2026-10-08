@@ -18,6 +18,7 @@ KIND_LABELS = {
     "s3": "S3 bucket",
     "events": "EventBridge bus",
     "kinesis": "Kinesis stream",
+    "lambda": "Lambda function",
     "ssm": "SSM parameter",
     "export": "CloudFormation export",
     "stack": "stack",
@@ -57,6 +58,10 @@ _GENERIC = frozenset(
         "event",
         "default",
         "main",
+        "handler",
+        "function",
+        "lambda",
+        "index",
         "data",
         "logs",
         "assets",
@@ -136,7 +141,7 @@ def is_distinctive(name: str) -> bool:
 
 _PH = r"\$\{[^{}]{0,200}\}"
 _ARN = re.compile(
-    rf"arn:aws[\w-]{{0,20}}:(sqs|sns|dynamodb|s3|events|kinesis|ssm):((?:{_PH}|[^\s'\"`,;()\[\]{{}}<>\\])+)"
+    rf"arn:aws[\w-]{{0,20}}:(sqs|sns|dynamodb|s3|events|kinesis|ssm|lambda):((?:{_PH}|[^\s'\"`,;()\[\]{{}}<>\\])+)"
 )
 _QUEUE_URL = re.compile(
     rf"https://sqs\.(?:{_PH}|[\w.-])*amazonaws\.com/(?:{_PH}|[\w-])*/((?:{_PH}|[\w.-])+)"
@@ -182,6 +187,10 @@ def from_arn(service: str, rest: str) -> str | None:
         return value(service, resource.split(":", 1)[0])
     if service == "s3":
         return value("s3", resource.split("/", 1)[0])
+    if service == "lambda":
+        # function:NAME, optionally :alias or :version after it.
+        name = resource.removeprefix("function:")
+        return value("lambda", name.split(":", 1)[0]) if name != resource else None
     if service == "ssm":
         name = resource.removeprefix("parameter")
         return value("ssm", name) if name != resource else None
@@ -200,10 +209,12 @@ _ENV_KINDS = {
     "BUCKET": "s3",
     "STREAM": "kinesis",
     "BUS": "events",
+    "FUNCTION": "lambda",
+    "LAMBDA": "lambda",
 }
 # The kind word is a whole `_`-separated word: UPSTREAM, STABLE and TIMETABLE are not names.
 _ENV_KEY = (
-    r"(?<![A-Za-z0-9_])[\"']?((?:[A-Z0-9]{1,30}_){0,6}(TABLE|QUEUE|TOPIC|BUCKET|STREAM|BUS)"
+    r"(?<![A-Za-z0-9_])[\"']?((?:[A-Z0-9]{1,30}_){0,6}(TABLE|QUEUE|TOPIC|BUCKET|STREAM|BUS|FUNCTION|LAMBDA)"
     r"(?:_NAME)?)[\"']?"
 )
 # Other brokers' and clouds' queues, topics and buckets.

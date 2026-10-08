@@ -196,6 +196,7 @@ functions:
 def test_serverless_fills_in_self_references_and_creates_named_sns_topics() -> None:
     assert _scan("serverless.yml", SERVERLESS) == {
         ("exposes", "stack:billing"),
+        ("exposes", "lambda:billing-notify"),
         ("exposes", "sns:invoice-sent"),
         ("consumes", "sqs:invoices"),
         ("consumes", "sns:order-placed"),
@@ -465,3 +466,78 @@ def test_template_evidence_points_at_the_line_that_names_the_resource() -> None:
     )
     found = scan_file("template.yaml", text, text.splitlines())
     assert [(f.value, f.line_no) for f in found if f.side == "exposes"] == [("sqs:orders", 6)]
+
+
+# --- Lambda functions ----------------------------------------------------------------------
+
+
+def test_serverless_functions_are_lambdas_named_after_the_service() -> None:
+    text = (
+        "service: orders\nprovider: {name: aws}\nfunctions:\n  placeOrder:\n    handler: h.place\n"
+        "  refund:\n    handler: h.refund\n    name: orders-refund-${sls:stage}\n"
+    )
+    assert _scan("serverless.yml", text) == {
+        ("exposes", "stack:orders"),
+        ("exposes", "lambda:orders-placeorder"),
+        ("exposes", "lambda:orders-refund"),
+    }
+
+
+def test_sam_functions_create_by_name_and_invoke_policies_use() -> None:
+    text = (
+        "Resources:\n  F:\n    Type: AWS::Serverless::Function\n    Properties:\n"
+        '      FunctionName: !Sub "ship-order-${Stage}"\n      Policies:\n'
+        "        - LambdaInvokePolicy:\n            FunctionName: orders-dev-placeOrder\n"
+    )
+    assert _scan("template.yaml", text) == {
+        ("exposes", "lambda:ship-order"),
+        ("consumes", "lambda:orders-placeorder"),
+    }
+
+
+def test_terraform_lambda_resources_and_data_sources() -> None:
+    text = (
+        'resource "aws_lambda_function" "f" {\n  function_name = "payments-charge"\n}\n'
+        'data "aws_lambda_function" "g" {\n  function_name = "orders-${var.env}-placeOrder"\n}\n'
+    )
+    assert _scan("main.tf", text) == {
+        ("exposes", "lambda:payments-charge"),
+        ("consumes", "lambda:orders-placeorder"),
+    }
+
+
+def test_sdk_invokes_and_function_arns_use_a_lambda() -> None:
+    text = (
+        'import boto3\nclient.invoke(FunctionName="orders-prod-placeOrder", Payload=b"{}")\n'
+        'arn = "arn:aws:lambda:us-east-1:123456789012:function:payments-charge:live"\n'
+    )
+    assert _scan("app.py", text) == {
+        ("consumes", "lambda:orders-placeorder"),
+        ("consumes", "lambda:payments-charge"),
+    }
+
+
+def test_cdk_functions_create_and_lookups_use() -> None:
+    text = (
+        'import * as lambda from "aws-cdk-lib/aws-lambda";\n'
+        'lambda.Function.fromFunctionName(this, "P", "orders-prod-placeOrder");\n'
+        'new lambda.Function(this, "N", { functionName: "notify-email" });\n'
+    )
+    assert _scan("stack.ts", text) == {
+        ("consumes", "lambda:orders-placeorder"),
+        ("exposes", "lambda:notify-email"),
+    }
+
+
+def test_function_env_vars_name_a_lambda() -> None:
+    assert list(env_references('  CHARGE_FUNCTION: "payments-charge"', bare=False)) == [
+        "lambda:payments-charge"
+    ]
+    assert list(env_references("  NOTIFY_LAMBDA_NAME: notify-email", bare=True)) == [
+        "lambda:notify-email"
+    ]
+
+
+def test_generic_function_names_name_nothing() -> None:
+    text = 'resource "aws_lambda_function" "f" {\n  function_name = "handler"\n}\n'
+    assert _scan("main.tf", text) == set()

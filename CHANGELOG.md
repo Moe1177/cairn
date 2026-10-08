@@ -8,6 +8,11 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Lambda functions** join the AWS resources: a function is created by Terraform
+  (`aws_lambda_function`, the lambda module), CloudFormation/SAM (`FunctionName`), CDK
+  (`functionName`) or serverless, whose functions are named `<service>-<stage>-<key>`. A repo
+  that invokes it by name or ARN (IAM grants, `LambdaInvokePolicy`, SDK `invoke`, CDK
+  `fromFunctionName`, env vars like `CHARGE_FUNCTION`) links to the repo that creates it.
 - **AWS resources link the repos that create them to the repos that use them.** cairn reads
   Terraform, CloudFormation/SAM, Serverless Framework and CDK, and records which repo creates
   each SQS queue, SNS topic, DynamoDB table, S3 bucket, EventBridge bus, Kinesis stream, SSM
