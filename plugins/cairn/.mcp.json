@@ -1,15 +1,7 @@
 {
   "mcpServers": {
     "cairn": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "cairnmap==0.8.2",
-        "cairn",
-        "serve",
-        "--from",
-        "${CLAUDE_PROJECT_DIR}"
-      ],
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/mcp-serve",
       "env": {
         "CAIRN_PLUGIN": "1"
       }

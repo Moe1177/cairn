@@ -34,25 +34,45 @@ BASH = _bash()
 pytestmark = pytest.mark.skipif(BASH is None, reason="needs bash (Git Bash on Windows)")
 
 
-def _run(script: Path, home: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    assert BASH is not None
-    bash, path = BASH
-    env = {
+def _env(home: Path, path: str, extra: dict[str, str] | None = None) -> dict[str, str]:
+    return {
         "PATH": path,
         "HOME": str(home),
         "USERPROFILE": str(home),
         "APPDATA": str(home / "AppData" / "Roaming"),
         "LOCALAPPDATA": str(home / "AppData" / "Local"),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
+        **(extra or {}),
     }
+
+
+def _run(
+    script: Path,
+    home: Path,
+    *args: str,
+    on_path: Path | None = None,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run `script` with a bare PATH (plus `on_path`, if given), `home` as the user's home, and
+    `env` on top."""
+    assert BASH is not None
+    bash, path = BASH
+    path = f"{on_path}{os.pathsep}{path}" if on_path else path
     return subprocess.run(
-        [bash, str(script), *args], capture_output=True, text=True, env=env, timeout=60, check=False
+        [bash, str(script), *args],
+        capture_output=True,
+        text=True,
+        env=_env(home, path, env),
+        cwd=cwd,
+        timeout=60,
+        check=False,
     )
 
 
-def _fake_uvx(home: Path, where: str = ".local/bin") -> None:
+def _fake_uvx(home: Path, where: str = ".local/bin") -> Path:
     """A uvx in `where` under `home` (default: where uv's installer puts it), which reports
-    how it was called."""
+    how it was called. Returns its folder."""
     bin_dir = home / where
     bin_dir.mkdir(parents=True)
     uvx = bin_dir / "uvx"
@@ -62,6 +82,7 @@ def _fake_uvx(home: Path, where: str = ".local/bin") -> None:
         newline="\n",
     )
     uvx.chmod(0o755)
+    return bin_dir
 
 
 def test_without_uv_the_hook_warns_the_user_and_asks_claude_to_offer_an_install(
@@ -102,9 +123,107 @@ def test_without_uv_the_wrapper_says_how_to_get_it(tmp_path: Path) -> None:
     assert "astral.sh/uv/install" in result.stderr and f"pipx install {PIN}" in result.stderr
 
 
-def test_every_script_pins_the_release_this_plugin_ships_with() -> None:
-    lookup = (PLUGIN / "scripts" / "find-uvx.sh").read_text(encoding="utf-8")
-    assert f'CAIRN_PIN="{PIN}"' in lookup
+def test_a_uv_on_path_is_run_by_name(tmp_path: Path) -> None:
+    folder = _fake_uvx(tmp_path, "tools")  # nowhere the fallback looks
+    result = _run(PLUGIN / "scripts" / "session-start.sh", tmp_path, on_path=folder)
+    assert result.returncode == 0
+    assert f"ARGS:--from {PIN} cairn context" in result.stdout
+
+
+def test_the_mcp_server_runs_the_pinned_cairn_for_the_project_folder(tmp_path: Path) -> None:
+    _fake_uvx(tmp_path)
+    serve = PLUGIN / "scripts" / "mcp-serve"
+    result = _run(serve, tmp_path, env={"CLAUDE_PROJECT_DIR": "/work/api"})
+    assert result.returncode == 0
+    # Nothing else on stdout: it is the MCP channel.
+    assert result.stdout.splitlines() == [
+        f"ARGS:--from {PIN} cairn serve --from /work/api",
+        "PLUGIN:1",
+    ]
+    project = tmp_path / "project"
+    project.mkdir()
+    result = _run(serve, tmp_path, cwd=project)  # no CLAUDE_PROJECT_DIR: the folder it runs in
+    (args, _) = result.stdout.splitlines()
+    assert args.startswith(f"ARGS:--from {PIN} cairn serve --from /")
+    assert args.endswith("/project")  # bash's form of the path (/c/... under Git Bash)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows runs mcp-serve.cmd instead")
+def test_claude_code_can_start_the_mcp_server_as_a_program(tmp_path: Path) -> None:
+    """.mcp.json names the script itself, so it runs through its shebang, not `bash script`."""
+    _fake_uvx(tmp_path)
+    result = subprocess.run(
+        [str(PLUGIN / "scripts" / "mcp-serve")],
+        capture_output=True,
+        text=True,
+        env=_env(tmp_path, "/usr/bin:/bin", {"CLAUDE_PROJECT_DIR": "/work/api"}),
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines()[0] == f"ARGS:--from {PIN} cairn serve --from /work/api"
+
+
+def test_without_uv_the_mcp_server_fails_with_how_to_get_it(tmp_path: Path) -> None:
+    result = _run(PLUGIN / "scripts" / "mcp-serve", tmp_path, env={"CLAUDE_PROJECT_DIR": "/w"})
+    assert result.returncode == 127 and result.stdout == ""
+    assert "couldn't find uv" in result.stderr and "astral.sh/uv/install" in result.stderr
+
+
+def test_every_script_spells_out_uvx_and_the_pin() -> None:
+    for script in ("scripts/session-start.sh", "scripts/mcp-serve", "bin/cairn"):
+        text = (PLUGIN / script).read_text(encoding="utf-8")
+        assert f"exec uvx --from {PIN} cairn" in text, script
+    windows = (PLUGIN / "scripts" / "mcp-serve.cmd").read_text(encoding="utf-8")
+    assert f'uvx --from {PIN} cairn serve --from "%CLAUDE_PROJECT_DIR%" %*' in windows
+
+
+# --- Windows runs scripts/mcp-serve.cmd in place of the bash script -------------------------
+
+windows_only = pytest.mark.skipif(os.name != "nt", reason="cmd.exe runs only on Windows")
+
+
+def _run_cmd(home: Path, on_path: Path | None = None) -> subprocess.CompletedProcess[str]:
+    system32 = str(Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32")
+    path = f"{on_path}{os.pathsep}{system32}" if on_path else system32
+    env = _env(home, path, {"CLAUDE_PROJECT_DIR": r"C:\work\api"})
+    return subprocess.run(
+        ["cmd", "/d", "/c", str(PLUGIN / "scripts" / "mcp-serve.cmd")],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=60,
+        check=False,
+    )
+
+
+@windows_only
+def test_on_windows_the_mcp_server_runs_the_pinned_cairn_for_the_project_folder(
+    tmp_path: Path,
+) -> None:
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    (tools / "uvx.cmd").write_text(
+        "@echo ARGS:%*\r\n@echo PLUGIN:%CAIRN_PLUGIN%\r\n", encoding="utf-8", newline=""
+    )
+    result = _run_cmd(tmp_path, on_path=tools)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.split() == [
+        "ARGS:--from",
+        PIN,
+        "cairn",
+        "serve",
+        "--from",
+        r'"C:\work\api"',
+        "PLUGIN:1",
+    ]
+
+
+@windows_only
+def test_on_windows_without_uv_the_mcp_server_fails_with_how_to_get_it(tmp_path: Path) -> None:
+    result = _run_cmd(tmp_path)
+    assert result.returncode == 127 and result.stdout == ""
+    assert "couldn't find uv" in result.stderr and "astral.sh/uv/install.ps1" in result.stderr
 
 
 @pytest.mark.parametrize(
