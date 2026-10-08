@@ -1,0 +1,41 @@
+service: orders-service
+
+custom:
+  tableName: orders-${sls:stage}
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  environment:
+    ORDERS_TABLE: ${self:custom.tableName}
+    PAYMENTS_URL: ${ssm:/cloudshop/${sls:stage}/payments/api-url}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: [events:PutEvents]
+          Resource: arn:aws:events:${aws:region}:${aws:accountId}:event-bus/cloudshop-bus
+        - Effect: Allow
+          Action: [s3:PutObject]
+          Resource: arn:aws:s3:::cloudshop-receipts/*
+
+functions:
+  placeOrder:
+    handler: src/place-order.handler
+
+resources:
+  Resources:
+    OrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.tableName}
+        BillingMode: PAY_PER_REQUEST
+    OrderPlacedTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: order-placed-${sls:stage}
+  Outputs:
+    OrderPlacedTopicArn:
+      Value: !Ref OrderPlacedTopic
+      Export:
+        Name: orders-service-${sls:stage}-OrderPlacedTopicArn

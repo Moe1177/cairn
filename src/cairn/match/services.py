@@ -9,6 +9,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING
 
+from cairn.detectors.aws_names import is_distinctive
 from cairn.detectors.http_paths import is_generic
 from cairn.model.graph import MAX_EVIDENCE, Confidence, Edge, EdgeType, Evidence, FactKind
 
@@ -272,6 +273,40 @@ def _provider_edges(
                 link = found.setdefault(pair, _Link(edge_type))
                 link.add(confidence, f"{label}:{fact.value}", (*provided, *fact.evidence))
     return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
+def resource_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:
+    """Spec §25: user -> creator of a cloud resource (an SQS queue, an SSM parameter, a
+    CloudFormation export). A CloudFormation export or stack read by its full name is an explicit
+    contract (extracted); a resource name matched after dropping stages is inferred; a name more
+    than one repo creates can't say which one is meant (ambiguous)."""
+    creators: dict[str, list[tuple[RepoFacts, tuple[Evidence, ...]]]] = defaultdict(list)
+    for repo in repos:
+        for fact in repo.contracts.exposes:
+            if fact.kind is FactKind.CLOUD_RESOURCE:
+                creators[fact.value].append((repo, fact.evidence))
+    found: dict[tuple[str, str], _Link] = {}
+    for user in repos:
+        for fact in user.contracts.consumes:
+            if fact.kind is not FactKind.CLOUD_RESOURCE:
+                continue
+            owners = creators.get(fact.value, [])
+            if any(r.id == user.id for r, _ in owners):
+                continue  # it uses what it creates itself
+            for owner, created in owners:
+                link = found.setdefault((user.id, owner.id), _Link(EdgeType.USES_RESOURCE))
+                confidence = _resource_confidence(fact.value, len(owners))
+                link.add(confidence, f"resource:{fact.value}", (*fact.evidence, *created))
+    return [link.edge(source, target) for (source, target), link in sorted(found.items())]
+
+
+def _resource_confidence(value: str, owners: int) -> Confidence:
+    if owners > 1:
+        return Confidence.AMBIGUOUS
+    kind = value.split(":", 1)[0]
+    if kind in ("export", "stack") and is_distinctive(value):
+        return Confidence.EXTRACTED
+    return Confidence.INFERRED
 
 
 def env_edges(repos: Sequence["RepoFacts"]) -> list[Edge]:

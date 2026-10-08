@@ -23,6 +23,7 @@ _USES = frozenset(
         EdgeType.GRPC,
         EdgeType.PATH_REF,
         EdgeType.COMPOSE_LINK,
+        EdgeType.USES_RESOURCE,
         EdgeType.MANUAL,
     }
 )

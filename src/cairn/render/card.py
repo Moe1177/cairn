@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+from cairn.detectors.aws_names import EVENT_SOURCE, KIND_LABELS
 from cairn.model.graph import (
     SYMMETRIC_TYPES,
     Confidence,
@@ -222,7 +223,12 @@ def _describe(edge: Edge) -> str:
     if edge.type is EdgeType.GRPC:
         return "gRPC " + _join(_signal_values(edge, "grpc:"))
     if edge.type is EdgeType.PUBSUB:
-        return "publishes " + _join(_signal_values(edge, "topic:"))
+        topics = _signal_values(edge, "topic:")
+        if all(t.startswith(EVENT_SOURCE) for t in topics):
+            return "publishes EventBridge events " + _join([t[len(EVENT_SOURCE) :] for t in topics])
+        return "publishes " + _join(topics)
+    if edge.type is EdgeType.USES_RESOURCE:
+        return "uses " + _join([_resource(v) for v in _signal_values(edge, "resource:")])
     if edge.type is EdgeType.COMPOSE_LINK:
         return "compose: depends on"
     if edge.type is EdgeType.SHARES_ENV:
@@ -242,6 +248,11 @@ def _describe(edge: Edge) -> str:
     if edge.type is EdgeType.MANUAL:
         return edge.note or "linked manually"
     return edge.type.value.replace("_", " ")
+
+
+def _resource(value: str) -> str:
+    kind, _, name = value.partition(":")
+    return f"{KIND_LABELS.get(kind, kind)} {name}"
 
 
 def _provenance(repo_id: str, edge: Edge) -> str:

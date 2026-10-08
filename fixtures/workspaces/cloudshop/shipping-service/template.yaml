@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+  CarrierApiKeyName:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cloudshop/shipping/carrier-api-key
+
+Resources:
+  ShipmentsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "shipments-${Stage}"
+
+  ShipOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.handler
+      Runtime: python3.12
+      Events:
+        OrderPlaced:
+          Type: SNS
+          Properties:
+            Topic:
+              Fn::ImportValue: !Sub "orders-service-${Stage}-OrderPlacedTopicArn"
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Sub "orders-${Stage}"

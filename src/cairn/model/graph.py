@@ -35,6 +35,7 @@ class FactKind(StrEnum):
     SERVICE_HOST = "service_host"
     DEPLOYS_IMAGE = "deploys_image"
     GIT_ROOT = "git_root"
+    CLOUD_RESOURCE = "cloud_resource"
 
 
 class EdgeType(StrEnum):
@@ -49,6 +50,7 @@ class EdgeType(StrEnum):
     SHARES_ENV = "shares_env"
     DEPLOYS = "deploys"
     MIRRORS = "mirrors"
+    USES_RESOURCE = "uses_resource"
     MANUAL = "manual"
 
 
