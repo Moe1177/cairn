@@ -51,6 +51,13 @@ All notable changes to cairn are documented here. The format follows
 - The scan cache format is version 7, so the first scan after upgrading re-reads every repo.
 - Generated deploy output (`.terraform`, `cdk.out`, `.serverless`, `.aws-sam`) is never scanned.
 
+### Fixed
+- **MySQL tables quoted with backticks were misread or missed.** `CREATE TABLE IF NOT EXISTS
+  `assets`` was read as a table named `if`, and `CREATE TABLE `assets`` found no table at all.
+  Backtick and SQL Server bracket (`[dbo].[t]`) quoting now name the table. A column default
+  `ON UPDATE CURRENT_TIMESTAMP` is no longer read as an UPDATE of a table called
+  `current_timestamp`. Both had produced bogus shared-database links between MySQL services.
+
 ## [0.7.2]
 
 ### Fixed
