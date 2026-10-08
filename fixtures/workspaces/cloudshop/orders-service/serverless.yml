@@ -16,6 +16,9 @@ provider:
           Action: [events:PutEvents]
           Resource: arn:aws:events:${aws:region}:${aws:accountId}:event-bus/cloudshop-bus
         - Effect: Allow
+          Action: [lambda:InvokeFunction]
+          Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:ship-order-${sls:stage}
+        - Effect: Allow
           Action: [s3:PutObject]
           Resource: arn:aws:s3:::cloudshop-receipts/*
 

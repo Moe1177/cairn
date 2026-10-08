@@ -31,6 +31,8 @@ _CDK_PROPS = {
     "parameter_name": "ssm",
     "exportName": "export",
     "export_name": "export",
+    "functionName": "lambda",
+    "function_name": "lambda",
 }
 _CDK_PROP = re.compile(rf"\b({'|'.join(_CDK_PROPS)})\s*[:=]\s*{_Q}")
 # A prop inside `X.fromXAttributes(this, 'id', { tableName })` looks a resource up.
@@ -38,8 +40,8 @@ _LOOKUP = re.compile(r"\.from[A-Z]\w*\(|\.from_\w+\(")
 _CREATE = re.compile(r"\bnew\s+[\w.]+\(|\b[A-Z]\w*\(\s*self\s*,")
 _LOOKBACK = 6
 _FROM_NAME = re.compile(
-    r"\.(?:from(Table|Bucket|EventBus|Stream|Queue|Topic)Name"
-    r"|from_(table|bucket|event_bus|stream|queue|topic)_name)"
+    r"\.(?:from(Table|Bucket|EventBus|Stream|Queue|Topic|Function)Name"
+    r"|from_(table|bucket|event_bus|stream|queue|topic|function)_name)"
     rf"\(\s*\w+\s*,\s*{_Q}\s*,\s*{_Q}"
 )
 _FROM_KINDS = {
@@ -50,6 +52,7 @@ _FROM_KINDS = {
     "stream": "kinesis",
     "queue": "sqs",
     "topic": "sns",
+    "function": "lambda",
 }
 _SSM_LOOKUP = (
     re.compile(
@@ -71,10 +74,11 @@ _SDK = {
     "Bucket": "s3",
     "StreamName": "kinesis",
     "EventBusName": "events",
+    "FunctionName": "lambda",
 }
 _SDK_PARAM = re.compile(rf"""["']?\b({"|".join(_SDK)})["']?\s*[:=]\s*{_GO}{_Q}""")
 _SDK_CREATE = re.compile(
-    r"create_(?:queue|table|topic|bucket|stream)|Create(?:Queue|Table|Topic|Bucket|Stream)"
+    r"create_(?:queue|table|topic|bucket|stream|function)|Create(?:Queue|Table|Topic|Bucket|Stream|Function)"
 )
 _BOTO_RESOURCE = re.compile(rf"\.(Table|Bucket)\(\s*{_Q}\s*\)")
 _SSM_GET = re.compile(

@@ -2,6 +2,8 @@ edges:
   - {from: orders-service, to: platform-infra, type: uses_resource, confidence: inferred}
   - {from: orders-service, to: payments-service, type: uses_resource, confidence: inferred}
   - {from: orders-service, to: notifications-service, type: pubsub, confidence: inferred}
+  # Invokes shipping's Lambda by ARN:
+  - {from: orders-service, to: shipping-service, type: uses_resource, confidence: inferred}
   # A CloudFormation export imported by its full name is an explicit contract:
   - {from: shipping-service, to: orders-service, type: uses_resource, confidence: extracted}
   - {from: shipping-service, to: payments-service, type: uses_resource, confidence: inferred}

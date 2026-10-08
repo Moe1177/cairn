@@ -11,7 +11,7 @@
     },
     {
      "file": "serverless.yml",
-     "line": 31,
+     "line": 34,
      "repo": "orders-service",
      "snippet": "TableName: ${self:custom.tableName}"
     }
@@ -141,6 +141,32 @@
    "confidence": "inferred",
    "evidence": [
     {
+     "file": "serverless.yml",
+     "line": 20,
+     "repo": "orders-service",
+     "snippet": "Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:ship-order-${sls:stage}"
+    },
+    {
+     "file": "template.yaml",
+     "line": 21,
+     "repo": "shipping-service",
+     "snippet": "FunctionName: !Sub \"ship-order-${Stage}\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "resource:lambda:ship-order"
+   ],
+   "source": "orders-service",
+   "target": "shipping-service",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
      "file": "infra/main.tf",
      "line": 20,
      "repo": "payments-service",
@@ -168,19 +194,19 @@
    "evidence": [
     {
      "file": "template.yaml",
-     "line": 31,
+     "line": 32,
      "repo": "shipping-service",
      "snippet": "TableName: !Sub \"orders-${Stage}\""
     },
     {
      "file": "serverless.yml",
-     "line": 31,
+     "line": 34,
      "repo": "orders-service",
      "snippet": "TableName: ${self:custom.tableName}"
     },
     {
      "file": "template.yaml",
-     "line": 28,
+     "line": 29,
      "repo": "shipping-service",
      "snippet": "Fn::ImportValue: !Sub \"orders-service-${Stage}-OrderPlacedTopicArn\""
     }
@@ -420,6 +446,19 @@
         "file": "serverless.yml",
         "line": 20,
         "repo": "orders-service",
+        "snippet": "Resource: arn:aws:lambda:${aws:region}:${aws:accountId}:function:ship-order-${sls:stage}"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "lambda:ship-order"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 23,
+        "repo": "orders-service",
         "snippet": "Resource: arn:aws:s3:::cloudshop-receipts/*"
        }
       ],
@@ -472,7 +511,7 @@
       "evidence": [
        {
         "file": "serverless.yml",
-        "line": 31,
+        "line": 34,
         "repo": "orders-service",
         "snippet": "TableName: ${self:custom.tableName}"
        }
@@ -485,7 +524,7 @@
       "evidence": [
        {
         "file": "serverless.yml",
-        "line": 41,
+        "line": 44,
         "repo": "orders-service",
         "snippet": "Name: orders-service-${sls:stage}-OrderPlacedTopicArn"
        }
@@ -498,7 +537,20 @@
       "evidence": [
        {
         "file": "serverless.yml",
-        "line": 36,
+        "line": 26,
+        "repo": "orders-service",
+        "snippet": "placeOrder:"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "lambda:orders-service-placeorder"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 39,
         "repo": "orders-service",
         "snippet": "TopicName: order-placed-${sls:stage}"
        }
@@ -713,7 +765,7 @@
       "evidence": [
        {
         "file": "template.yaml",
-        "line": 31,
+        "line": 32,
         "repo": "shipping-service",
         "snippet": "TableName: !Sub \"orders-${Stage}\""
        }
@@ -726,7 +778,7 @@
       "evidence": [
        {
         "file": "template.yaml",
-        "line": 28,
+        "line": 29,
         "repo": "shipping-service",
         "snippet": "Fn::ImportValue: !Sub \"orders-service-${Stage}-OrderPlacedTopicArn\""
        }
@@ -763,6 +815,19 @@
      }
     ],
     "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "template.yaml",
+        "line": 21,
+        "repo": "shipping-service",
+        "snippet": "FunctionName: !Sub \"ship-order-${Stage}\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "lambda:ship-order"
+     },
      {
       "evidence": [
        {
