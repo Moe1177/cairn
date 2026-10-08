@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: storefront
+    runtime: node
+    repo: https://github.com/acme/storefront
+    envVars:
+      - key: ORDERS_HOSTPORT
+        fromService:
+          type: pserv
+          name: orders
+          property: hostport
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shop-db
+          property: connectionString
+  - type: pserv
+    name: orders
+    runtime: python
+    repo: https://github.com/acme/orders-svc.git
+    envVars:
+      - key: SIGNING_KEY
+        fromService:
+          type: web
+          name: auth
+          envVarKey: SIGNING_KEY
+      - fromGroup: shared-settings
+  - type: worker
+    name: mailer
+    runtime: node
+    repo: https://github.com/someone-else/mailer
+  - type: cron
+    name: nightly-report
+    runtime: python
+    schedule: "0 3 * * *"
+    envVars:
+      - key: ORDERS_HOST
+        fromService:
+          type: pserv
+          name: orders
+          property: host
+
+databases:
+  - name: shop-db

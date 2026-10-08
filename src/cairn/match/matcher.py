@@ -5,6 +5,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from itertools import combinations
 
+from cairn.match.render import render_edges
 from cairn.match.scoring import DEFAULT_TABLE_STOPLIST, db_confidence, noisy_or, specificity
 from cairn.match.services import (
     compose_edges,
@@ -66,6 +67,7 @@ def match_edges(
             *grpc_edges(ordered),
             *pubsub_edges(ordered),
             *resource_edges(ordered),
+            *render_edges(ordered),
             *env_edges(ordered),
         ]
     )

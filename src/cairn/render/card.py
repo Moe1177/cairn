@@ -219,6 +219,9 @@ def _describe(edge: Edge) -> str:
         routes = _signal_values(edge, "http_route:")
         if routes:
             return "calls " + _join(routes, _ROUTE_PREVIEW)
+        rendered = _signal_values(edge, "render:")
+        if rendered and not _signal_values(edge, "host:"):
+            return "calls " + _join(rendered) + " (render.yaml fromService)"
         return "calls http://" + _join(_signal_values(edge, "host:"))
     if edge.type is EdgeType.GRPC:
         return "gRPC " + _join(_signal_values(edge, "grpc:"))
@@ -232,6 +235,8 @@ def _describe(edge: Edge) -> str:
         named = [_resource(v) for v in _signal_values(edge, "ssm_named:")]
         parts = ["uses " + _join(used)] if used else []
         parts += [f"reads {_join(named)} (its path names this repo)"] if named else []
+        rendered = _signal_values(edge, "render:")
+        parts += [f"reads {_join(rendered)} (render.yaml fromService)"] if rendered else []
         return "; ".join(parts)
     if edge.type is EdgeType.COMPOSE_LINK:
         return "compose: depends on"
@@ -246,7 +251,10 @@ def _describe(edge: Edge) -> str:
             + ")"
         )
     if edge.type is EdgeType.DEPLOYS:
-        return "deploys image " + _join(_signal_values(edge, "image:"))
+        images = _signal_values(edge, "image:")
+        if not images and _signal_values(edge, "render_repo:"):
+            return "deploys it on Render (render.yaml)"
+        return "deploys image " + _join(images)
     if edge.type is EdgeType.MENTIONS:
         return "docs mention"
     if edge.type is EdgeType.MANUAL:

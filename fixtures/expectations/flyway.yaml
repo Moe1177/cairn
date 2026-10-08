@@ -1,0 +1,11 @@
+edges:
+  # Fly apps are addressed by the `app` in fly.toml, an alias of the repo:
+  - {from: portal, to: core, type: calls_http, confidence: inferred}
+  - {from: portal, to: web, type: calls_http, confidence: inferred}
+  - {from: web, to: core, type: calls_http, confidence: inferred}
+  # host.docker.internal, metadata.google.internal, *.ec2.internal and a Python import of
+  # google.protobuf.internal are not Fly apps (even with a repo named docker).
+phrasings:
+  - {query: "acme-core", repo: core}
+  - {query: "portal", repo: portal}
+  - {query: "acme-web", repo: web}

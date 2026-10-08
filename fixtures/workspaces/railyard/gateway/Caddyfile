@@ -1,0 +1,12 @@
+:{$PORT}
+
+route {
+	# The API, over Railway's private network.
+	handle /api/* {
+		reverse_proxy http://api.railway.internal:8080
+	}
+	# A local upstream alias, not a service: http://backend
+	handle /legacy/* {
+		reverse_proxy http://backend:3000
+	}
+}

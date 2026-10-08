@@ -1,0 +1,10 @@
+edges:
+  - {from: gateway, to: api, type: calls_http, confidence: inferred}
+  - {from: worker, to: api, type: calls_http, confidence: inferred}
+  - {from: web, to: api, type: calls_http, confidence: inferred}
+  # `http://backend` in the Caddyfile and nginx.conf is an upstream alias, not the backend repo;
+  # ${{Postgres.*}} is a database plugin and ${{ secrets.* }} a GitHub Actions context.
+phrasings:
+  - {query: "gateway", repo: gateway}
+  - {query: "worker", repo: worker}
+  - {query: "api", repo: api}

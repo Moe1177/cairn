@@ -36,6 +36,7 @@ class FactKind(StrEnum):
     DEPLOYS_IMAGE = "deploys_image"
     GIT_ROOT = "git_root"
     CLOUD_RESOURCE = "cloud_resource"
+    PLATFORM_SERVICE = "platform_service"
 
 
 class EdgeType(StrEnum):
