@@ -404,7 +404,10 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
    and "used by" on INDEX lines (0.4).
 5. ✅ Real-world reach (service DNS, deploy repos, RabbitMQ) and benchmarks on real open-source
    workspaces with significance testing (0.5).
-6. More harnesses in the benchmark (Codex), and more ecosystems.
+6. ✅ Deploy config: which repo creates each AWS resource and which use it (Terraform,
+   CloudFormation/SAM, Serverless Framework, CDK, Lambda, SSM), and Railway, Fly.io and Render
+   services (0.8).
+7. More harnesses in the benchmark (Codex), and more ecosystems.
 
 ## Contributing
 
