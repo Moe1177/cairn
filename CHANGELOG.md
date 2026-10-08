@@ -18,8 +18,9 @@ All notable changes to cairn are documented here. The format follows
   `cairn init`).
 - **Without uv, the plugin says so.** The first session shows a warning, and Claude offers once
   to install uv with its official installer, running it only if the user agrees (Claude Code
-  asks before it runs). The plugin's scripts also find a uv installed during the session where
-  its installer puts it; the MCP server needs a restart of Claude Code.
+  asks before it runs). The plugin's scripts also find a uv that isn't on PATH where uv's
+  installer or pip puts it (pip's per-user Scripts folder often isn't on PATH), including one
+  installed during the session; the MCP server needs a restart of Claude Code.
 - **`cairn context`** prints what a session should know about its folder: the index (cut at a
   whole line to fit Claude Code's hook limit, saying how many repos were left out), an offer to
   build a map, or nothing. It prints nothing when CLAUDE.md already loads the index.

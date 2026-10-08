@@ -41,6 +41,8 @@ def _run(script: Path, home: Path, *args: str) -> subprocess.CompletedProcess[st
         "PATH": path,
         "HOME": str(home),
         "USERPROFILE": str(home),
+        "APPDATA": str(home / "AppData" / "Roaming"),
+        "LOCALAPPDATA": str(home / "AppData" / "Local"),
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
     }
     return subprocess.run(
@@ -48,9 +50,10 @@ def _run(script: Path, home: Path, *args: str) -> subprocess.CompletedProcess[st
     )
 
 
-def _fake_uvx(home: Path) -> None:
-    """A uvx where uv's installer puts it, which reports how it was called."""
-    bin_dir = home / ".local" / "bin"
+def _fake_uvx(home: Path, where: str = ".local/bin") -> None:
+    """A uvx in `where` under `home` (default: where uv's installer puts it), which reports
+    how it was called."""
+    bin_dir = home / where
     bin_dir.mkdir(parents=True)
     uvx = bin_dir / "uvx"
     uvx.write_text(
@@ -66,14 +69,15 @@ def test_without_uv_the_hook_warns_the_user_and_asks_claude_to_offer_an_install(
 ) -> None:
     result = _run(PLUGIN / "scripts" / "session-start.sh", tmp_path)
     assert result.returncode == 0
-    assert "uv isn't installed" in result.stderr  # shown to the user
+    assert "couldn't find uv" in result.stderr  # shown to the user
     output = json.loads(result.stdout)
-    assert "uv isn't installed" in output["systemMessage"]
+    assert "couldn't find uv" in output["systemMessage"]
     hook = output["hookSpecificOutput"]
     assert hook["hookEventName"] == "SessionStart"
     context = hook["additionalContext"]
     assert "offer once to install uv" in context and "only if the user agrees" in context
     assert "astral.sh/uv/install" in context and "restart Claude Code" in context
+    assert "isn't on PATH" in context  # uv may be installed but unreachable
 
 
 def test_a_uv_installed_during_the_session_is_found_where_its_installer_put_it(
@@ -101,3 +105,19 @@ def test_without_uv_the_wrapper_says_how_to_get_it(tmp_path: Path) -> None:
 def test_every_script_pins_the_release_this_plugin_ships_with() -> None:
     lookup = (PLUGIN / "scripts" / "find-uvx.sh").read_text(encoding="utf-8")
     assert f'CAIRN_PIN="{PIN}"' in lookup
+
+
+@pytest.mark.parametrize(
+    "where",
+    [
+        "AppData/Roaming/Python/Python312/Scripts",  # pip install --user uv, Windows
+        "AppData/Local/Programs/Python/Python313/Scripts",  # pip into a python.org install
+        "Library/Python/3.12/bin",  # pip install --user uv, macOS
+        ".cargo/bin",
+    ],
+)
+def test_a_pip_installed_uv_off_path_is_still_found(tmp_path: Path, where: str) -> None:
+    _fake_uvx(tmp_path, where)
+    result = _run(PLUGIN / "scripts" / "session-start.sh", tmp_path)
+    assert result.returncode == 0
+    assert f"ARGS:--from {PIN} cairn context" in result.stdout

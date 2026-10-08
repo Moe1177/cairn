@@ -5,7 +5,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$here/../scripts/find-uvx.sh"
 
 if ! uvx="$(find_uvx)"; then
-  echo "cairn: this plugin runs cairn with uv (https://docs.astral.sh/uv/), which isn't installed." >&2
+  echo "cairn: this plugin runs cairn with uv (https://docs.astral.sh/uv/), but couldn't find it." >&2
   echo "Install it with: $(uv_install_command)" >&2
   echo "Or install cairn yourself: pipx install $CAIRN_PIN" >&2
   exit 127

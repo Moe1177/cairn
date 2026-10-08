@@ -17,8 +17,8 @@ json_string() {
 }
 
 install="$(uv_install_command)"
-warning="cairn plugin: uv isn't installed, so cairn can't run yet. Claude can install it for you if you agree, or see https://docs.astral.sh/uv/getting-started/installation/"
-context="cairn: the cairn plugin can't run because uv (https://docs.astral.sh/uv/) isn't installed; cairn runs from PyPI through it. Tell the user, and offer once to install uv with its official installer: \`$install\`. Run it only if the user agrees, and don't offer again if they decline. After it's installed, tell them to restart Claude Code so cairn's MCP server can find uv."
+warning="cairn plugin: couldn't find uv, so cairn can't run yet. Claude can install it for you if you agree, or see https://docs.astral.sh/uv/getting-started/installation/"
+context="cairn: the cairn plugin can't run because it couldn't find uv (https://docs.astral.sh/uv/); cairn runs from PyPI through it. Tell the user, and offer once to install uv with its official installer: \`$install\`. Run it only if the user agrees, and don't offer again if they decline. If they say uv is already installed, it isn't on PATH: suggest adding its folder to PATH instead of installing it again. Either way, they need to restart Claude Code afterwards so cairn's MCP server can find uv."
 
 echo "$warning" >&2
 printf '{"systemMessage": %s, "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": %s}}\n' \
