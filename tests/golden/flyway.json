@@ -1,0 +1,276 @@
+{
+ "edges": [
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "fly.toml",
+     "line": 4,
+     "repo": "portal",
+     "snippet": "CORE_API_URL = \"http://acme-core.internal:8080\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:acme-core"
+   ],
+   "source": "portal",
+   "target": "core",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "fly.toml",
+     "line": 5,
+     "repo": "portal",
+     "snippet": "WEB_UPSTREAM = \"http://acme-web.flycast\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:acme-web"
+   ],
+   "source": "portal",
+   "target": "web",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "src/api.ts",
+     "line": 1,
+     "repo": "web",
+     "snippet": "export const getPlan = () => fetch(\"https://acme-core.fly.dev/v1/plan\");"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:acme-core"
+   ],
+   "source": "web",
+   "target": "core",
+   "type": "calls_http",
+   "why": null
+  }
+ ],
+ "repos": {
+  "core": {
+   "aliases": [
+    "core",
+    "acme-core"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "core",
+        "snippet": "module example.com/core"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:example.com/core"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go",
+    "fly"
+   ]
+  },
+  "docker": {
+   "aliases": [
+    "docker"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "docker",
+        "snippet": "\"name\": \"docker\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:docker"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "portal": {
+   "aliases": [
+    "portal",
+    "acme-portal"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "fly.toml",
+        "line": 4,
+        "repo": "portal",
+        "snippet": "CORE_API_URL = \"http://acme-core.internal:8080\""
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "acme-core"
+     },
+     {
+      "evidence": [
+       {
+        "file": "fly.toml",
+        "line": 5,
+        "repo": "portal",
+        "snippet": "WEB_UPSTREAM = \"http://acme-web.flycast\""
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "acme-web"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "fly"
+   ]
+  },
+  "tools": {
+   "aliases": [
+    "tools"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "requirements.txt",
+        "line": 1,
+        "repo": "tools",
+        "snippet": "protobuf==5.0.0"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:protobuf"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "python"
+   ]
+  },
+  "web": {
+   "aliases": [
+    "web",
+    "acme-web"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 3,
+        "repo": "web",
+        "snippet": "\"dependencies\": { \"next\": \"15.0.0\" }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:next"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/api.ts",
+        "line": 1,
+        "repo": "web",
+        "snippet": "export const getPlan = () => fetch(\"https://acme-core.fly.dev/v1/plan\");"
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "acme-core"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "web",
+        "snippet": "\"name\": \"web\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:web"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "nextjs",
+    "fly"
+   ]
+  }
+ }
+}

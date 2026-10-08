@@ -10,11 +10,13 @@ _DEPLOY_FILES = frozenset(
         "cdk.json",
         "railway.json",
         "railway.toml",
+        "fly.toml",
     }
 )
 _SAM_TEMPLATES = ("template.yaml", "template.yml")
 _CI_DIRS = frozenset({".github", ".gitlab", ".circleci"})
 _RAILWAY_CI = ("railway up", "railwayapp/cli", "railway-deploy")
+_FLY_CI = ("flyctl deploy", "fly deploy", "superfly/flyctl-actions")
 
 
 def deploy_stack(ctx: DetectorContext) -> list[str]:
@@ -32,6 +34,8 @@ def deploy_stack(ctx: DetectorContext) -> list[str]:
         labels.append("terraform")
     if "railway.json" in names or "railway.toml" in names or _ci_runs(ctx, _RAILWAY_CI):
         labels.append("railway")
+    if "fly.toml" in names or _ci_runs(ctx, _FLY_CI):
+        labels.append("fly")
     return labels
 
 

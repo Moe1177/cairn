@@ -1,0 +1,5 @@
+app = "acme-portal"
+
+[env]
+  CORE_API_URL = "http://acme-core.internal:8080"
+  WEB_UPSTREAM = "http://acme-web.flycast"

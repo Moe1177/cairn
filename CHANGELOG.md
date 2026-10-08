@@ -8,6 +8,12 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Fly.io**: the `app` in a repo's `fly.toml` becomes an alias of that repo, and a call to
+  `<app>.internal` (also behind a region or `top2.nearest.of.`), `<app>.flycast` or
+  `<app>.fly.dev` links to it. Cloud names that end in `.internal` but aren't apps
+  (`metadata.google.internal`, `*.ec2.internal`, `host.docker.internal`) and code paths
+  (`from google.protobuf.internal import`, `io.grpc.internal.Foo`) never count. Stack label
+  `fly` from `fly.toml` or a CI workflow that runs `flyctl deploy`.
 - **Railway**: a call to `api.railway.internal` (Railway's private network, with or without
   `http://`) or a reference variable holding another service's address
   (`${{api.RAILWAY_PRIVATE_DOMAIN}}`, `${{api.URL}}`) links to the repo named `api`. Caddyfiles,

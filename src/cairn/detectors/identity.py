@@ -126,6 +126,10 @@ def _manifest_names(ctx: DetectorContext, root: Path) -> list[str]:
     cargo_name = dig(load_toml(root / "Cargo.toml", max_bytes), "package", "name")
     if isinstance(cargo_name, str):
         names.append(cargo_name)
+    # Fly.io addresses an app by the name in fly.toml (`orders.internal`, `orders.fly.dev`).
+    fly_app = dig(load_toml(root / "fly.toml", max_bytes), "app")
+    if isinstance(fly_app, str):
+        names.append(fly_app)
     return names
 
 

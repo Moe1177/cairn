@@ -152,7 +152,7 @@ and you can commit them so your team shares them.
 |---|---|
 | HTTP calls | Next.js routes, Express/Fastify/Hono, FastAPI/Flask, Go (net/http, chi, gin, echo) and OpenAPI routes, matched with `fetch`/`axios`, `requests`/`httpx`, and Go `http` client calls |
 | gRPC | Go, Python, TypeScript and Java servers matched with their client stubs |
-| Service names | Calls addressed to a sibling's service name, as Docker and Kubernetes DNS do: `http://catalogue`, `http://carts:8080/carts`, `*.svc.cluster.local`, `Hostname("payment")`; Railway's private network (`api.railway.internal`, also in Caddyfiles, `*.conf` and env templates) and its reference variables for another service's address (`${{api.RAILWAY_PRIVATE_DOMAIN}}`) |
+| Service names | Calls addressed to a sibling's service name, as Docker and Kubernetes DNS do: `http://catalogue`, `http://carts:8080/carts`, `*.svc.cluster.local`, `Hostname("payment")`; Railway's private network (`api.railway.internal`, also in Caddyfiles, `*.conf` and env templates) and its reference variables for another service's address (`${{api.RAILWAY_PRIVATE_DOMAIN}}`); Fly.io apps by their `fly.toml` app name (`orders.internal`, `iad.orders.internal`, `orders.flycast`, `orders.fly.dev`) |
 | Pub/sub topics | Kafka, NATS, Redis and RabbitMQ (Spring AMQP) publishers matched with subscribers (`trip.completed`) |
 | docker-compose | `depends_on` between services built from (or named after) your repos |
 | Deploy repos | compose, Kubernetes and Helm files that run your repos' images (`image: acme/catalogue:1.2`) |

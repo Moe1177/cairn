@@ -10,7 +10,9 @@ Platforms name private hosts explicitly (spec §26): Railway's `api.railway.inte
 without a scheme) and its reference variables for another service's address
 (`${{api.RAILWAY_PRIVATE_DOMAIN}}`, `${{api.URL}}`). Those forms are also read from proxy
 configs (Caddyfile, `*.conf`) and env templates, where a bare `http://backend` is often an
-upstream alias rather than a service, so only the explicit forms count there.
+upstream alias rather than a service, so only the explicit forms count there. Fly.io names
+an app (by the `app` in its fly.toml, an alias of the repo) on `<app>.internal` (also behind a
+region or `top2.nearest.of.`), `<app>.flycast` and `<app>.fly.dev`.
 """
 
 import re
@@ -35,6 +37,20 @@ _PRIVATE_HOST = re.compile(rf"(?<![\w.-]){_LABEL}\.railway\.internal\b")
 # ${{ api.RAILWAY_PRIVATE_DOMAIN }}: only variables that hold an address say "calls".
 _REFERENCE = re.compile(rf"\$\{{\{{\s*{_LABEL}\.([A-Z][A-Z0-9_]{{0,80}})\s*\}}\}}")
 _ADDRESS_VARS = re.compile(r"DOMAIN|URL|HOST|PORT|ADDR|ENDPOINT")
+# Fly: the label right before the suffix is the app; labels before it pick a region or machine.
+_FLY_HOST = re.compile(
+    rf"(?<![\w.-])(?:[A-Za-z0-9-]{{1,63}}\.){{0,5}}?{_LABEL}\.(?:internal|flycast|fly\.dev)\b"
+    r"(?!\.[A-Za-z])"  # `io.grpc.internal.Foo` is a package path, not a host
+)
+_FLY_MARKERS = (".internal", ".flycast", ".fly.dev")
+# `.internal` names that are a cloud's own, not a Fly app: metadata.google.internal,
+# ip-10-0-0-1.ec2.internal, *.compute.internal, Docker's host.docker.internal, and Railway
+# (read above).
+_NOT_FLY_APPS = frozenset(
+    {"google", "ec2", "compute", "railway", "cluster", "corp", "vm", "docker", "protobuf"}
+)
+# `from google.protobuf.internal import x`, `package com.acme.internal`: code paths, not hosts.
+_CODE_PATH_LINE = ("import ", "from ", "package ", "using ")
 # Railway's database plugins and shared variables are not services of yours, and GitHub
 # Actions writes its contexts the same way (`${{ secrets.API_URL }}`, `${{ env.HOST }}`).
 _NOT_REFERENCED = frozenset(
@@ -74,7 +90,7 @@ _SUFFIXES = frozenset(
 _PRIVATE_ONLY_NAMES = frozenset({"caddyfile", ".env.example", ".env.sample", ".env.template"})
 _PRIVATE_ONLY_SUFFIXES = frozenset({".conf"})
 _COMMENT_PREFIXES = ("//", "#", "*", "/*", "<!--", "--")
-_GATE = ("http", "host", "Host", "HOST", ".railway.internal", "${{")
+_GATE = ("http", "host", "Host", "HOST", ".railway.internal", "${{", *_FLY_MARKERS)
 _GATE_RE = re.compile("|".join(re.escape(key) for key in _GATE))
 
 
@@ -123,6 +139,11 @@ def _scan(ctx: DetectorContext, path: Path, text: str) -> list[Fact]:
 
 def _private_hosts(code: str) -> list[str]:
     hosts = [m.group(1) for m in _PRIVATE_HOST.finditer(code)] if ".railway." in code else []
+    code_path = code.lstrip().startswith(_CODE_PATH_LINE)
+    if not code_path and any(marker in code for marker in _FLY_MARKERS):
+        hosts += [
+            m.group(1) for m in _FLY_HOST.finditer(code) if m.group(1).lower() not in _NOT_FLY_APPS
+        ]
     if "${{" in code:
         hosts += [
             m.group(1)
