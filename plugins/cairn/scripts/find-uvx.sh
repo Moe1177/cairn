@@ -26,6 +26,24 @@ find_uvx() {
   return 1
 }
 
+# Prepend the fallback uv install folders to PATH so scripts can run uvx by name.
+# The plugin directory validator requires the launched program to be spelled literally,
+# so scripts use this instead of resolving uvx into a variable via find_uvx.
+add_uv_dirs_to_path() {
+  local dir
+  # uv's installer, then pip --user (Windows, macOS), then pip into a Windows python.org install.
+  for dir in "${XDG_BIN_HOME:-}" "${HOME:-}/.local/bin" "${USERPROFILE:-}/.local/bin" \
+    "${CARGO_HOME:-${HOME:-}/.cargo}/bin" \
+    "${APPDATA:-}"/Python/Python3*/Scripts "${HOME:-}"/Library/Python/3.*/bin \
+    "${LOCALAPPDATA:-}"/Programs/Python/Python3*/Scripts; do
+    [ -n "$dir" ] && [ -d "$dir" ] || continue
+    case ":$PATH:" in
+      *":$dir:"*) ;;
+      *) PATH="$dir:$PATH" ;;
+    esac
+  done
+}
+
 # The official uv installer for this OS (https://docs.astral.sh/uv/getting-started/installation/).
 uv_install_command() {
   case "$(uname -s 2>/dev/null)" in
