@@ -1,0 +1,294 @@
+{
+ "edges": [
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "Caddyfile",
+     "line": 6,
+     "repo": "gateway",
+     "snippet": "reverse_proxy http://api.railway.internal:8080"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:api"
+   ],
+   "source": "gateway",
+   "target": "api",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": ".env.example",
+     "line": 1,
+     "repo": "web",
+     "snippet": "NEXT_PUBLIC_API=https://${{ api.RAILWAY_PUBLIC_DOMAIN }}"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:api"
+   ],
+   "source": "web",
+   "target": "api",
+   "type": "calls_http",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": ".env.example",
+     "line": 1,
+     "repo": "worker",
+     "snippet": "API_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:8080"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "host:api"
+   ],
+   "source": "worker",
+   "target": "api",
+   "type": "calls_http",
+   "why": null
+  }
+ ],
+ "repos": {
+  "api": {
+   "aliases": [
+    "api"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "api",
+        "snippet": "module example.com/api"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:example.com/api"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "go",
+    "railway"
+   ]
+  },
+  "backend": {
+   "aliases": [
+    "backend"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "backend",
+        "snippet": "\"name\": \"backend\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:backend"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript"
+   ]
+  },
+  "gateway": {
+   "aliases": [
+    "gateway"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "Caddyfile",
+        "line": 6,
+        "repo": "gateway",
+        "snippet": "reverse_proxy http://api.railway.internal:8080"
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "api"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": []
+  },
+  "web": {
+   "aliases": [
+    "web"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 3,
+        "repo": "web",
+        "snippet": "\"dependencies\": { \"next\": \"15.0.0\" }"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:next"
+     },
+     {
+      "evidence": [
+       {
+        "file": ".env.example",
+        "line": 1,
+        "repo": "web",
+        "snippet": "NEXT_PUBLIC_API=https://${{ api.RAILWAY_PUBLIC_DOMAIN }}"
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "api"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "web",
+        "snippet": "\"name\": \"web\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:web"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "nextjs",
+    "railway"
+   ]
+  },
+  "worker": {
+   "aliases": [
+    "worker"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": ".env.example",
+        "line": 3,
+        "repo": "worker",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "API_TOKEN"
+     },
+     {
+      "evidence": [
+       {
+        "file": ".env.example",
+        "line": 1,
+        "repo": "worker",
+        "snippet": ""
+       }
+      ],
+      "hints": [],
+      "kind": "env_var_name",
+      "value": "API_URL"
+     },
+     {
+      "evidence": [
+       {
+        "file": ".env.example",
+        "line": 1,
+        "repo": "worker",
+        "snippet": "API_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:8080"
+       }
+      ],
+      "hints": [],
+      "kind": "service_host",
+      "value": "api"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "worker",
+        "snippet": "\"name\": \"worker\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:worker"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "railway"
+   ]
+  }
+ }
+}

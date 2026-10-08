@@ -29,6 +29,7 @@ REMOTES = {
     "microshop": {},
     "eventsuite": {},
     "cloudshop": {},
+    "railyard": {},
 }
 SECRETS = ("sk_live_FAKE", "sk_test_FAKEreadme", "SuperSecretPw123", "ghp_FAKEfake", REMOTE_TOKEN)
 

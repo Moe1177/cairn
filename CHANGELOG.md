@@ -8,6 +8,13 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Railway**: a call to `api.railway.internal` (Railway's private network, with or without
+  `http://`) or a reference variable holding another service's address
+  (`${{api.RAILWAY_PRIVATE_DOMAIN}}`, `${{api.URL}}`) links to the repo named `api`. Caddyfiles,
+  `*.conf` files and env templates are read for these explicit forms only, so an upstream alias
+  like `http://backend` never counts; nor do database plugins (`${{Postgres.DATABASE_URL}}`),
+  shared variables, or GitHub Actions contexts (`${{ secrets.API_URL }}`). Stack label `railway`
+  from `railway.json`/`railway.toml` or a CI workflow that runs `railway up`.
 - **SSM parameters that no IaC creates** (written by a deploy script, say) link to the repo their
   path names: `/amplify/${stage}/amplify-admin/TABLE` links to the repo whose serverless service,
   id or alias is exactly `amplify-admin`. Only an exact name counts, never a shared word, and
