@@ -7,6 +7,21 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **AWS resources link the repos that create them to the repos that use them.** cairn reads
+  Terraform, CloudFormation/SAM, Serverless Framework and CDK, and records which repo creates
+  each SQS queue, SNS topic, DynamoDB table, S3 bucket, EventBridge bus, Kinesis stream, SSM
+  parameter and CloudFormation export. ARNs, queue URLs, `${ssm:}` and `${cf:}` lookups,
+  `Fn::ImportValue`, Terraform `data` blocks, SAM policy templates, SDK calls and env vars such
+  as `ORDERS_TABLE: orders-prod` then link the user to the creator (`uses_resource`). Names match
+  across stages, so `orders-${sls:stage}` and `orders-prod` are one table. EventBridge sources
+  link publishers (`PutEvents`) to subscribers (rule patterns) as pub/sub links.
+- Stack labels `serverless`, `aws-sam`, `aws-cdk` and `terraform`.
+
+### Changed
+- The scan cache format is version 7, so the first scan after upgrading re-reads every repo.
+- Generated deploy output (`.terraform`, `cdk.out`, `.serverless`, `.aws-sam`) is never scanned.
+
 ## [0.7.2]
 
 ### Fixed

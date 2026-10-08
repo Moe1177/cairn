@@ -29,6 +29,11 @@ DEFAULT_IGNORE_DIRS = frozenset(
         "fixtures",
         "__fixtures__",
         "testdata",
+        # Generated deploy output: copies of templates that would claim resources twice.
+        ".terraform",
+        "cdk.out",
+        ".serverless",
+        ".aws-sam",
     }
 )
 _BINARY_SNIFF_BYTES = 8192

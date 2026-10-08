@@ -1,5 +1,6 @@
 """Detector registry. Identity detectors run first; relation detectors get the alias table."""
 
+from cairn.detectors.aws import AwsDetector
 from cairn.detectors.base import Detector
 from cairn.detectors.database import DatabaseDetector
 from cairn.detectors.deploys import DeploysDetector
@@ -26,6 +27,7 @@ RELATION_DETECTORS: tuple[Detector, ...] = (
     LineageDetector(),
     MessagingDetector(),
     InfraDetector(),
+    AwsDetector(),
     EnvVarsDetector(),
     DocsDetector(),
 )

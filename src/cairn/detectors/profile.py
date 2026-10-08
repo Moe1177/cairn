@@ -3,6 +3,7 @@
 import re
 from pathlib import Path
 
+from cairn.detectors.aws import deploy_stack
 from cairn.detectors.base import DetectorContext, DetectorResult
 from cairn.detectors.manifests import (
     dig,
@@ -93,6 +94,7 @@ class ProfileDetector:
                 stack += found_stack
                 scoped = (_scoped(ctx, root, c, multi) for c in found_cmds)
                 commands += [c for c in scoped if c is not None]
+        stack += deploy_stack(ctx)
         return DetectorResult(
             stack=tuple(dict.fromkeys(stack)),
             commands=_first_by_name(commands),

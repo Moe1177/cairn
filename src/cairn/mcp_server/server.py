@@ -92,12 +92,12 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
 
     @server.tool()
     def related(repo: str, edge_type: str | None = None, include_unconfirmed: bool = False) -> str:
-        """Repos related to `repo`, with evidence. edge_type: calls_http, grpc, pubsub, compose_link, deploys, mirrors, shares_db, depends_on_package, path_ref, shares_env, mentions, manual."""
+        """Repos related to `repo`, with evidence. edge_type: calls_http, grpc, pubsub, uses_resource, compose_link, deploys, mirrors, shares_db, depends_on_package, path_ref, shares_env, mentions, manual."""
         return _safe(lambda: tools.related_text(ws_root, repo, edge_type, include_unconfirmed))
 
     @server.tool()
     def find_across(query: str, kind: str | None = None) -> str:
-        """Which repos expose or consume something: a route, table, topic, gRPC service, package, or path. kind: http_route, db_table, topic, grpc_service, package, env_var_name, path_ref."""
+        """Which repos expose or consume something: a route, table, topic, gRPC service, AWS resource (sqs:orders), package, or path. kind: http_route, db_table, topic, grpc_service, cloud_resource, package, env_var_name, path_ref."""
         return _safe(lambda: tools.find_across_text(ws_root, query, kind))
 
     @server.tool()

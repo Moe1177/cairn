@@ -1,0 +1,802 @@
+{
+ "edges": [
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "lib/notifications-stack.ts",
+     "line": 15,
+     "repo": "notifications-service",
+     "snippet": "dynamodb.Table.fromTableName(this, \"Orders\", \"orders-prod\");"
+    },
+    {
+     "file": "serverless.yml",
+     "line": 31,
+     "repo": "orders-service",
+     "snippet": "TableName: ${self:custom.tableName}"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "resource:dynamodb:orders"
+   ],
+   "source": "notifications-service",
+   "target": "orders-service",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "lib/notifications-stack.ts",
+     "line": 9,
+     "repo": "notifications-service",
+     "snippet": "const bus = events.EventBus.fromEventBusName(this, \"Bus\", \"cloudshop-bus\");"
+    },
+    {
+     "file": "main.tf",
+     "line": 10,
+     "repo": "platform-infra",
+     "snippet": "name = \"cloudshop-bus\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "resource:events:cloudshop-bus"
+   ],
+   "source": "notifications-service",
+   "target": "platform-infra",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "src/place-order.js",
+     "line": 11,
+     "repo": "orders-service",
+     "snippet": "Source: \"cloudshop.orders\","
+    },
+    {
+     "file": "lib/notifications-stack.ts",
+     "line": 12,
+     "repo": "notifications-service",
+     "snippet": "eventPattern: { source: [\"cloudshop.orders\"], detailType: [\"OrderPlaced\"] },"
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "topic:eventbridge:cloudshop.orders"
+   ],
+   "source": "orders-service",
+   "target": "notifications-service",
+   "type": "pubsub",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "serverless.yml",
+     "line": 11,
+     "repo": "orders-service",
+     "snippet": "PAYMENTS_URL: ${ssm:/cloudshop/${sls:stage}/payments/api-url}"
+    },
+    {
+     "file": "infra/main.tf",
+     "line": 14,
+     "repo": "payments-service",
+     "snippet": "name  = \"/cloudshop/${var.environment}/payments/api-url\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "resource:ssm:/cloudshop/payments/api-url"
+   ],
+   "source": "orders-service",
+   "target": "payments-service",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "serverless.yml",
+     "line": 17,
+     "repo": "orders-service",
+     "snippet": "Resource: arn:aws:events:${aws:region}:${aws:accountId}:event-bus/cloudshop-bus"
+    },
+    {
+     "file": "src/place-order.js",
+     "line": 10,
+     "repo": "orders-service",
+     "snippet": "EventBusName: \"cloudshop-bus\","
+    },
+    {
+     "file": "main.tf",
+     "line": 10,
+     "repo": "platform-infra",
+     "snippet": "name = \"cloudshop-bus\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "resource:events:cloudshop-bus",
+    "resource:s3:cloudshop-receipts"
+   ],
+   "source": "orders-service",
+   "target": "platform-infra",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "infra/main.tf",
+     "line": 20,
+     "repo": "payments-service",
+     "snippet": "name = \"shipments-${var.environment}\""
+    },
+    {
+     "file": "template.yaml",
+     "line": 16,
+     "repo": "shipping-service",
+     "snippet": "QueueName: !Sub \"shipments-${Stage}\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "resource:sqs:shipments"
+   ],
+   "source": "payments-service",
+   "target": "shipping-service",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "extracted",
+   "evidence": [
+    {
+     "file": "template.yaml",
+     "line": 31,
+     "repo": "shipping-service",
+     "snippet": "TableName: !Sub \"orders-${Stage}\""
+    },
+    {
+     "file": "serverless.yml",
+     "line": 31,
+     "repo": "orders-service",
+     "snippet": "TableName: ${self:custom.tableName}"
+    },
+    {
+     "file": "template.yaml",
+     "line": 28,
+     "repo": "shipping-service",
+     "snippet": "Fn::ImportValue: !Sub \"orders-service-${Stage}-OrderPlacedTopicArn\""
+    }
+   ],
+   "note": null,
+   "score": 1.0,
+   "signals": [
+    "resource:dynamodb:orders",
+    "resource:export:orders-service-orderplacedtopicarn"
+   ],
+   "source": "shipping-service",
+   "target": "orders-service",
+   "type": "uses_resource",
+   "why": null
+  },
+  {
+   "confidence": "inferred",
+   "evidence": [
+    {
+     "file": "app.py",
+     "line": 7,
+     "repo": "shipping-service",
+     "snippet": "queue_url = sqs.get_queue_url(QueueName=\"payment-requests-prod\")[\"QueueUrl\"]"
+    },
+    {
+     "file": "infra/main.tf",
+     "line": 10,
+     "repo": "payments-service",
+     "snippet": "name = \"payment-requests-${var.environment}\""
+    }
+   ],
+   "note": null,
+   "score": 0.6,
+   "signals": [
+    "resource:sqs:payment-requests"
+   ],
+   "source": "shipping-service",
+   "target": "payments-service",
+   "type": "uses_resource",
+   "why": null
+  }
+ ],
+ "repos": {
+  "legacy-reports": {
+   "aliases": [
+    "legacy-reports"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "requirements.txt",
+        "line": 1,
+        "repo": "legacy-reports",
+        "snippet": "psycopg==3.2.1"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "pypi:psycopg"
+     }
+    ],
+    "exposes": []
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "infra/",
+     "purpose": null
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "python",
+    "terraform"
+   ]
+  },
+  "notifications-service": {
+   "aliases": [
+    "notifications-service"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "lib/notifications-stack.ts",
+        "line": 15,
+        "repo": "notifications-service",
+        "snippet": "dynamodb.Table.fromTableName(this, \"Orders\", \"orders-prod\");"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "dynamodb:orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "lib/notifications-stack.ts",
+        "line": 9,
+        "repo": "notifications-service",
+        "snippet": "const bus = events.EventBus.fromEventBusName(this, \"Bus\", \"cloudshop-bus\");"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "events:cloudshop-bus"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 4,
+        "repo": "notifications-service",
+        "snippet": "\"aws-cdk-lib\": \"^2.150.0\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:aws-cdk-lib"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 5,
+        "repo": "notifications-service",
+        "snippet": "\"constructs\": \"^10.0.0\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:constructs"
+     },
+     {
+      "evidence": [
+       {
+        "file": "lib/notifications-stack.ts",
+        "line": 12,
+        "repo": "notifications-service",
+        "snippet": "eventPattern: { source: [\"cloudshop.orders\"], detailType: [\"OrderPlaced\"] },"
+       }
+      ],
+      "hints": [],
+      "kind": "topic",
+      "value": "eventbridge:cloudshop.orders"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "lib/notifications-stack.ts",
+        "line": 16,
+        "repo": "notifications-service",
+        "snippet": "new sqs.Queue(this, \"Emails\", { queueName: \"notification-emails\" });"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "sqs:notification-emails"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "notifications-service",
+        "snippet": "\"name\": \"notifications-service\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:notifications-service"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "lib/",
+     "purpose": "library code"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "aws-cdk"
+   ]
+  },
+  "orders-service": {
+   "aliases": [
+    "orders-service"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 10,
+        "repo": "orders-service",
+        "snippet": "ORDERS_TABLE: ${self:custom.tableName}"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "dynamodb:orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 17,
+        "repo": "orders-service",
+        "snippet": "Resource: arn:aws:events:${aws:region}:${aws:accountId}:event-bus/cloudshop-bus"
+       },
+       {
+        "file": "src/place-order.js",
+        "line": 10,
+        "repo": "orders-service",
+        "snippet": "EventBusName: \"cloudshop-bus\","
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "events:cloudshop-bus"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 20,
+        "repo": "orders-service",
+        "snippet": "Resource: arn:aws:s3:::cloudshop-receipts/*"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "s3:cloudshop-receipts"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 11,
+        "repo": "orders-service",
+        "snippet": "PAYMENTS_URL: ${ssm:/cloudshop/${sls:stage}/payments/api-url}"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "ssm:/cloudshop/payments/api-url"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/place-order.js",
+        "line": 3,
+        "repo": "orders-service",
+        "snippet": "const client = new EventBridgeClient({});"
+       }
+      ],
+      "hints": [],
+      "kind": "grpc_service",
+      "value": "EventBridge"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 4,
+        "repo": "orders-service",
+        "snippet": "\"@aws-sdk/client-eventbridge\": \"^3.600.0\""
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:@aws-sdk/client-eventbridge"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 31,
+        "repo": "orders-service",
+        "snippet": "TableName: ${self:custom.tableName}"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "dynamodb:orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 41,
+        "repo": "orders-service",
+        "snippet": "Name: orders-service-${sls:stage}-OrderPlacedTopicArn"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "export:orders-service-orderplacedtopicarn"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 36,
+        "repo": "orders-service",
+        "snippet": "TopicName: order-placed-${sls:stage}"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "sns:order-placed"
+     },
+     {
+      "evidence": [
+       {
+        "file": "serverless.yml",
+        "line": 1,
+        "repo": "orders-service",
+        "snippet": "service: orders-service"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "stack:orders-service"
+     },
+     {
+      "evidence": [
+       {
+        "file": "package.json",
+        "line": 2,
+        "repo": "orders-service",
+        "snippet": "\"name\": \"orders-service\","
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "npm:orders-service"
+     },
+     {
+      "evidence": [
+       {
+        "file": "src/place-order.js",
+        "line": 11,
+        "repo": "orders-service",
+        "snippet": "Source: \"cloudshop.orders\","
+       }
+      ],
+      "hints": [],
+      "kind": "topic",
+      "value": "eventbridge:cloudshop.orders"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "src/",
+     "purpose": "source"
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "javascript",
+    "serverless"
+   ]
+  },
+  "payments-service": {
+   "aliases": [
+    "payments-service"
+   ],
+   "commands": [
+    {
+     "name": "test",
+     "run": "go test ./..."
+    },
+    {
+     "name": "build",
+     "run": "go build ./..."
+    }
+   ],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "infra/main.tf",
+        "line": 20,
+        "repo": "payments-service",
+        "snippet": "name = \"shipments-${var.environment}\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "sqs:shipments"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "infra/main.tf",
+        "line": 10,
+        "repo": "payments-service",
+        "snippet": "name = \"payment-requests-${var.environment}\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "sqs:payment-requests"
+     },
+     {
+      "evidence": [
+       {
+        "file": "infra/main.tf",
+        "line": 14,
+        "repo": "payments-service",
+        "snippet": "name  = \"/cloudshop/${var.environment}/payments/api-url\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "ssm:/cloudshop/payments/api-url"
+     },
+     {
+      "evidence": [
+       {
+        "file": "go.mod",
+        "line": 1,
+        "repo": "payments-service",
+        "snippet": "module example.com/payments-service"
+       }
+      ],
+      "hints": [],
+      "kind": "package",
+      "value": "go:example.com/payments-service"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [
+    {
+     "path": "infra/",
+     "purpose": null
+    }
+   ],
+   "packages": [],
+   "stack": [
+    "go",
+    "terraform"
+   ]
+  },
+  "platform-infra": {
+   "aliases": [
+    "platform-infra"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 10,
+        "repo": "platform-infra",
+        "snippet": "name = \"cloudshop-bus\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "events:cloudshop-bus"
+     },
+     {
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 14,
+        "repo": "platform-infra",
+        "snippet": "bucket = \"cloudshop-receipts\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "s3:cloudshop-receipts"
+     },
+     {
+      "evidence": [
+       {
+        "file": "main.tf",
+        "line": 19,
+        "repo": "platform-infra",
+        "snippet": "name   = \"cloudshop-dead-letters\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "sqs:cloudshop-dead-letters"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "terraform"
+   ]
+  },
+  "shipping-service": {
+   "aliases": [
+    "shipping-service"
+   ],
+   "commands": [],
+   "contracts": {
+    "consumes": [
+     {
+      "evidence": [
+       {
+        "file": "template.yaml",
+        "line": 31,
+        "repo": "shipping-service",
+        "snippet": "TableName: !Sub \"orders-${Stage}\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "dynamodb:orders"
+     },
+     {
+      "evidence": [
+       {
+        "file": "template.yaml",
+        "line": 28,
+        "repo": "shipping-service",
+        "snippet": "Fn::ImportValue: !Sub \"orders-service-${Stage}-OrderPlacedTopicArn\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "export:orders-service-orderplacedtopicarn"
+     },
+     {
+      "evidence": [
+       {
+        "file": "app.py",
+        "line": 7,
+        "repo": "shipping-service",
+        "snippet": "queue_url = sqs.get_queue_url(QueueName=\"payment-requests-prod\")[\"QueueUrl\"]"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "sqs:payment-requests"
+     },
+     {
+      "evidence": [
+       {
+        "file": "template.yaml",
+        "line": 10,
+        "repo": "shipping-service",
+        "snippet": "Default: /cloudshop/shipping/carrier-api-key"
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "ssm:/cloudshop/shipping/carrier-api-key"
+     }
+    ],
+    "exposes": [
+     {
+      "evidence": [
+       {
+        "file": "template.yaml",
+        "line": 16,
+        "repo": "shipping-service",
+        "snippet": "QueueName: !Sub \"shipments-${Stage}\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "sqs:shipments"
+     },
+     {
+      "evidence": [
+       {
+        "file": "samconfig.toml",
+        "line": 4,
+        "repo": "shipping-service",
+        "snippet": "stack_name = \"shipping-service\""
+       }
+      ],
+      "hints": [],
+      "kind": "cloud_resource",
+      "value": "stack:shipping-service"
+     }
+    ]
+   },
+   "errors": [],
+   "layout": [],
+   "packages": [],
+   "stack": [
+    "aws-sam"
+   ]
+  }
+ }
+}

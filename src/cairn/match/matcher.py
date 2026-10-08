@@ -15,6 +15,7 @@ from cairn.match.services import (
     http_edges,
     mirror_edges,
     pubsub_edges,
+    resource_edges,
 )
 from cairn.model.graph import (
     MAX_EVIDENCE,
@@ -64,6 +65,7 @@ def match_edges(
             *deploy_edges(ordered),
             *grpc_edges(ordered),
             *pubsub_edges(ordered),
+            *resource_edges(ordered),
             *env_edges(ordered),
         ]
     )
