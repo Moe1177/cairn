@@ -8,6 +8,18 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Render**: a Blueprint (`render.yaml`) deploys every service whose `repo:` names a sibling
+  repo (`deploys`), and a `fromService` reference links the repo of the service that reads it to
+  the repo of the service it reads: an address (`host`, `hostport`, `port`) is a call, a copied
+  env var a use. Services a repo's own Blueprint defines become aliases of that repo (Render's
+  private network reaches them by name). A service name two Blueprints define, a `repo:` outside
+  the workspace, databases and env groups never link. Stack label `render`.
+- **Fly.io**: the `app` in a repo's `fly.toml` becomes an alias of that repo, and a call to
+  `<app>.internal` (also behind a region or `top2.nearest.of.`), `<app>.flycast` or
+  `<app>.fly.dev` links to it. Cloud names that end in `.internal` but aren't apps
+  (`metadata.google.internal`, `*.ec2.internal`, `host.docker.internal`) and code paths
+  (`from google.protobuf.internal import`, `io.grpc.internal.Foo`) never count. Stack label
+  `fly` from `fly.toml` or a CI workflow that runs `flyctl deploy`.
 - **Railway**: a call to `api.railway.internal` (Railway's private network, with or without
   `http://`) or a reference variable holding another service's address
   (`${{api.RAILWAY_PRIVATE_DOMAIN}}`, `${{api.URL}}`) links to the repo named `api`. Caddyfiles,
@@ -38,6 +50,13 @@ All notable changes to cairn are documented here. The format follows
 ### Changed
 - The scan cache format is version 7, so the first scan after upgrading re-reads every repo.
 - Generated deploy output (`.terraform`, `cdk.out`, `.serverless`, `.aws-sam`) is never scanned.
+
+### Fixed
+- **MySQL tables quoted with backticks were misread or missed.** `CREATE TABLE IF NOT EXISTS
+  `assets`` was read as a table named `if`, and `CREATE TABLE `assets`` found no table at all.
+  Backtick and SQL Server bracket (`[dbo].[t]`) quoting now name the table. A column default
+  `ON UPDATE CURRENT_TIMESTAMP` is no longer read as an UPDATE of a table called
+  `current_timestamp`. Both had produced bogus shared-database links between MySQL services.
 
 ## [0.7.2]
 
