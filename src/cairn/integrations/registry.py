@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from cairn.errors import CairnInputError
+from cairn.paths import workspace_file
 from cairn.store.atomic import atomic_write_text
 from cairn.store.lock import file_lock
 
@@ -63,3 +64,22 @@ def _save(workspaces: tuple[str, ...]) -> None:
     atomic_write_text(
         registry_file(), json.dumps({"workspaces": sorted(workspaces)}, indent=2) + "\n"
     )
+
+
+def find_workspace(start: Path) -> Path | None:
+    """Nearest folder at or above `start` with a cairn map, else a registered ancestor."""
+    start = start.resolve()
+    for folder in (start, *start.parents):
+        if workspace_file(folder).is_file() and not _inside_git_repo(folder):
+            return folder
+    for entry in list_workspaces():
+        root = Path(entry)
+        if root == start or root in start.parents:
+            return root
+    return None
+
+
+def _inside_git_repo(folder: Path) -> bool:
+    """A workspace contains repos; a `.cairn/` inside a repo was committed there, so its map
+    (repo ids, paths) is untrusted input and is never served (spec §20.1)."""
+    return any((p / ".git").exists() for p in (folder, *folder.parents))

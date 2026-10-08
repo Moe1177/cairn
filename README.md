@@ -98,6 +98,23 @@ You need Python 3.11+ and git.
 
 The package is called `cairnmap`; the command is `cairn`.
 
+### As a Claude Code plugin
+
+If you use Claude Code, installing the plugin is the whole setup. It runs cairn from PyPI through
+[uv](https://docs.astral.sh/uv/). Without uv, your first session says so and Claude offers to
+install it with uv's official installer (only if you agree; restart Claude Code afterwards).
+
+```
+/plugin marketplace add Moe1177/cairn
+/plugin install cairn@cairn
+```
+
+Open Claude Code inside any repo of a folder of repos. If the folder has no map yet, Claude offers
+to build one (with `/cairn`, which runs `cairn init` there); after that, every session starts with
+the map, and the cairn MCP tools are ready. The plugin loads the index itself, so it never edits
+`CLAUDE.md`. Already ran `cairn install claude`? Run `cairn uninstall claude` so the tools and the
+skill don't appear twice. Codex, Gemini CLI and Cursor still use `cairn install`.
+
 ## Quick start
 
 ```bash
@@ -343,6 +360,7 @@ how to report a vulnerability.
 | `cairn uninstall <name\|all>` | Remove it again |
 | `cairn hooks install\|uninstall` | Opt-in git hooks that refresh after commits and merges |
 | `cairn serve` | The MCP server (harnesses start it for you) |
+| `cairn context` | What a Claude Code session should know about its folder: the index, or an offer to build a map (the plugin's session hook runs it) |
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
 | `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
