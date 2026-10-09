@@ -4,6 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/cairnmap?label=pypi)](https://pypi.org/project/cairnmap/)
 [![Python](https://img.shields.io/pypi/pyversions/cairnmap?label=python)](https://pypi.org/project/cairnmap/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Moe1177/cairn/blob/main/LICENSE)
+[![M8ven Score](https://m8ven.ai/badge/mcp/moe1177-cairn-uucfbk?v=cb2c7116a74e02b58201074faaf318da)](https://m8ven.ai/mcp/moe1177-cairn-uucfbk?s=readme)
 
 **A map of all your repos for coding agents.** cairn scans every git repo in a folder once, works
 out how they connect, and gives your agent:
