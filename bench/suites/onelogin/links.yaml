@@ -1,0 +1,118 @@
+# Which repos really link (cairn bench-links), written from the code, never from cairn's output.
+# A link is a pair of repos; `from` uses or depends on `to`.
+#
+# Stack names: the CRI templates default CommonStackName=common-cri-api and TxmaStackName=txma-infrastructure
+# and import core-infrastructure-* exports. None of these stack names is pinned in the producer repos
+# (ipv-cri-common-lambdas and ipv-cri-common-infrastructure deploy through the dev-platform upload
+# action; their deploy.sh defaults are "$user-common-lambdas" / "$user-di-ipv-core-infra"), but the
+# producers are unambiguous: only ipv-cri-common-lambdas creates /${AWS::StackName}/SessionTableName and
+# ${AWS::StackName}-SessionFunctionTS, only common-infrastructure/txma exports *-AuditEventQueue*, and
+# only common-infrastructure/core exports *-CriVcSigningKey1Id/-ApiKey1/-CriDecryptionKey1Id.
+split: held  # never used to tune cairn
+links:
+  # --- CRI APIs on the shared CRI infrastructure (ipv-cri-common-infrastructure: txma + core stacks) ---
+
+  # ipv-cri-address-api/infrastructure/lambda/template.yaml:589 ${TxmaStackName}-AuditEventQueueName (default txma-infrastructure, :55);
+  # exported by ipv-cri-common-infrastructure/txma/template.yaml:280. Also :719 core-infrastructure-CriVcSigningKey1Id and
+  # :890 core-infrastructure-ApiKey1 (exported by common-infrastructure/core/template.yaml:517, :541).
+  - {from: ipv-cri-address-api, to: ipv-cri-common-infrastructure, kind: resource, note: "txma audit SQS queue + KMS VC signing key and API keys; stack names not pinned by producer"}
+  # ipv-cri-kbv-api/infrastructure/lambda/template.yaml:640 ${TxmaStackName}-AuditEventQueueName (default :53); :642
+  # core-infrastructure-CriDecryptionKey1Id; :921 CriVcSigningKey1Id; :1067 ApiKey1 (common-infrastructure/core/template.yaml:529, :517, :541).
+  - {from: ipv-cri-kbv-api, to: ipv-cri-common-infrastructure, kind: resource, note: "txma audit SQS queue + KMS keys and API keys"}
+  # ipv-cri-check-hmrc-api/infrastructure/template.yaml:837 ${TxmaStackName}-AuditEventQueueName (default :32); :1399
+  # core-infrastructure-CriVcSigningKey1Arn (common-infrastructure/core/template.yaml:523).
+  - {from: ipv-cri-check-hmrc-api, to: ipv-cri-common-infrastructure, kind: resource, note: "txma audit SQS queue + KMS VC signing key"}
+  # ipv-cri-dl-api/infrastructure/lambda/template.yaml:178 Fn::ImportValue AuditEventQueueUrl and :738 AuditEventQueueName -- the
+  # un-prefixed legacy exports at common-infrastructure/txma/template.yaml:286/:298 (MockAuditEventQueue only when
+  # CreateMockTxmaResources, :108); :584 core-infrastructure-CriVcSigningKey1Arn; :1485 core-infrastructure-ApiKey1.
+  - {from: ipv-cri-dl-api, to: ipv-cri-common-infrastructure, kind: resource, note: "legacy un-prefixed txma exports (own mock queue only in dev override) + KMS key + API keys"}
+  # ipv-cri-common-lambdas/infrastructure/lambda/template.yaml:904 ${TxmaStackName}-AuditEventQueueName (default :51); :890
+  # core-infrastructure-CriDecryptionKey1Id (JAR decryption); :2240 republishes core-infrastructure-CriVcSigningKey1Id as SSM.
+  - {from: ipv-cri-common-lambdas, to: ipv-cri-common-infrastructure, kind: resource, note: "txma audit queue + KMS decryption/signing keys from the core stack"}
+
+  # --- CRI APIs on the shared OAuth Lambdas, tables and SSM params (ipv-cri-common-lambdas, stack common-cri-api) ---
+
+  # ipv-cri-address-api/infrastructure/lambda/template.yaml:549 {{resolve:ssm:/${CommonStackName}/SessionTableName}}, :797
+  # PersonIdentityTableName; CommonStackName defaults to common-cri-api (:51). Producer: ipv-cri-common-lambdas/infrastructure/
+  # lambda/template.yaml:1774 /${AWS::StackName}/SessionTableName, :1691 session table. private-api.yaml:154 wires
+  # ${CommonStackName}-SessionFunctionTS (common-lambdas template.yaml:1019).
+  - {from: ipv-cri-address-api, to: ipv-cri-common-lambdas, kind: resource, note: "session/person-identity DynamoDB tables via SSM + Session/Authorization/AccessToken Lambdas on its API"}
+  # ipv-cri-kbv-api/infrastructure/lambda/template.yaml:627 /${CommonStackName}/SessionTableName, :631 PersonIdentityTableName
+  # (default common-cri-api, :49); private-api.yaml:96 ${CommonStackName}-SessionFunctionTS.
+  - {from: ipv-cri-kbv-api, to: ipv-cri-common-lambdas, kind: resource, note: "shared tables via SSM + shared OAuth Lambdas"}
+  # ipv-cri-check-hmrc-api/infrastructure/template.yaml:824 /${CommonStackName}/SessionTableName, :1269 PersonIdentityTableName,
+  # :1436 verifiableCredentialKmsSigningKeyId (common-lambdas template.yaml:2238); private-api.yaml:115 SessionFunctionTS.
+  - {from: ipv-cri-check-hmrc-api, to: ipv-cri-common-lambdas, kind: resource, note: "shared tables + SSM params + shared OAuth Lambdas"}
+  # ipv-cri-dl-api/infrastructure/lambda/template.yaml:567 /${CommonStackName}/SessionTableName, :571 PersonIdentityTableName,
+  # :792 verifiableCredentialKmsSigningKeyId (default common-cri-api, :51); private-api.yaml:84 ...function:${CommonStackName}-SessionFunctionTS.
+  - {from: ipv-cri-dl-api, to: ipv-cri-common-lambdas, kind: resource, note: "shared tables + SSM params + shared OAuth Lambdas; common-lambdas also names dl-cri-api-v1-PrivateDLApi for canaries (template.yaml:838)"}
+
+  # --- Front ends on their back ends ---
+
+  # ipv-cri-dl-front/deploy/template.yaml:468 Fn::ImportValue dl-cri-api-v1-PrivateDlApiGatewayId -> API_BASE_URL; exported by
+  # ipv-cri-dl-api/infrastructure/lambda/template.yaml:3601 ${AWS::StackName}-PrivateDlApiGatewayId. Stack name dl-cri-api-v1 is
+  # not pinned in dl-api (deploy.sh:59 uses it as ParameterPrefix; common-lambdas template.yaml:838 names dl-cri-api-v1-PrivateDLApi).
+  - {from: ipv-cri-dl-front, to: ipv-cri-dl-api, kind: resource, note: "private API gateway id import; also http (front calls the API)"}
+  # ipv-core-front/deploy/template.yaml:788 Fn::ImportValue IPVCorePrivateAPIGatewayID-${Environment} -> API_BASE_URL; exported by
+  # ipv-core-back/deploy/template.yaml:4620. Also http: ipv-core-front/src/config/config.ts:6 API_BASE_URL default localhost:4502,
+  # where core-back runs locally (ipv-core-back/README.md:82).
+  - {from: ipv-core-front, to: ipv-core-back, kind: resource, note: "private API gateway export; core-front calls core-back's journey API (http)"}
+
+  # --- IPV Core as the OAuth client of each CRI (Pact contracts) ---
+
+  # ipv-core-back/lambdas/process-cri-callback/src/test/java/.../pact/addressCri/CredentialTests.java:49 consumer of
+  # AddressCriVcProvider, verified by ipv-cri-address-api/lambdas/issuecredential/src/test/java/.../pact/AddressInvalidVc403Test.java:48.
+  - {from: ipv-core-back, to: ipv-cri-address-api, kind: http, note: "core-back fetches the address VC; Pact AddressCriVcProvider"}
+  # ipv-core-back/.../pact/drivingLicenceCri/CredentialTests.java:55 DrivingLicenceVcProvider, verified by
+  # ipv-cri-dl-api/lambdas/issuecredential/src/test/java/.../pact/IssueCredentialHandlerTest.java:83.
+  - {from: ipv-core-back, to: ipv-cri-dl-api, kind: http, note: "Pact DrivingLicenceVcProvider"}
+  # ipv-core-back/.../pact/experianKbvCri/CredentialTests.java:55 ExperianKbvCriVcProvider, verified by
+  # ipv-cri-kbv-api/lambdas/issuecredential/src/test/java/.../pact/InValidIssueHandler403Test.java:48.
+  - {from: ipv-core-back, to: ipv-cri-kbv-api, kind: http, note: "Pact ExperianKbvCriVcProvider"}
+  # ipv-core-back/.../pact/ninoCri/CredentialTests.java:57 NinoCriVcProvider, verified by
+  # ipv-cri-check-hmrc-api/integration-tests/api-gateway/contract/credential-contract.test.ts:17.
+  - {from: ipv-core-back, to: ipv-cri-check-hmrc-api, kind: http, note: "Pact NinoCriVcProvider (check-hmrc is the NINO CRI)"}
+  # ipv-core-back/.../pact/addressCri/TokenTests.java:55 (and DrivingLicence/ExperianKbv/Nino TokenTests) consume *TokenProvider;
+  # ipv-cri-common-lambdas/.github/workflows/check-pr.yml:32,46 verify those providers against its AccessToken Lambda
+  # (accesstoken/src/test/java/.../pact/AccessTokenHandlerTest.java:57). common-lambdas template.yaml:47 DefaultClientId ipv-core.
+  - {from: ipv-core-back, to: ipv-cri-common-lambdas, kind: http, note: "core-back's /token calls hit the shared AccessToken Lambda; Pact *TokenProvider"}
+
+  # --- ipv-stubs ---
+
+  # ipv-stubs/experian-fraud-stub/deploy/template.yaml:373 Fn::ImportValue IPVCorePrivateAPIGatewayID-${Environment}
+  # (ipv-core-back/deploy/template.yaml:4620). Also http: orchestrator stub calls core-back's /token and /user-identity at
+  # IPV_BACKCHANNEL_ENDPOINT (di-ipv-orchestrator-stub/.../handlers/IpvHandler.java:231; core-back local-running/compose.yaml.template:15),
+  # and core-back's api-tests use the AIS/EVCS/orch stubs (ipv-core-back/api-tests/.env.build:6-10).
+  - {from: ipv-stubs, to: ipv-core-back, kind: resource, note: "imports core-back's private API gateway export; orch stub calls core-back; stubs stand in for core-back's dependencies (CIMIT, EVCS, AIS, TICF, SIS, CRIs)"}
+  # ipv-stubs/di-ipv-orchestrator-stub/.../handlers/IpvHandler.java:178 sends the user to IPV_ENDPOINT + /oauth2/authorize, default
+  # localhost:4501 (OrchestratorConfig.java:6) = core-front PORT (ipv-core-front/src/config/config.ts:26, router src/app.ts:221).
+  # core-front's e2e tests drive the orch/CIMIT/DCMAW-async stubs (browser-tests/e2e-tests/config/index.ts:33,38).
+  - {from: ipv-stubs, to: ipv-core-front, kind: http, note: "orchestrator stub starts journeys at core-front's /oauth2/authorize"}
+  # IPV Core stub (ipv-stubs/di-ipv-core-stub) is the test OAuth client of the CRIs: CredentialIssuer.java:24 isAddressCri,
+  # :20 isKbvCri, :28 isCheckHmrcCri. The CRIs register it as a client: ipv-cri-common-lambdas/infrastructure/lambda/
+  # template.yaml:1815 /clients/ipv-core-stub/..., ipv-cri-kbv-api/infrastructure/lambda/template.yaml:1111, ipv-cri-address-api/
+  # infrastructure/lambda/template.yaml:948, ipv-cri-check-hmrc-api/integration-tests/api-gateway/env-variables.ts:5,
+  # ipv-cri-dl-api/README.md:185,202. ipv-stubs/di-ipv-credential-issuer-stub/deploy/{address,driving-licence,experian-kbv,nino}
+  # also stand in for these CRIs towards core-back.
+  - {from: ipv-stubs, to: ipv-cri-address-api, kind: http, note: "core stub calls the CRI; address credential-issuer stub mimics it"}
+  - {from: ipv-stubs, to: ipv-cri-kbv-api, kind: http, note: "core stub calls the CRI; experian-kbv credential-issuer stub mimics it"}
+  - {from: ipv-stubs, to: ipv-cri-check-hmrc-api, kind: http, note: "core stub calls the CRI (isCheckHmrcCri); nino credential-issuer stub mimics it"}
+  - {from: ipv-stubs, to: ipv-cri-dl-api, kind: http, note: "core stub calls the CRI (driving-licence-cri-dev); driving-licence credential-issuer stub mimics it"}
+  - {from: ipv-stubs, to: ipv-cri-common-lambdas, kind: http, note: "core stub's session/authorization/token calls hit the shared Lambdas, which register ipv-core-stub client config"}
+  # ipv-cri-dl-front/test/browser/README.md:23 CORE_STUB_URL=cri.core.stubs.account.gov.uk; test/browser/pages/stub-pages/index.js:5
+  # page objects for the core stub UI, which redirects the browser to the DL front's authorize endpoint.
+  - {from: ipv-stubs, to: ipv-cri-dl-front, kind: http, note: "core stub launches DL front journeys; DL front's browser tests start at the core stub"}
+
+  # Not links (checked):
+  # - ipv-core-back/deploy/template.yaml:552 !ImportValue PublicHostedZoneId: core-back's zone is identity.<env>.account.gov.uk in the
+  #   core account; the only producer here (common-infrastructure/dns-zones/template.yaml:44) is a CRI review-* subdomain zone.
+  # - common-infrastructure/dns-records/template.yaml:83,117 ${ApiStackName}-${CriName}ApiGatewayId: CriName allows only none|Passport
+  #   (:16-21), and the Passport CRI is not in this workspace.
+  # - cri-vpc-*, spoke-vpc-*, ${VpcStackName}-*, slack-notifications-*, build-notifications-*, di-ipv-core-notifications-*, acm-infra-*
+  #   (dl-api's own certificate stack), cfront-origin-distrib-*, Evcs*/Sis* (inside ipv-stubs): producers are outside these 10 repos or
+  #   inside the same repo.
+  # - No package links: the shared libs (uk.gov.account:cri-common-lib, @govuk-one-login/cri-*, di-ipv-cri-common-express) are published
+  #   from repos not in this workspace.
+unsure:
+  - {between: [ipv-core-back, ipv-cri-common-infrastructure], note: "core-back imports AuditEventQueueName/Url/EncryptionKeyArn (deploy/template.yaml:781,832,840), the same names as txma's legacy un-prefixed exports (txma/template.yaml:286,298,316), but core runs in its own accounts and the txma workflow deploys only to CRI accounts (post-merge-publish-txma-infrastructure.yaml:16,126): almost certainly a different, non-public producer"}
+  - {between: [ipv-cri-dl-front, ipv-cri-common-lambdas], note: "dl-front calls /session and /authorization (src/app-setup.test.js:83-87), which dl-api's private API routes to common-lambdas' SessionFunctionTS/AuthorizationFunctionTS (dl-api private-api.yaml:84,126): real but only through dl-api"}
