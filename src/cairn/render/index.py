@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 from cairn.model.graph import Confidence, EdgeType, Repo, Workspace
 from cairn.model.overrides import Authored
+from cairn.render.draft import DRAFT_LABEL, draft_summary
 from cairn.security.text import clean_inline
 
 INDEX_TITLE = "# Workspace repos (cairn)"
@@ -29,12 +30,13 @@ _USES = frozenset(
 )
 
 
-def one_liner(repo: Repo, authored: Authored | None) -> str:
-    """The authored summary's first sentence. README text never enters INDEX (spec §20.1):
-    INDEX is always loaded into the agent's context, so repo-controlled prose stays out."""
+def one_liner(repo: Repo, authored: Authored | None, draft: str | None = None) -> str:
+    """The authored summary's first sentence, else cairn's draft. README text never enters
+    INDEX (spec §20.1): INDEX is always loaded into the agent's context, so repo-controlled prose
+    stays out (a draft is built from counts, see render.draft)."""
     text = authored.summary if authored and authored.summary else None
     if not text:
-        return "no summary yet"
+        return clean_inline(f"{DRAFT_LABEL}: {draft}", ONE_LINER_MAX) if draft else "no summary yet"
     first = re.split(r"(?<=[.!?])\s", " ".join(text.split()), maxsplit=1)[0].rstrip(".")
     return clean_inline(first, ONE_LINER_MAX)
 
@@ -44,6 +46,7 @@ def repo_line(
     authored: Authored | None,
     used_by: tuple[str, ...] = (),
     copies: tuple[str, ...] = (),
+    draft: str | None = None,
 ) -> str:
     aliases = [a for a in repo.aliases if a.lower() != repo.id.lower()][:2]
     alias_part = f" ({', '.join(clean_inline(a, 64) for a in aliases)})" if aliases else ""
@@ -58,7 +61,7 @@ def repo_line(
         shown = ", ".join(clean_inline(c, 40) for c in copies[:_COPIES_PREVIEW])
         more = len(copies) - _COPIES_PREVIEW
         twins = f" · copies: {shown}" + (f" +{more}" if more > 0 else "")
-    line = f"- {clean_inline(repo.id, 80)}{alias_part}: {one_liner(repo, authored)}{stack}"
+    line = f"- {clean_inline(repo.id, 80)}{alias_part}: {one_liner(repo, authored, draft)}{stack}"
     return line + twins + users
 
 
@@ -101,7 +104,13 @@ def render_index(
     if len(workspace.repos) <= threshold:
         users, twins = used_by(workspace), copies(workspace)
         lines += [
-            repo_line(r, authored.get(r.id), users.get(r.id, ()), twins.get(r.id, ()))
+            repo_line(
+                r,
+                authored.get(r.id),
+                users.get(r.id, ()),
+                twins.get(r.id, ()),
+                draft_summary(r, workspace),
+            )
             for r in workspace.repos
         ]
     else:

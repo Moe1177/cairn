@@ -8,6 +8,14 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Draft summaries.** Until someone writes a repo's summary, INDEX, its card and
+  `resolve_repo` show cairn's draft of what kind of repo it is, from what it detected:
+  `draft: web app (104 routes, owns 46 tables)`, `draft: deploy config (deploys 7 repos)`,
+  `draft: library (used as a package by 2 repos)`. Drafts are built from counts and cairn's own
+  words only, never README, package or topic names, so INDEX still carries no repo-written text.
+  A lone route or resource (often a test fixture's) doesn't count, and a repo cairn knows
+  nothing about still reads "no summary yet". `/cairn` now checks the draft as it writes the
+  summary.
 - **Maven and Gradle.** A JVM library now links to the repos that build against it, the way an
   npm package does: cairn reads the `group:artifact` each `pom.xml` and `build.gradle(.kts)`
   publishes (wherever the module sits, with groups inherited from a parent pom or an

@@ -7,6 +7,7 @@ from difflib import SequenceMatcher
 
 from cairn.model.graph import Repo, Workspace
 from cairn.model.overrides import Authored
+from cairn.render.draft import draft_summary
 from cairn.render.index import one_liner
 
 STOPWORDS = frozenset(
@@ -68,7 +69,12 @@ def resolve_repo(
         score = _score(raw, words, repo, notes)
         if score > 0:
             scored.append(
-                Match(repo.id, round(min(score, 1.0), 4), repo.path, one_liner(repo, notes))
+                Match(
+                    repo.id,
+                    round(min(score, 1.0), 4),
+                    repo.path,
+                    one_liner(repo, notes, draft_summary(repo, workspace)),
+                )
             )
     scored.sort(key=lambda m: (-m.score, m.repo_id))
     return tuple(scored[:limit])
