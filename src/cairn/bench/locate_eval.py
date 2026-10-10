@@ -7,7 +7,6 @@ is scored on where the first answer file lands, how much text it returns, and ho
 
 import hashlib
 import json
-import shutil
 import statistics
 import time
 from collections.abc import Iterable, Sequence
@@ -18,7 +17,7 @@ from typing import Literal
 import yaml
 from pydantic import ValidationError, field_validator
 
-from cairn.bench.sources import fetch_sources, remotes
+from cairn.bench.sources import fetch_sources, remotes, remove_tree
 from cairn.bench.suite import load_suite
 from cairn.bench.workspace import materialize
 from cairn.errors import CairnError
@@ -120,7 +119,7 @@ def prepare_workspace(suite_dir: Path, cache_root: Path) -> Path:
     ws = cache_root / f"{suite.name}-{_stamp(source, fetched=bool(suite.sources))}"
     if not (ws / _COMPLETE).is_file():
         if ws.exists():
-            shutil.rmtree(ws)
+            remove_tree(ws)  # a cache made by git has read-only objects on Windows
         materialize(source, ws, remotes=remotes(suite), rename_dots=not suite.sources)
         (ws / _COMPLETE).write_text("", encoding="utf-8")
     return ws
