@@ -8,6 +8,11 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Maven and Gradle.** A JVM library now links to the repos that build against it, the way an
+  npm package does: cairn reads the `group:artifact` each `pom.xml` and `build.gradle(.kts)`
+  publishes (wherever the module sits, with groups inherited from a parent pom or an
+  `allprojects` block) and the coordinates each one depends on. Builds are read with patterns,
+  never an XML parser or Gradle, so an untrusted pom can't expand entities and nothing runs.
 - **A link benchmark on real repos.** `cairn bench-links SUITE...` scores the links cairn finds
   against a suite's `links.yaml`, the pairs of repos that really link, written from the code.
   It reports precision, recall and direction for the links cairn shows and, separately, for its

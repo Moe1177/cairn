@@ -223,7 +223,7 @@ and you can commit them so your team shares them.
 | docker-compose | `depends_on` between services built from (or named after) your repos |
 | Deploy repos | compose, Kubernetes and Helm files that run your repos' images (`image: acme/catalogue:1.2`); Render Blueprints (`render.yaml`) whose services deploy from a sibling repo (`repo: https://github.com/acme/orders`) |
 | Render services | `fromService` references in a Blueprint link the repo of the service that reads another's address (`property: hostport`) or env var to the repo of the service it reads, wherever the Blueprint sits |
-| Package dependencies | npm (`workspace:*`, scoped packages), PyPI, Go modules, Cargo |
+| Package dependencies | npm (`workspace:*`, scoped packages), PyPI, Go modules, Cargo, Maven and Gradle (`group:artifact`, in any module folder) |
 | Packages inside monorepos | npm/yarn/pnpm, Cargo, `go.work` and uv workspaces, listed on the card and resolvable by name |
 | Shared database tables | SQL migrations and queries, Prisma, Drizzle, Supabase, MongoDB (Mongoose models, `db.collection("x")`) |
 | Copies of one app | Repos that share their first commit (an app cloned per event or per client): "change one, check the other". The same package name only suggests it |
@@ -374,7 +374,7 @@ cairn bench-links bench/suites/sockshop bench/suites/supabase-js
 | Supabase JS (real, held out) | 5 | 5 | 0 | 1.00 | 1.00 |
 | fleetline + shopverse (synthetic) | 26 | 26 | 0 | 1.00 | 1.00 |
 | GOV.UK One Login (real AWS, 10 repos, held out) | 24 | 12 | 0 | 1.00 | 0.50 |
-| OpenFaaS (real, 38 repos, held out) | 88 | 45 | 19 | 0.70 | 0.51 |
+| OpenFaaS (real, 38 repos, held out) | 88 | 46 | 19 | 0.71 | 0.52 |
 
 What the misses and wrong links are:
 
@@ -386,8 +386,7 @@ What the misses and wrong links are:
   services) and one export whose stack name only a deploy script sets.
 - **OpenFaaS:** every wrong link is a README telling readers to install `faas-cli`, which is
   documentation, not a dependency. Most misses are Go modules outside the repo root (the
-  gateway's `gateway/go.mod`), Java templates built against templates-sdk with Gradle, images
-  used as Dockerfile base images, HTTP clients of the gateway, and the function store's JSON
+  gateway's `gateway/go.mod`), images used as Dockerfile base images, HTTP clients of the gateway, and the function store's JSON
   catalogue.
 
 Unconfirmed suggestions add one or two wrong links in most suites (a table name two repos share,
