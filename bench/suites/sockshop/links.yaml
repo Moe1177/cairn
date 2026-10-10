@@ -1,0 +1,27 @@
+# Which repos really link (cairn bench-links), written from the code and related_repos.md,
+# never from cairn's output. A link is a pair of repos; `from` uses or depends on `to`.
+split: dev  # cairn's service-link detectors were developed on Sock Shop
+links:
+  # front-end/api/endpoints.js builds every backend URL from the service hostname.
+  - {from: front-end, to: catalogue, kind: http}
+  - {from: front-end, to: carts, kind: http}
+  - {from: front-end, to: orders, kind: http}
+  - {from: front-end, to: user, kind: http}
+  # orders/.../config/OrdersConfigurationProperties.java: http://payment/paymentAuth, http://shipping/shipping.
+  - {from: orders, to: payment, kind: http}
+  - {from: orders, to: shipping, kind: http}
+  # Orders reads the customer, address and card (user) and the cart items (carts) from URLs the
+  # front-end puts in the order request: a real runtime dependency with no hostname in orders.
+  - {from: orders, to: user, kind: http, note: "URLs arrive in the order request"}
+  - {from: orders, to: carts, kind: http, note: "URLs arrive in the order request"}
+  # RabbitMQ queue shipping-task: shipping publishes, queue-master consumes.
+  - {from: shipping, to: queue-master, kind: pubsub}
+  # docker-compose, Kubernetes manifests and the Helm chart run every service's image.
+  - {from: microservices-demo, to: front-end, kind: deploys}
+  - {from: microservices-demo, to: catalogue, kind: deploys}
+  - {from: microservices-demo, to: carts, kind: deploys}
+  - {from: microservices-demo, to: orders, kind: deploys}
+  - {from: microservices-demo, to: payment, kind: deploys}
+  - {from: microservices-demo, to: user, kind: deploys}
+  - {from: microservices-demo, to: shipping, kind: deploys}
+  - {from: microservices-demo, to: queue-master, kind: deploys}

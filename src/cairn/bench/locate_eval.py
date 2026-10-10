@@ -102,6 +102,18 @@ def prepare_locate_workspace(
 ) -> tuple[Path, dict[str, Graph | None]]:
     """The suite's repos as git repos under `cache_root` (made once), with each repo's code
     graph: built with `provider` when missing, None when there is none."""
+    ws = prepare_workspace(suite_dir, cache_root)
+    graphs: dict[str, Graph | None] = {}
+    for repo in sorted(p.name for p in ws.iterdir() if (p / ".git").exists()):
+        path = deep_dir(ws, repo) / "graphify-out" / "graph.json"
+        if not path.is_file() and provider is not None and provider.available():
+            provider.build(ws, repo, ws / repo, timeout=timeout)
+        graphs[repo] = load_graph(path) if path.is_file() else None
+    return ws, graphs
+
+
+def prepare_workspace(suite_dir: Path, cache_root: Path) -> Path:
+    """The suite's repos as git repos under `cache_root`, fetched and made once."""
     suite = load_suite(suite_dir)
     source = fetch_sources(suite_dir, suite)
     ws = cache_root / f"{suite.name}-{_stamp(source, fetched=bool(suite.sources))}"
@@ -110,13 +122,7 @@ def prepare_locate_workspace(
             shutil.rmtree(ws)
         materialize(source, ws, remotes=remotes(suite), rename_dots=not suite.sources)
         (ws / _COMPLETE).write_text("", encoding="utf-8")
-    graphs: dict[str, Graph | None] = {}
-    for repo in sorted(p.name for p in ws.iterdir() if (p / ".git").exists()):
-        path = deep_dir(ws, repo) / "graphify-out" / "graph.json"
-        if not path.is_file() and provider is not None and provider.available():
-            provider.build(ws, repo, ws / repo, timeout=timeout)
-        graphs[repo] = load_graph(path) if path.is_file() else None
-    return ws, graphs
+    return ws
 
 
 def evaluate(

@@ -1,0 +1,12 @@
+# Which repos really link (cairn bench-links), written from the code and related_repos.md,
+# never from cairn's output. A link is a pair of repos; `from` uses or depends on `to`.
+split: held  # never used to tune cairn
+links:
+  # supabase-js/package.json pins each library as a published @supabase/* package.
+  - {from: supabase-js, to: auth-js, kind: package}
+  - {from: supabase-js, to: postgrest-js, kind: package}
+  - {from: supabase-js, to: storage-js, kind: package}
+  - {from: supabase-js, to: realtime-js, kind: package}
+  - {from: supabase-js, to: functions-js, kind: package}
+# The five libraries don't use each other: each only shares @supabase/node-fetch, which no repo
+# here publishes. Any link between two of them is a false positive.

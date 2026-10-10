@@ -7,6 +7,14 @@ All notable changes to cairn are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **A link benchmark on real repos.** `cairn bench-links SUITE...` scores the links cairn finds
+  against a suite's `links.yaml`, the pairs of repos that really link, written from the code.
+  It reports precision, recall and direction for the links cairn shows and, separately, for its
+  unconfirmed suggestions, and lists every missed and wrong link. Offline and free. Keys for Sock
+  Shop, Supabase JS (held out), fleetline and shopverse: cairn shows 46 of 48 real links and no
+  wrong ones.
+
 ## [0.8.2]
 
 ### Added

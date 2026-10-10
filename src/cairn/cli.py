@@ -752,3 +752,35 @@ def bench_locate(
     (out / f"locate-{stamp}.md").write_text(report, encoding="utf-8")
     (out / f"locate-{stamp}.json").write_text(outcomes_json(outcomes), encoding="utf-8")
     typer.echo(report)
+
+
+@app.command("bench-links")
+def bench_links(
+    suites: Annotated[
+        list[Path], typer.Argument(help="Suite folders, each with a links.yaml key.")
+    ],
+    cache: Annotated[
+        Path, typer.Option("--cache", help="Where the materialised repos are kept.")
+    ] = Path("bench/.locate-cache"),
+    out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
+        "bench/results"
+    ),
+) -> None:
+    """Offline: how many real links cairn finds, and how many it finds that aren't real."""
+    from cairn.bench.links_eval import evaluate, load_link_set, scores_json, summarize
+    from cairn.bench.locate_eval import prepare_workspace
+
+    scores = []
+    try:
+        for suite_dir in suites:
+            link_set = load_link_set(suite_dir)
+            ws = prepare_workspace(suite_dir, cache.resolve())
+            scores += evaluate(ws, suite_dir.resolve().name, link_set)
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    report = summarize(scores)
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    (out / f"links-{stamp}.md").write_text(report, encoding="utf-8")
+    (out / f"links-{stamp}.json").write_text(scores_json(scores), encoding="utf-8")
+    typer.echo(report)
