@@ -1,0 +1,235 @@
+# Which repos really link (cairn bench-links), written from the code, never from cairn's output.
+# A link is a pair of repos; `from` uses or depends on `to`.
+# Evidence read from each repo's own files (go.mod require blocks, Go imports, Dockerfiles,
+# compose/Helm values, CI publish workflows, stack.yml, store JSON). vendor/ was never used as evidence.
+# Image -> repo mapping (who BUILDS it): ghcr.io/openfaas/gateway <- faas (.github/workflows/publish.yml),
+# queue-worker <- nats-queue-worker (publish.yaml), license-check <- license-check (publish.yaml),
+# of-watchdog <- of-watchdog (Makefile), classic-watchdog <- classic-watchdog (publish.yaml),
+# cron-/mqtt-/nats-connector, ingress-operator, faas-netes, ofc-* <- their own repos.
+split: held  # never used to tune cairn
+links:
+  # ---------------- package (go.mod require / npm / pip / maven) ----------------
+  # certifier/go.mod requires github.com/openfaas/faas-cli; certifier/tests import faas-cli/proxy, stack, config
+  - {from: certifier, to: faas-cli, kind: package}
+  # certifier/go.mod requires github.com/openfaas/faas-provider; tests import faas-provider/types, logs
+  - {from: certifier, to: faas-provider, kind: package}
+  # classic-watchdog/go.mod requires github.com/openfaas/faas-middleware (imports concurrency-limiter, auth)
+  - {from: classic-watchdog, to: faas-middleware, kind: package}
+  # connector-sdk/go.mod requires github.com/openfaas/faas-provider (imports types, auth)
+  - {from: connector-sdk, to: faas-provider, kind: package}
+  # connector-sdk/go.mod requires github.com/openfaas/go-sdk (marked indirect, but types/*.go import go-sdk)
+  - {from: connector-sdk, to: go-sdk, kind: package}
+  # cron-connector/go.mod requires github.com/openfaas/connector-sdk (imports connector-sdk/types)
+  - {from: cron-connector, to: connector-sdk, kind: package}
+  # cron-connector/go.mod requires github.com/openfaas/faas-provider (imports types, auth)
+  - {from: cron-connector, to: faas-provider, kind: package}
+  # cron-connector/go.mod requires github.com/openfaas/go-sdk (main.go: sdk.NewClient)
+  - {from: cron-connector, to: go-sdk, kind: package}
+  # cron-connector/go.mod requires github.com/openfaas/faas-cli as a direct require (no import found in its own .go files)
+  - {from: cron-connector, to: faas-cli, kind: package, note: "direct go.mod require, no direct import seen"}
+  # faas/gateway/go.mod requires github.com/openfaas/faas-provider (gateway imports types, auth, httputil)
+  - {from: faas, to: faas-provider, kind: package}
+  # faas/gateway/go.mod requires github.com/openfaas/nats-queue-worker; gateway imports nats-queue-worker/handler
+  - {from: faas, to: nats-queue-worker, kind: package, note: "also pubsub: gateway publishes async requests on NATS subject faas-request (nats-queue-worker/handler/handler.go) that queue-worker consumes (nats-queue-worker/main.go)"}
+  # faas-cli/go.mod requires github.com/openfaas/faas-provider (imports types, logs)
+  - {from: faas-cli, to: faas-provider, kind: package}
+  # faas-cli/go.mod requires github.com/openfaas/faas/gateway (module path matches faas/gateway/go.mod); imports gateway/types, gateway/version
+  - {from: faas-cli, to: faas, kind: package, note: "also http: faas-cli/proxy calls the gateway REST API"}
+  # faas-cli/go.mod requires github.com/openfaas/go-sdk (imports go-sdk/stack, seal, builder)
+  - {from: faas-cli, to: go-sdk, kind: package}
+  # faas-netes/go.mod requires github.com/openfaas/faas-provider (implements the provider: imports faas-provider, types, logs, proxy)
+  - {from: faas-netes, to: faas-provider, kind: package}
+  # faas-swarm/go.mod requires github.com/openfaas/faas-provider
+  - {from: faas-swarm, to: faas-provider, kind: package}
+  # faasd/go.mod requires github.com/openfaas/faas-provider
+  - {from: faasd, to: faas-provider, kind: package}
+  # function-builder-examples/go.mod requires github.com/openfaas/go-sdk (go-request imports go-sdk/builder)
+  - {from: function-builder-examples, to: go-sdk, kind: package}
+  # function-builder-examples/python-request/requirements.txt: openfaas-sdk @ git+https://github.com/openfaas/python-sdk.git (python-sdk/pyproject.toml name = "openfaas-sdk")
+  - {from: function-builder-examples, to: python-sdk, kind: package}
+  # go-sdk/go.mod requires github.com/openfaas/faas-provider (imports types, logs)
+  - {from: go-sdk, to: faas-provider, kind: package}
+  # golang-http-template/template/golang-http/go.mod requires github.com/openfaas/templates-sdk/go-http (templates-sdk/go-http/go.mod module path)
+  - {from: golang-http-template, to: templates-sdk, kind: package}
+  # golang-http-template/template/golang-middleware-inproc/go.mod requires github.com/openfaas/of-watchdog (imports of-watchdog/pkg, config)
+  - {from: golang-http-template, to: of-watchdog, kind: package, note: "also deploys: golang-http/golang-middleware Dockerfiles FROM ghcr.io/openfaas/of-watchdog (base image)"}
+  # mass-deploy/go.mod requires github.com/openfaas/faas-provider (imports types)
+  - {from: mass-deploy, to: faas-provider, kind: package}
+  # mass-deploy/go.mod requires github.com/openfaas/go-sdk (cmd/*.go import go-sdk)
+  - {from: mass-deploy, to: go-sdk, kind: package}
+  # mqtt-connector/go.mod requires github.com/openfaas/connector-sdk (imports connector-sdk/types)
+  - {from: mqtt-connector, to: connector-sdk, kind: package}
+  # mqtt-connector/go.mod requires github.com/openfaas/faas-provider (imports faas-provider/auth)
+  - {from: mqtt-connector, to: faas-provider, kind: package}
+  # nats-connector/go.mod requires github.com/openfaas/connector-sdk (imports connector-sdk/types)
+  - {from: nats-connector, to: connector-sdk, kind: package}
+  # nats-connector/contrib/test-functions/*/go.mod require github.com/openfaas/templates-sdk/go-http
+  - {from: nats-connector, to: templates-sdk, kind: package}
+  # nats-queue-worker/go.mod requires github.com/openfaas/faas-provider (imports types)
+  - {from: nats-queue-worker, to: faas-provider, kind: package}
+  # of-watchdog/go.mod requires github.com/openfaas/faas-middleware (imports oauth, concurrency-limiter, auth)
+  - {from: of-watchdog, to: faas-middleware, kind: package}
+  # of-watchdog/go.mod requires github.com/openfaas/faas-provider (imports httputil)
+  - {from: of-watchdog, to: faas-provider, kind: package}
+  # openfaas-cloud/go.mod (and buildshiprun, list-functions, ... go.mod) require github.com/openfaas/faas; functions import faas/gateway/requests, metrics
+  - {from: openfaas-cloud, to: faas, kind: package, note: "also http: edge-router/functions call the gateway"}
+  # openfaas-cloud/go.mod requires github.com/openfaas/faas-cli; functions import faas-cli/stack, proxy, schema
+  - {from: openfaas-cloud, to: faas-cli, kind: package, note: "also deploys: git-tar/Dockerfile FROM ghcr.io/openfaas/faas-cli"}
+  # openfaas-cloud/*/go.mod (audit-event, edge-auth, sdk, ...) require github.com/openfaas/faas-provider (imports types, auth, logs)
+  - {from: openfaas-cloud, to: faas-provider, kind: package}
+  # templates/template/java11/function/build.gradle compiles com.openfaas:model and com.openfaas:entrypoint, published from templates-sdk/java11 (group = 'com.openfaas')
+  - {from: templates, to: templates-sdk, kind: package, note: "also deploys: of-watchdog/classic-watchdog base images (separate pairs)"}
+
+  # ---------------- http (calls the other's API by hostname/route) ----------------
+  # certifier/Makefile + tests: OPENFAAS_URL=http://127.0.0.1:8080/, tests exercise the gateway REST API (README: "certify ... RESTful API")
+  - {from: certifier, to: faas, kind: http}
+  # connector-sdk/types/controller.go builds <GatewayURL>/function and /async-function to invoke functions via the gateway
+  - {from: connector-sdk, to: faas, kind: http}
+  # cron-connector/main.go gatewayRoute(): <gateway_url>/function or /async-function; go.mod also has an indirect require of faas/gateway
+  - {from: cron-connector, to: faas, kind: http, note: "also indirect go.mod require github.com/openfaas/faas/gateway"}
+  # go-sdk client calls the gateway's /system/functions, /function/ routes
+  - {from: go-sdk, to: faas, kind: http}
+  # ingress-operator/pkg/controller/v1/controller.go: Ingress backend serviceHost "gateway" (port 8080) unless bypassGateway
+  - {from: ingress-operator, to: faas, kind: http, note: "creates Ingress records routed to the gateway Service"}
+  # mass-deploy/cmd/root.go: --gateway default http://127.0.0.1:8080, deploys/invokes via go-sdk against the gateway
+  - {from: mass-deploy, to: faas, kind: http}
+  # mqtt-connector/main.go: gateway_url env / -gateway flag, invokes functions through the gateway
+  - {from: mqtt-connector, to: faas, kind: http}
+  # nats-connector/config/config.go: gatewayURL := "http://gateway:8080"
+  - {from: nats-connector, to: faas, kind: http}
+  # python-sdk/openfaas_sdk/client.py: GET/POST/PUT/DELETE /system/functions, /async-function/{name}
+  - {from: python-sdk, to: faas, kind: http}
+
+  # ---------------- deploys (runs the other's image; base / build-stage images) ----------------
+  # certifier/contrib/deploy_faasd.sh: curl https://raw.githubusercontent.com/openfaas/faasd/master/hack/install.sh | sh (CI test-faasd job)
+  - {from: certifier, to: faasd, kind: deploys, note: "installs faasd to certify it"}
+  # certifier/contrib/deploy_openfaas.sh: arkade install openfaas (the faas-netes Helm chart); README develops against faas-netes
+  - {from: certifier, to: faas-netes, kind: deploys, note: "installs faas-netes chart via arkade to certify it"}
+  # dotnet-templates/template/dotnet8-csharp/Dockerfile: FROM ghcr.io/openfaas/of-watchdog:0.10.1
+  - {from: dotnet-templates, to: of-watchdog, kind: deploys, note: "base image"}
+  # python-flask-template/template/*/Dockerfile: FROM ghcr.io/openfaas/of-watchdog:0.12.4
+  - {from: python-flask-template, to: of-watchdog, kind: deploys, note: "base image"}
+  # ruby-http/template/ruby-http/Dockerfile: FROM ghcr.io/openfaas/of-watchdog:0.10.9
+  - {from: ruby-http, to: of-watchdog, kind: deploys, note: "base image"}
+  # templates/template/node*/java*/Dockerfile: FROM ghcr.io/openfaas/of-watchdog:0.12.4
+  - {from: templates, to: of-watchdog, kind: deploys, note: "base image"}
+  # templates/template/dockerfile, php7, php8 Dockerfile: FROM ghcr.io/openfaas/classic-watchdog:0.3.4
+  - {from: templates, to: classic-watchdog, kind: deploys, note: "base image"}
+  # templates-classic/template/{go,node,python3,...}/Dockerfile: FROM ghcr.io/openfaas/classic-watchdog:0.3.7
+  - {from: templates-classic, to: classic-watchdog, kind: deploys, note: "base image"}
+  # templates-classic/template/bun/Dockerfile: FROM ghcr.io/openfaas/of-watchdog:0.11.3
+  - {from: templates-classic, to: of-watchdog, kind: deploys, note: "base image"}
+  # store-functions/{alpine,figlet,curl,...}/Dockerfile: FROM ghcr.io/openfaas/classic-watchdog:0.3.9
+  - {from: store-functions, to: classic-watchdog, kind: deploys, note: "base image"}
+  # openfaas-cloud/git-tar/Dockerfile: FROM ghcr.io/openfaas/classic-watchdog:0.1.4
+  - {from: openfaas-cloud, to: classic-watchdog, kind: deploys, note: "base image"}
+  # faas-netes/chart/openfaas/values.yaml:71 image: ghcr.io/openfaas/gateway (built by faas publish.yml)
+  - {from: faas-netes, to: faas, kind: deploys, note: "Helm chart runs the gateway; gateway proxies to faas-netes via functions_provider_url"}
+  # faas-netes/chart/openfaas/values.yaml:279 image: ghcr.io/openfaas/queue-worker (built by nats-queue-worker publish.yaml)
+  - {from: faas-netes, to: nats-queue-worker, kind: deploys}
+  # faas-netes/chart/openfaas/values.yaml:507 image: ghcr.io/openfaas/ingress-operator
+  - {from: faas-netes, to: ingress-operator, kind: deploys}
+  # faas-netes/chart/cron-connector/values.yaml: image: ghcr.io/openfaas/cron-connector:0.7.0
+  - {from: faas-netes, to: cron-connector, kind: deploys}
+  # faas-netes/chart/mqtt-connector/values.yaml: image: ghcr.io/openfaas/mqtt-connector:0.4.3
+  - {from: faas-netes, to: mqtt-connector, kind: deploys}
+  # faas-netes/chart/nats-connector/values.yaml: image: ghcr.io/openfaas/nats-connector:0.3.0
+  - {from: faas-netes, to: nats-connector, kind: deploys}
+  # faasd/docker-compose.yaml: image: ghcr.io/openfaas/gateway:0.27.13
+  - {from: faasd, to: faas, kind: deploys}
+  # faasd/docker-compose.yaml: image: ghcr.io/openfaas/queue-worker:0.14.2
+  - {from: faasd, to: nats-queue-worker, kind: deploys}
+  # faas-swarm/contrib/docker-compose.yml: image: openfaas/gateway:0.17.3
+  - {from: faas-swarm, to: faas, kind: deploys}
+  # faas-swarm/contrib/docker-compose.yml: image: openfaas/queue-worker:0.8.0
+  - {from: faas-swarm, to: nats-queue-worker, kind: deploys}
+  # ofc-bootstrap/scripts/clone-cloud-components.sh clones openfaas-cloud; deploy-cloud-components.sh applies its yaml/core; templates/ use ghcr.io/openfaas/ofc-* images
+  - {from: ofc-bootstrap, to: openfaas-cloud, kind: deploys, note: "also indirect go.mod require of openfaas-cloud/edge-auth and /sdk"}
+  # ofc-bootstrap/cmd/apply.go: arkade install openfaas + kubectl apply raw.githubusercontent.com/openfaas/faas-netes/master/namespaces.yml
+  - {from: ofc-bootstrap, to: faas-netes, kind: deploys}
+  # config-checker/Dockerfile: FROM ghcr.io/openfaas/license-check:0.4.1 as license-check
+  - {from: config-checker, to: license-check, kind: deploys, note: "build-stage image"}
+  # cron-connector/Dockerfile: FROM ghcr.io/openfaas/license-check:0.4.2 AS license-check
+  - {from: cron-connector, to: license-check, kind: deploys, note: "build-stage image"}
+  # faas/gateway/Dockerfile: FROM ghcr.io/openfaas/license-check:0.4.1 AS license-check
+  - {from: faas, to: license-check, kind: deploys, note: "build-stage image"}
+  # faas-cli/Dockerfile and Dockerfile.redist: FROM ghcr.io/openfaas/license-check:0.4.2
+  - {from: faas-cli, to: license-check, kind: deploys, note: "build-stage image"}
+  # faas-netes/Dockerfile: FROM ghcr.io/openfaas/license-check:0.4.2 AS license-check
+  - {from: faas-netes, to: license-check, kind: deploys, note: "build-stage image"}
+  # faas-swarm/Dockerfile: FROM teamserverless/license-check:0.3.6 (older registry name of the same tool)
+  - {from: faas-swarm, to: license-check, kind: deploys, note: "build-stage image, old image name"}
+  # ingress-operator/Dockerfile: FROM ghcr.io/openfaas/license-check:0.4.2 as license-check
+  - {from: ingress-operator, to: license-check, kind: deploys, note: "build-stage image"}
+  # mqtt-connector/Dockerfile: FROM ghcr.io/openfaas/license-check:0.4.0 as license-check
+  - {from: mqtt-connector, to: license-check, kind: deploys, note: "build-stage image"}
+
+  # ---------------- resource ----------------
+  # config-checker/main.go reads the gateway/faas-netes/queue-worker Deployments and env vars the faas-netes Helm chart defines
+  - {from: config-checker, to: faas-netes, kind: resource, note: "inspects Kubernetes objects named/configured by the faas-netes chart"}
+
+  # ---------------- path (machine-readable reference to another repo's URL) ----------------
+  # faas-cli/commands/template_store.go etc.: https://raw.githubusercontent.com/openfaas/store/.../templates.json (and store.go functions.json), fetched and parsed at runtime
+  - {from: faas-cli, to: store, kind: path, note: "machine-readable URL reference; fetched over HTTP at runtime"}
+  # faas-cli/commands/template_pull.go, fetch_templates.go: default template repo https://github.com/openfaas/templates
+  - {from: faas-cli, to: templates, kind: path, note: "machine-readable URL reference; cloned at runtime"}
+  # faas/gateway/assets/script/funcstore.js: storeUrl = https://raw.githubusercontent.com/openfaas/store/master/functions.json
+  - {from: faas, to: store, kind: path, note: "machine-readable URL reference; UI fetches the store at runtime"}
+  # store/templates.json names https://github.com/openfaas/templates
+  - {from: store, to: templates, kind: path, note: "machine-readable catalogue reference"}
+  # store/templates.json names https://github.com/openfaas/golang-http-template
+  - {from: store, to: golang-http-template, kind: path, note: "machine-readable catalogue reference"}
+  # store/templates.json names https://github.com/openfaas/python-flask-template
+  - {from: store, to: python-flask-template, kind: path, note: "machine-readable catalogue reference"}
+  # store/templates.json names https://github.com/openfaas/ruby-http
+  - {from: store, to: ruby-http, kind: path, note: "machine-readable catalogue reference"}
+  # store/templates.json names https://github.com/openfaas/dotnet-templates
+  - {from: store, to: dotnet-templates, kind: path, note: "machine-readable catalogue reference"}
+  # store/functions.json repo_url https://github.com/openfaas/store-functions and images ghcr.io/openfaas/{figlet,alpine,...} built there
+  - {from: store, to: store-functions, kind: path, note: "machine-readable catalogue reference (repo URL + images)"}
+  # store-functions/stack.yml configuration.templates: golang-middleware source https://github.com/openfaas/golang-http-template
+  - {from: store-functions, to: golang-http-template, kind: path, note: "template source URL in stack.yml"}
+  # certifier/functions/stack.yml configuration.templates: source https://github.com/openfaas-incubator/golang-http-template (old org name of the same repo)
+  - {from: certifier, to: golang-http-template, kind: path, note: "template source URL in stack.yml (openfaas-incubator org)"}
+  # nats-connector/contrib/test-functions/stack.yml: template source https://github.com/openfaas-incubator/golang-http-template
+  - {from: nats-connector, to: golang-http-template, kind: path, note: "template source URL in stack.yml (openfaas-incubator org)"}
+
+unsure:
+  # go.mod `// indirect` only, no import in the repo's own code
+  - {between: [cron-connector, nats-queue-worker], note: "only an indirect go.mod require (pulled in via faas/gateway); no direct use"}
+  - {between: [nats-connector, faas-provider], note: "only an indirect go.mod require (via connector-sdk); no import"}
+  - {between: [golang-http-template, faas-middleware], note: "golang-middleware-inproc go.mod indirect require via of-watchdog; no import"}
+  - {between: [golang-http-template, faas-provider], note: "golang-middleware-inproc go.mod indirect require via of-watchdog; no import"}
+  - {between: [ofc-bootstrap, faas-cli], note: "indirect go.mod require only, plus ofc-bootstrap shells out to the faas-cli binary"}
+  # CLI tool use in scripts/CI only
+  - {between: [faasd, faas-cli], note: "faasd hack/install.sh installs faas-cli and Makefile drives faas-cli; tool use, not a code dependency"}
+  - {between: [faas-netes, faas-cli], note: "faas-netes CI/contrib scripts use faas-cli; tool use only"}
+  # environment/config coupling that may or may not count
+  - {between: [faas-middleware, faas], note: "auth/jwt_authenticator.go fetches http://gateway.openfaas:8080/.well-known/openid-configuration; that endpoint belongs to the Pro/IAM gateway, not clearly this repo"}
+  - {between: [config-checker, faas], note: "config-checker reads gateway env var names (read_timeout, direct_functions...) that the gateway defines; also .DEREK.yml redirect"}
+  - {between: [config-checker, nats-queue-worker], note: "config-checker reads queue-worker env var names (ack_wait, max_inflight) that queue-worker defines"}
+  - {between: [faas-cli, golang-http-template], note: "only faas-cli/testing/template-config.yaml names its URL (test material)"}
+  # functions built from a template chosen by `lang:` name only (resolved through the store / default templates repo at build time)
+  - {between: [cloud-functions, golang-http-template], note: "stack.yml lang golang-middleware, configuration.templates by name only"}
+  - {between: [cloud-functions, python-flask-template], note: "stack.yml lang python3-http by name only"}
+  - {between: [release-promoter, golang-http-template], note: "stack.yaml lang golang-middleware, configuration.templates by name only"}
+  - {between: [store-functions, templates], note: "stack.yml lang node25 by name only (default templates repo)"}
+  - {between: [social-functions, templates-classic], note: "stack.yml lang go by name only"}
+  - {between: [openfaas-cloud, templates-classic], note: "stack.yml lang go by name only"}
+  - {between: [workshop, templates-classic], note: "lab stack.yml files use lang python/python3 by name only"}
+  # .DEREK.yml `redirect: https://raw.githubusercontent.com/openfaas/faas/master/.DEREK.yml` (bot config, not code); only pairs with no other link listed
+  - {between: [classic-watchdog, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [cloud-functions, faas], note: ".DEREK.yml redirect; stack.yml gateway: http://127.0.0.1:8080 (deploy target)"}
+  - {between: [docs, faas], note: ".DEREK.yml redirect and mkdocs repo_url point at faas; docs describe it"}
+  - {between: [golang-http-template, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [of-watchdog, faas], note: ".DEREK.yml bot-config redirect; gateway proxies to watchdog port 8080 generically"}
+  - {between: [ofc-bootstrap, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [python-flask-template, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [ruby-http, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [social-functions, faas], note: ".DEREK.yml redirect; stack.yml gateway: http://127.0.0.1:8080 (deploy target)"}
+  - {between: [store-functions, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [templates-classic, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [templates-sdk, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [templates, faas], note: ".DEREK.yml bot-config redirect to faas only"}
+  - {between: [workshop, faas], note: ".DEREK.yml redirect; lab stack.yml gateway: http://127.0.0.1:8080"}
+  - {between: [release-promoter, faas], note: "stack.yaml gateway: http://127.0.0.1:8080 (deploy target only)"}

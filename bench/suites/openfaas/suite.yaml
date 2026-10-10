@@ -1,0 +1,238 @@
+name: openfaas
+workspace: fetched
+related_repos_doc: related_repos.md
+# OpenFaaS (github.com/openfaas), 38 repos: the coupled core (gateway, providers, CLI, SDKs,
+# queue worker, watchdogs, connectors, templates, store) and the org's other repos a developer
+# would have cloned beside it (docs, archived cloud/bootstrap, release tooling). Mostly MIT; faas,
+# faas-netes and faasd carry extra notices. Fetched at pinned commits, never vendored. Held out:
+# never used to tune cairn's detectors.
+sources:
+  - {name: faas, url: "https://github.com/openfaas/faas.git", sha: 8d803bf9e2655aec6a60fd0e25b392839f96af95}
+  - {name: faas-provider, url: "https://github.com/openfaas/faas-provider.git", sha: f53fe6362ce959e032b8c063318ca5e38c0cbed8}
+  - {name: faas-netes, url: "https://github.com/openfaas/faas-netes.git", sha: f97de9fc1314bad45848f7e0bfaadb69710615a6}
+  - {name: faasd, url: "https://github.com/openfaas/faasd.git", sha: 13f03f3d47072f29781ef78a1f5a406c800cc513}
+  - {name: faas-cli, url: "https://github.com/openfaas/faas-cli.git", sha: 9e9b014aaf03cae10b49edf7a093e6ddfb7ea903}
+  - {name: go-sdk, url: "https://github.com/openfaas/go-sdk.git", sha: fdbcba4a953761163078d223d0a6e4642a15a9f1}
+  - {name: nats-queue-worker, url: "https://github.com/openfaas/nats-queue-worker.git", sha: ed5414157b541fa10586276e03a03ca48a6b8f92}
+  - {name: of-watchdog, url: "https://github.com/openfaas/of-watchdog.git", sha: d29916c08f156575c8b543aff29e019be3f18ba0}
+  - {name: classic-watchdog, url: "https://github.com/openfaas/classic-watchdog.git", sha: 23db9142df2b43767336ed66acd3ad758cdfa96d}
+  - {name: faas-middleware, url: "https://github.com/openfaas/faas-middleware.git", sha: 7da91b42551a45e202a130ec41e75dfecf746721}
+  - {name: connector-sdk, url: "https://github.com/openfaas/connector-sdk.git", sha: d8712153211df25b4d7675835bd58a99c3597b0f}
+  - {name: cron-connector, url: "https://github.com/openfaas/cron-connector.git", sha: b07e85a5dd90c91c60ef65e0b477bd1e1893ea5a}
+  - {name: mqtt-connector, url: "https://github.com/openfaas/mqtt-connector.git", sha: a89941d89b08ab7ccd24b5661720f10cf269872d}
+  - {name: nats-connector, url: "https://github.com/openfaas/nats-connector.git", sha: 183bc8b5580f7a0392a7d5ea6e6ae4b52d6f5c54}
+  - {name: ingress-operator, url: "https://github.com/openfaas/ingress-operator.git", sha: f3f9108fae99f21b9145f2c1f87612123bab23ff}
+  - {name: certifier, url: "https://github.com/openfaas/certifier.git", sha: 2e39d0587dc21f2cbbd9b2a874d197e71d6d0570}
+  - {name: templates, url: "https://github.com/openfaas/templates.git", sha: 1395e4e805e1e421873c6d6ec2117acf51b59fea}
+  - {name: golang-http-template, url: "https://github.com/openfaas/golang-http-template.git", sha: 527facc27c946921dbd05f518fa3da572e6a81bc}
+  - {name: python-flask-template, url: "https://github.com/openfaas/python-flask-template.git", sha: ff7c2c5d416ee5b7567f2254c4f8ba8b04f21f2a}
+  - {name: ruby-http, url: "https://github.com/openfaas/ruby-http.git", sha: bb42896b41e96b573cef589b95c30f8541c7bac4}
+  - {name: dotnet-templates, url: "https://github.com/openfaas/dotnet-templates.git", sha: a1bdbb901017bc9627b70228ba2c4c9b41084c27}
+  - {name: templates-sdk, url: "https://github.com/openfaas/templates-sdk.git", sha: 5981c545cb0322c498a00741087e8830b8a85fa4}
+  - {name: templates-classic, url: "https://github.com/openfaas/templates-classic.git", sha: fd00d2d9080a6cab0266a97253b16f96eb4e152f}
+  - {name: store, url: "https://github.com/openfaas/store.git", sha: 779c869ec55533e6a1aa1ccdacd8b7ea3defa28a}
+  - {name: store-functions, url: "https://github.com/openfaas/store-functions.git", sha: 1cf0e63de2abaa74c28c10b29b79ad0a0cba6307}
+  - {name: docs, url: "https://github.com/openfaas/docs.git", sha: 19d7f368e99991b4e30c8e97a4dcc05aea7e8e36}
+  - {name: workshop, url: "https://github.com/openfaas/workshop.git", sha: 7ea5802696d9eb4a827da4f581059497783d0e30}
+  - {name: openfaas-cloud, url: "https://github.com/openfaas/openfaas-cloud.git", sha: ba939d40ae7f68222bd43c6c9cd4db9f29946fa9}
+  - {name: ofc-bootstrap, url: "https://github.com/openfaas/ofc-bootstrap.git", sha: cc56acc3c51ab58ca16da22da967bec6ca031de5}
+  - {name: faas-swarm, url: "https://github.com/openfaas/faas-swarm.git", sha: a7e6769259e28a7ddc96add7970edd005ed7a0a7}
+  - {name: mass-deploy, url: "https://github.com/openfaas/mass-deploy.git", sha: 6c0e027952e811b3ea2c8a28870fd4f128881168}
+  - {name: config-checker, url: "https://github.com/openfaas/config-checker.git", sha: 31d9d6bc6bd786a0431d61da3549ee4f9f9a6310}
+  - {name: license-check, url: "https://github.com/openfaas/license-check.git", sha: 074d9978a454b128fc7fd95f07490d8239cf4b8b}
+  - {name: release-promoter, url: "https://github.com/openfaas/release-promoter.git", sha: 95a32ab2635bb649568b0bb2e319e3761cb8e7a4}
+  - {name: function-builder-examples, url: "https://github.com/openfaas/function-builder-examples.git", sha: 513c90efc00c8e4dd72c336a178de023a98b70ca}
+  - {name: python-sdk, url: "https://github.com/openfaas/python-sdk.git", sha: ddae83b63291f06153e96d3b659faf7aba7221cc}
+  - {name: social-functions, url: "https://github.com/openfaas/social-functions.git", sha: 7230fe0cc3e529459c2fffa6ed6be9f08a891729}
+  - {name: cloud-functions, url: "https://github.com/openfaas/cloud-functions.git", sha: b953cd28a74f3674df34f977675bf48fe9a30edc}
+tasks:
+  # Workspace-wide grep for "scale-function" (excluding vendor/, which holds copies of faas-provider
+  # in faas, faasd, faas-netes, faas-cli, ...): outside faas-provider it is hard-coded in the gateway
+  # (public route in main.go, and plugin/external.go, which calls the provider directly), the API
+  # spec, faas-cli's proxy path constant, go-sdk's client, and python-sdk's client and its test mock.
+  # faasd and faas-netes mount faas-provider's router (bootstrap.Serve), so they carry no literal.
+  # go-sdk/example/README.md only names an example directory "scale-function", so it is out.
+  - id: rename-scale-route
+    category: impact
+    repo: faas-provider
+    prompt: >-
+      We are renaming the provider API endpoint that this library registers for scaling a function,
+      /system/scale-function/{name}, to /system/scale/{name}, and every client and the gateway's
+      public API must move with it. Which files in OTHER repositories hard-code that path and must
+      change (code, API spec and tests; ignore Markdown docs and vendored copies)? List them as
+      repo/path.
+    expect_files:
+      - faas/gateway/main.go
+      - faas/gateway/plugin/external.go
+      - faas/api-docs/spec.openapi.yml
+      - faas-cli/proxy/utils.go
+      - go-sdk/client.go
+      - python-sdk/openfaas_sdk/client.py
+      - python-sdk/tests/test_client.py
+  # Workspace-wide grep for the quoted key "topic" (excluding vendor/, docs/ and *.md): outside
+  # connector-sdk it is read by cron-connector (cron_function.go, twice), validated by faas-netes'
+  # CE deploy handler (deploy.go, with deploy_test.go asserting that rule), whitelisted by
+  # openfaas-cloud's buildshiprun (handler.go), and set on the nats-connector test function
+  # (contrib/test-functions/stack.yml). Out: cron-connector/main.go only mentions it in a comment;
+  # faas-cli's diff_test.go/generate_test.go and openfaas-cloud's handler_test.go use "topic" as
+  # arbitrary sample data with their own whitelist, so they keep passing; mqtt-connector and
+  # connector-sdk/cmd/tester use "topic" as a CLI flag name (the broker topic), not the annotation.
+  - id: rename-topic-annotation
+    category: impact
+    repo: connector-sdk
+    prompt: >-
+      This SDK decides which functions a connector invokes for an event by reading each function's
+      "topic" annotation. We are renaming that annotation key to "com.openfaas.topic". Which files in
+      OTHER repositories hard-code the annotation key and must change? Include tests and stack files
+      only if they would break or stop working; ignore Markdown docs and vendored copies. List them
+      as repo/path.
+    expect_files:
+      - cron-connector/types/cron_function.go
+      - faas-netes/pkg/handlers/deploy.go
+      - faas-netes/pkg/handlers/deploy_test.go
+      - openfaas-cloud/buildshiprun/handler.go
+      - nats-connector/contrib/test-functions/stack.yml
+  # Workspace-wide grep for "scale\.min" (excluding vendor/, docs/, *.md and *_test.go): outside faas
+  # the key is hard-coded by faas-netes (deploy.go initial replicas, validate.go CE limit), the
+  # archived Swarm provider (deploy.go, replicas_updater.go), config-checker (main.go), and
+  # openfaas-cloud (buildshiprun/handler.go sets it; the dashboard's functionsApi.js reads it).
+  # Test files that also carry it (certifier/tests/scaling_test.go, faas-netes validate_test.go,
+  # faas-cli diff_test.go) are excluded by the prompt.
+  - id: rename-min-scale-label
+    category: impact
+    repo: faas
+    prompt: >-
+      The gateway reads a function's minimum replica count from the "com.openfaas.scale.min" label.
+      We are renaming that label key. Which non-test files in OTHER repositories hard-code the same
+      label key and must change? Ignore *_test.go files, Markdown docs and vendored copies. List
+      them as repo/path.
+    expect_files:
+      - faas-netes/pkg/handlers/deploy.go
+      - faas-netes/pkg/handlers/validate.go
+      - faas-swarm/handlers/deploy.go
+      - faas-swarm/handlers/replicas_updater.go
+      - config-checker/main.go
+      - openfaas-cloud/buildshiprun/handler.go
+      - openfaas-cloud/dashboard/client/src/api/functionsApi.js
+  # The queued message type is faas-provider's types.QueueRequest. Workspace-wide grep for
+  # "QueueRequest" (excluding vendor/): it is constructed only in faas/gateway/handlers/queue_proxy.go
+  # and decoded only in nats-queue-worker/main.go (main_test.go builds fixtures, no change needed;
+  # handler/nats_queue.go marshals the whole struct, so a new field passes through untouched).
+  # Vendored copies of faas-provider in faas/gateway/vendor and nats-queue-worker/vendor, and the
+  # go.mod bumps, are excluded by the prompt.
+  - id: async-priority-field
+    category: localization
+    repo: faas-cli
+    prompt: >-
+      Asynchronous invocations should carry a new Priority value. When the gateway accepts an async
+      request it must copy the X-Priority request header into a new Priority field of the shared
+      queued-request message type, and the Community Edition queue-worker must read that field from
+      the message (not from the forwarded headers) and log it before invoking the function. List the
+      existing files that must change, as repo/path. Ignore go.mod/go.sum bumps and vendored copies.
+      Do not edit anything.
+    expect_files:
+      - faas-provider/types/queue.go
+      - faas/gateway/handlers/queue_proxy.go
+      - nats-queue-worker/main.go
+    expect_keywords: [QueueRequest]
+  # Workspace-wide grep for "upstream_timeout|upstreamTimeout" (excluding vendor/): the gateway parses
+  # its env in faas/gateway/types/readconfig.go (GatewayConfig is declared there too); the gateway's
+  # env is set for real installs in faasd/docker-compose.yaml and in the openfaas Helm chart
+  # (faas-netes/chart/openfaas/values.yaml for the default, templates/gateway-dep.yaml to render it).
+  # Out per the prompt: faasd/pkg/testdata/docker-compose.yaml and supervisor_test.go (fixtures),
+  # faas-swarm/contrib/docker-compose.yml and ofc-bootstrap/cmd/apply.go (archived), the connector
+  # and queue-worker charts (their own upstream_timeout, not the gateway's), config-checker (reads,
+  # optional), and READMEs.
+  - id: gateway-body-limit-setting
+    category: localization
+    repo: of-watchdog
+    prompt: >-
+      Add a new gateway setting, max_request_body_size, read from an environment variable in the same
+      place the gateway parses its other settings such as upstream_timeout. Operators must be able to
+      set it in every maintained install configuration in this workspace that already sets the
+      gateway's upstream_timeout, with a default declared where that install keeps its defaults.
+      Ignore test fixtures, docs, and archived projects (faas-swarm, openfaas-cloud, ofc-bootstrap).
+      List the existing files that must change, as repo/path. Do not edit anything.
+    expect_files:
+      - faas/gateway/types/readconfig.go
+      - faasd/docker-compose.yaml
+      - faas-netes/chart/openfaas/values.yaml
+      - faas-netes/chart/openfaas/templates/gateway-dep.yaml
+  # The golang-http template's handler.Request type is not in golang-http-template: its go.mod
+  # requires github.com/openfaas/templates-sdk/go-http, whose handler.go declares Request. Workspace
+  # grep for "handler.Request{" (excluding vendor/): the only place a Request is populated from the
+  # incoming http.Request is golang-http-template/template/golang-http/main.go. There are no
+  # vendored copies of templates-sdk. Other users (nats-connector test functions, the template's
+  # sample function/handler.go) only consume Request and need no change; go.mod bumps are excluded.
+  - id: golang-http-request-path
+    category: localization
+    repo: templates
+    prompt: >-
+      Functions built with the golang-http template should be able to read the incoming URL path
+      from the request object their Handle function receives. Add a Path field to that request type
+      and populate it where the template converts the incoming HTTP request into it. List the
+      existing files that must change, as repo/path. Ignore go.mod/go.sum bumps. Do not edit
+      anything.
+    expect_files:
+      - templates-sdk/go-http/handler.go
+      - golang-http-template/template/golang-http/main.go
+  # Workspace-wide grep for "of-watchdog" in Dockerfiles (excluding vendor/): template Dockerfiles
+  # that copy fwatchdog from ghcr.io/openfaas/of-watchdog live in dotnet-templates (dotnet8-csharp),
+  # golang-http-template (golang-http, golang-middleware), python-flask-template (5 templates),
+  # ruby-http (ruby-http), templates (node18-26, java11, java11-vert-x, java17) and, despite its
+  # name, templates-classic (bun only; its other templates use classic-watchdog). templates' php7,
+  # php8 and dockerfile templates use classic-watchdog. store-functions and openfaas-cloud use
+  # classic-watchdog. "templates" itself cannot be checked as a substring of the other names, so
+  # java11-vert-x (unique to it) stands in; "bun" checks the templates-classic exception.
+  - id: of-watchdog-templates
+    category: orientation
+    repo: of-watchdog
+    prompt: >-
+      Which repositories in this workspace contain function templates whose Dockerfile takes the
+      watchdog binary from this repo's of-watchdog image (rather than the classic watchdog)? For
+      each repository, name the templates in it that do so.
+    expect_keywords:
+      - dotnet-templates
+      - golang-http-template
+      - python-flask-template
+      - ruby-http
+      - templates-classic
+      - bun
+      - java11-vert-x
+  # nats-queue-worker/readconfig.go reads faas_gateway_address (default "gateway") and
+  # faas_gateway_port (default 8080). Workspace grep for faas_gateway_address (excluding vendor/):
+  # set for faasd in faasd/docker-compose.yaml and for Kubernetes in the openfaas chart's
+  # templates/queueworker-ce-dep.yaml. The chart's queueworker-dep.yaml (Pro JetStream worker)
+  # uses gateway_url instead, so it is the wrong answer; faasd's testdata and faas-swarm's compose
+  # are not the faasd install / Helm chart.
+  - id: queue-worker-gateway-wiring
+    category: orientation
+    repo: faas
+    prompt: >-
+      The Community Edition queue-worker calls back into the gateway over HTTP to invoke queued
+      functions. Which environment variable tells it the gateway's host, what default host and port
+      does it use, and where is that variable set for the faasd install and for the Kubernetes Helm
+      chart? Give the file that reads it and the files that set it, as repo/path.
+    expect_files:
+      - nats-queue-worker/readconfig.go
+      - faasd/docker-compose.yaml
+      - faas-netes/chart/openfaas/templates/queueworker-ce-dep.yaml
+    expect_keywords: [faas_gateway_address, "8080"]
+  - id: cli-gateway-precedence
+    category: control
+    repo: faas-cli
+    prompt: >-
+      In this repository, where is the precedence decided between the --gateway flag, the stack
+      file's gateway, the OPENFAAS_URL environment variable and the built-in default gateway URL, and
+      where is that built-in default defined? What is the default? Give paths as repo/path.
+    expect_files: [faas-cli/commands/priority.go, faas-cli/commands/faas.go]
+    expect_keywords: ["127.0.0.1:8080"]
+  - id: watchdog-mode
+    category: control
+    repo: of-watchdog
+    prompt: >-
+      In this repository, where is the watchdog's operating mode read from the environment, and where
+      are the mode names (http, streaming, serializing, static, inproc, ...) mapped to constants? Which
+      mode is used when none is set? Give paths as repo/path.
+    expect_files: [of-watchdog/config/config.go, of-watchdog/config/config_modes.go]
+    expect_keywords: [streaming]

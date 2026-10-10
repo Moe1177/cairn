@@ -32,7 +32,8 @@ from cairn.scan import scan_workspace
 
 LOCATE_FILE = "locate.yaml"
 CATEGORIES = ("literal", "vocabulary", "chain", "broad", "cross-repo")
-_COMPLETE = ".complete"
+# Not the fetch's ".complete": that one is copied in with the tree, before the copy is done.
+_COMPLETE = ".cairn-bench-ready"
 
 
 class LocateQuery(Frozen):

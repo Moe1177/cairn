@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import cairn
-from cairn.bench.conditions import prepare
+from cairn.bench.conditions import make_workspace, set_up
 from cairn.bench.grading import Grade, grade
 from cairn.bench.report import load_records, render_markdown
 from cairn.bench.runner import Runner, RunResult
@@ -80,26 +80,31 @@ def run_bench(
         if not usage_limit(r.result)  # a genuine agent error is a result: it stands
     }
     records: list[RunRecord] = []
-    for condition in conditions:
-        for task in tasks:
-            for index in range(runs):
+    cells = [(task, index) for task in tasks for index in range(runs)]
+    todo = [c for c in conditions if any((c, t.id, i) not in done for t, i in cells)]
+    # One workspace for the whole benchmark, set up for each condition in turn: the agent only
+    # has read tools, so no run changes what the next one sees, and a large suite (minutes to
+    # copy into git repos) is copied once. The MCP server of condition E may still hold files
+    # for a moment on Windows.
+    with tempfile.TemporaryDirectory(prefix="cairn-bench-", ignore_cleanup_errors=True) as tmp:
+        ws = make_workspace(suite, suite_dir, Path(tmp), source) if todo else Path(tmp)
+        repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
+        for condition in conditions:
+            if condition not in todo:
+                records += [done[(condition, task.id, index)] for task, index in cells]
+                continue
+            prepared = set_up(condition, suite, suite_dir, ws, Path(tmp))
+            for task, index in cells:
                 if (condition, task.id, index) in done:
                     records.append(done[(condition, task.id, index)])
                     continue
-                # The MCP server of condition E may still hold files for a moment on Windows.
-                with tempfile.TemporaryDirectory(
-                    prefix="cairn-bench-", ignore_cleanup_errors=True
-                ) as tmp:
-                    prepared = prepare(condition, suite, suite_dir, Path(tmp), source)
-                    ws = prepared.ws
-                    repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
-                    result = runner.run(task.prompt, ws / task.repo, ws, prepared.mcp_config)
-                    if usage_limit(result):
-                        raise BenchStopped(
-                            f"stopped: {result.result_text.strip()[:200]}. Measured runs are in "
-                            f"{log}; continue later with `--resume {log}`."
-                        )
-                    graded = grade(task, result.result_text, ws, repo_ids)
+                result = runner.run(task.prompt, ws / task.repo, ws, prepared.mcp_config)
+                if usage_limit(result):
+                    raise BenchStopped(
+                        f"stopped: {result.result_text.strip()[:200]}. Measured runs are in "
+                        f"{log}; continue later with `--resume {log}`."
+                    )
+                graded = grade(task, result.result_text, ws, repo_ids)
                 record = RunRecord(condition, task.id, index, graded, result)
                 records.append(record)
                 with log.open("a", encoding="utf-8") as handle:
