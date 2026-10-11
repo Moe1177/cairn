@@ -76,3 +76,15 @@ def test_bare_paths_under_a_repo_heading_belong_to_that_repo(tmp_path: Path) -> 
         "admin/lib/db.ts",
         "storefront/lib/cart.ts",
     }
+
+
+def test_a_file_named_with_a_line_number_is_that_file(tmp_path: Path) -> None:
+    """Codex answers with markdown links to file:line."""
+    ws = tmp_path / "ws"
+    cart = (ws / "storefront" / "lib" / "cart.ts").as_posix()
+    text = (
+        f"[lib/cart.ts]({cart}:7) computes it; see also orders-svc/app/main.py#L12-L20 and "
+        f"{(ws / 'admin' / 'lib' / 'db.ts').as_posix()}:3:9."
+    )
+    found = mentioned_files(text, ws, "storefront", IDS)
+    assert {"storefront/lib/cart.ts", "orders-svc/app/main.py", "admin/lib/db.ts"} <= found

@@ -8,6 +8,12 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Codex in the benchmark.** `cairn bench --harness codex` runs each task through `codex exec`
+  (read-only sandbox, approvals off, sessions not saved) instead of Claude Code, with the same
+  conditions and grading. Runs ignore your Codex config and rules and turn off connected apps,
+  plugins, web search, browsers, hooks and sub-agents; the condition's context is given as
+  developer instructions and its MCP server with `-c`. It refuses to start while your Codex
+  home holds a global AGENTS.md, which Codex would load into every condition.
 - **Draft summaries.** Until someone writes a repo's summary, INDEX, its card and
   `resolve_repo` show cairn's draft of what kind of repo it is, from what it detected:
   `draft: web app (104 routes, owns 46 tables)`, `draft: deploy config (deploys 7 repos)`,
@@ -39,6 +45,8 @@ All notable changes to cairn are documented here. The format follows
   each condition up in place. A 38-repo suite took about 27 minutes to copy on Windows.
 
 ### Fixed
+- Benchmark grading missed a file named with a line number (`lib/cart.ts:7`, `#L12`), the way
+  Codex links files.
 - The locate and link benchmarks took the fetched tree's own `.complete` marker as theirs, so an
   interrupted copy looked finished and was used half-made.
 

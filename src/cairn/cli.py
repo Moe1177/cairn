@@ -497,7 +497,13 @@ def bench(
     tasks: Annotated[
         str | None, typer.Option("--tasks", help="Comma list of task ids (default: all).")
     ] = None,
-    model: Annotated[str, typer.Option("--model", help="Claude model for the agent.")] = "haiku",
+    harness: Annotated[
+        str, typer.Option("--harness", help="The agent that answers: claude or codex.")
+    ] = "claude",
+    model: Annotated[
+        str | None,
+        typer.Option("--model", help="Model for the agent (claude: haiku; codex: its default)."),
+    ] = None,
     out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
         "bench/results"
     ),
@@ -509,11 +515,17 @@ def bench(
         ),
     ] = None,
 ) -> None:
-    """Measure what cairn saves: run a suite headlessly in Claude Code under each condition."""
+    """Measure what cairn saves: run a suite headlessly in Claude Code or Codex under each
+    condition."""
+    from cairn.bench.codex_runner import CodexRunner
     from cairn.bench.conditions import CONDITIONS
     from cairn.bench.run import run_bench
     from cairn.bench.runner import ClaudeRunner
     from cairn.bench.suite import load_suite
+    from cairn.integrations.homes import codex_home
+
+    if harness not in ("claude", "codex"):
+        _fail(f"unknown harness {harness} (choose claude or codex).")
 
     chosen = _comma_list(conditions)
     unknown = [c for c in chosen if c not in CONDITIONS]
@@ -527,11 +539,22 @@ def bench(
     missing = [t for t in task_ids or () if t not in {task.id for task in suite.tasks}]
     if missing:
         _fail(f"unknown task {', '.join(missing)} in suite {suite.name}.")
-    if shutil.which("claude") is None:
-        _fail("the `claude` CLI is not on PATH; install Claude Code to run benchmarks.")
+    if shutil.which(harness) is None:
+        tool = "Claude Code" if harness == "claude" else "Codex"
+        _fail(f"the `{harness}` CLI is not on PATH; install {tool} to run benchmarks.")
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    runner = ClaudeRunner(model=model)
-    meta = {"model": model, "claude_version": runner.version()}
+    runner: ClaudeRunner | CodexRunner
+    if harness == "codex":
+        # The user's own CODEX_HOME (its login, its sandbox): resolved before homes are isolated.
+        runner = CodexRunner(model=model, home=codex_home())
+        try:
+            runner.check()
+        except CairnError as exc:
+            _fail(str(exc))
+        meta = {"harness": "codex", "model": model or "default", "codex_version": runner.version()}
+    else:
+        runner = ClaudeRunner(model=model or "haiku")
+        meta = {"model": runner.model, "claude_version": runner.version()}
     if resume is not None and not resume.is_file():
         _fail(f"no run log at {resume}.")
     try:

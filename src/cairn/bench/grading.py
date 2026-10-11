@@ -14,6 +14,7 @@ _TRAILING = ".,;:)"
 _DRIVE = re.compile(r"([A-Za-z]):/(.*)")
 _MSYS = re.compile(r"/([A-Za-z])/(.*)")
 PASS_RECALL = 0.8
+_LINE = re.compile(r"(?::\d+){1,2}$|#L\d+(?:-L?\d+)?$")
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,8 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             context = heading or working_repo
             continue
         for token in _PATH.findall(line):
-            path = token.replace("\\", "/").rstrip(_TRAILING)
+            # `lib/cart.ts:7`, `lib/cart.ts:7:3`, `lib/cart.ts#L7`: the file, not a line in it.
+            path = _LINE.sub("", token.replace("\\", "/").rstrip(_TRAILING)).rstrip(_TRAILING)
             if path.startswith("/") or _DRIVE.match(path):
                 inside = _inside(path, roots)
                 if inside is None:
