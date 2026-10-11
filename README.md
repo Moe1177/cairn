@@ -250,6 +250,25 @@ Look-alikes are deliberately ignored:
 
 Evaluation workspaces in the test suite keep every one of these at precision 1.0.
 
+### Why not read AWS resource tags?
+
+Tags record who owns a resource in an AWS account. cairn answers a different question, which code
+depends on which code, and it gets that from the repos alone:
+
+- **Tags only describe the creator.** Half of every link is who *uses* a resource, and the repos
+  that read a queue or a table don't tag it. Those links come from ARNs, SSM paths, exports and
+  SDK calls in the users' code.
+- **cairn reads code, not the account.** It makes no network calls and needs no credentials. The
+  only tags it could see are in the IaC block that creates the resource, and that block already
+  tells cairn which repo creates it. A tag only adds something when a central infrastructure repo
+  creates resources for app repos; there, each user already links to that infra repo.
+- **No tag key means "owning repo".** `team`, `app`, `service` and `Name` mean different things in
+  different places, and tags drift from the code without anything noticing. A link from code
+  evidence says which file and line it came from.
+
+`cairn bench-links` scores links against real workspaces (One Login's AWS repos among them), so a
+new signal like tags can be measured before it's trusted.
+
 ## Finding the place in a repo
 
 The map tells an agent *which* repo to open; the `query` MCP tool tells it *where inside*. Ask
