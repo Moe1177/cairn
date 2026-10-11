@@ -66,6 +66,7 @@ def run_bench(
     settings = {
         "suite": suite.name,
         "model": header.get("model"),
+        "harness": header.get("harness", "claude"),
         "runs": runs,
         "conditions": list(conditions),
     }

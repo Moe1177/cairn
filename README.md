@@ -349,7 +349,14 @@ Run the benchmarks yourself from a source checkout. They use your Claude usage.
 cairn bench bench/suites/sockshop --runs 3 --model haiku    # fetches the pinned repos once
 cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
 cairn bench bench/suites/sockshop --resume bench/results/<stamp>.jsonl   # after a usage limit
+cairn bench bench/suites/sockshop --harness codex --runs 3      # Codex instead of Claude Code
 ```
+
+With `--harness codex`, each run is `codex exec` in a read-only sandbox that ignores your Codex
+config and rules and turns off every tool beyond reading the workspace (connected apps, plugins,
+web search, sub-agents). The condition's context reaches it as developer instructions. A global
+`AGENTS.md` in your Codex home would load into every run, so the benchmark won't start while
+one is there.
 
 The locate benchmark is offline and free: no agent runs. Each locator (grep, the code graph, and
 the hybrid of both) answers every question in a suite's `locate.yaml`, and is scored on where the
@@ -517,7 +524,8 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 6. ✅ Deploy config: which repo creates each AWS resource and which use it (Terraform,
    CloudFormation/SAM, Serverless Framework, CDK, Lambda, SSM), and Railway, Fly.io and Render
    services (0.8).
-7. More harnesses in the benchmark (Codex), and more ecosystems.
+7. ✅ Codex in the benchmark, Maven and Gradle, real-world link benchmarks, draft summaries.
+8. Harder benchmark tasks: a 38-repo workspace alone doesn't make answers hard to find without a map.
 
 ## Contributing
 
