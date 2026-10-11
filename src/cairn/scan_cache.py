@@ -26,7 +26,7 @@ from cairn.paths import repo_cache_dir
 from cairn.store.atomic import atomic_write_text
 
 GIT_MEMO = "git-memo.json"
-CACHE_VERSION = 7  # bump whenever a cached detector's output changes (7: AWS resources)
+CACHE_VERSION = 8  # bump whenever a cached detector's output changes (8: Maven and Gradle)
 
 
 class CachedResult(Frozen):

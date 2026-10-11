@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from cairn.detectors import jvm
 from cairn.detectors.base import DetectorContext, DetectorResult, find_line, merge_facts
 from cairn.detectors.manifests import (
     dig,
@@ -19,6 +20,8 @@ from cairn.model.graph import Fact, FactKind, Package
 
 Found = tuple[list[Fact], list[Fact]]
 _CARGO_DEP_SECTIONS = ("dependencies", "dev-dependencies", "build-dependencies")
+_JVM_BUILDS = frozenset({jvm.MAVEN_BUILD, *jvm.GRADLE_BUILDS})
+_MAX_JVM_BUILDS = 200  # a JVM monorepo has a build per module; past this they're generated
 
 
 class PackagesDetector:
@@ -35,6 +38,9 @@ class PackagesDetector:
                 found_exposes, found_consumes = probe(ctx, root)
                 exposes += found_exposes
                 consumes += found_consumes
+        jvm_exposes, jvm_consumes = _jvm(ctx)
+        exposes += jvm_exposes
+        consumes += jvm_consumes
         # Repo-relative here (this result is cached); the scan adds the repo's current location.
         packages = tuple(Package(name=m.name, path=m.path, stack=m.stack) for m in members)
         return DetectorResult(
@@ -108,3 +114,50 @@ def _cargo(ctx: DetectorContext, root: Path) -> Found:
         for dep in data[section]
     ]
     return exposes, consumes
+
+
+def _jvm(ctx: DetectorContext) -> Found:
+    """Every Maven and Gradle build in the repo: JVM modules often sit deep (lib/model/pom.xml)."""
+    builds = [p for p in ctx.files(lambda name: name in _JVM_BUILDS)][:_MAX_JVM_BUILDS]
+    texts = {path: ctx.read(path) or "" for path in builds}
+    groups = {
+        path.parent: group
+        for path, text in texts.items()
+        if path.name in jvm.GRADLE_BUILDS and (group := jvm.gradle_group(text))
+    }
+    exposes: list[Fact] = []
+    consumes: list[Fact] = []
+    for path, text in texts.items():
+        if not text:
+            continue
+        if path.name == jvm.MAVEN_BUILD:
+            published, depends = jvm.maven(text)
+        else:
+            published, depends = jvm.gradle(
+                text,
+                folder=path.parent.name,
+                settings=_settings(ctx, path.parent),
+                inherited_group=_inherited(path.parent, groups, ctx.repo.root),
+            )
+        if published:
+            exposes.append(_fact(ctx, path, text, published, published.rsplit(":", 1)[1]))
+        consumes += [_fact(ctx, path, text, dep, dep.rsplit(":", 1)[1]) for dep in depends]
+    return exposes, consumes
+
+
+def _settings(ctx: DetectorContext, folder: Path) -> str | None:
+    for name in jvm.GRADLE_SETTINGS:
+        text = ctx.read(folder / name)
+        if text:
+            return text
+    return None
+
+
+def _inherited(folder: Path, groups: dict[Path, str], root: Path) -> str | None:
+    """The group a Gradle build above this one sets for its subprojects (`allprojects`)."""
+    for above in folder.parents:
+        if above in groups:
+            return groups[above]
+        if above == root:
+            break
+    return None
