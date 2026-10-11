@@ -21,6 +21,7 @@ from cairn.model.graph import Fact, FactKind, Package
 Found = tuple[list[Fact], list[Fact]]
 _CARGO_DEP_SECTIONS = ("dependencies", "dev-dependencies", "build-dependencies")
 _JVM_BUILDS = frozenset({jvm.MAVEN_BUILD, *jvm.GRADLE_BUILDS})
+_MAX_GO_MODULES = 200  # past this, a repo's go.mod files are generated or vendored
 _MAX_JVM_BUILDS = 200  # a JVM monorepo has a build per module; past this they're generated
 
 
@@ -34,13 +35,13 @@ class PackagesDetector:
         member_roots = [ctx.repo.root / m.path for m in members]
         # Monorepo packages publish and depend like app roots do (spec §21.4).
         for root in dict.fromkeys((*ctx.repo.app_roots, *member_roots)):
-            for probe in (_npm, _python, _go, _cargo):
+            for probe in (_npm, _python, _cargo):
                 found_exposes, found_consumes = probe(ctx, root)
                 exposes += found_exposes
                 consumes += found_consumes
-        jvm_exposes, jvm_consumes = _jvm(ctx)
-        exposes += jvm_exposes
-        consumes += jvm_consumes
+        for found_exposes, found_consumes in (_go_modules(ctx), _jvm(ctx)):
+            exposes += found_exposes
+            consumes += found_consumes
         # Repo-relative here (this result is cached); the scan adds the repo's current location.
         packages = tuple(Package(name=m.name, path=m.path, stack=m.stack) for m in members)
         return DetectorResult(
@@ -89,14 +90,26 @@ def _python(ctx: DetectorContext, root: Path) -> Found:
     return exposes, consumes
 
 
-def _go(ctx: DetectorContext, root: Path) -> Found:
-    path = root / "go.mod"
-    text = ctx.read(path)
-    if not text:
-        return [], []
-    module, requires = parse_go_mod(text)
-    exposes = [_fact(ctx, path, text, f"go:{module}", module)] if module else []
-    return exposes, [_fact(ctx, path, text, f"go:{req}", req) for req in requires]
+def _go_modules(ctx: DetectorContext) -> Found:
+    """Every go.mod in the repo: a Go repo often keeps its modules in folders (`gateway/go.mod`)
+    with nothing at the root that marks them as apps."""
+    exposes: list[Fact] = []
+    consumes: list[Fact] = []
+    for path in [p for p in ctx.files(lambda name: name == "go.mod")][:_MAX_GO_MODULES]:
+        text = ctx.read(path)
+        if not text:
+            continue
+        module, requires = parse_go_mod(text)
+        if module and _importable(module):
+            exposes.append(_fact(ctx, path, text, f"go:{module}", module))
+        consumes += [_fact(ctx, path, text, f"go:{r}", r) for r in requires if _importable(r)]
+    return exposes, consumes
+
+
+def _importable(module: str) -> bool:
+    """Go keeps paths with no dot in their first element (`handler/function`, a template's own
+    function module) for local use: no other repo can depend on one."""
+    return "." in module.split("/", 1)[0]
 
 
 def _cargo(ctx: DetectorContext, root: Path) -> Found:

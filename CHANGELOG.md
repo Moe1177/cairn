@@ -45,6 +45,12 @@ All notable changes to cairn are documented here. The format follows
   each condition up in place. A 38-repo suite took about 27 minutes to copy on Windows.
 
 ### Fixed
+- A README that runs a sibling as a command (`faas-cli deploy`, `| faas-cli login`, a `` `faas-cli
+  new` `` code span) linked the two repos: running a tool isn't depending on its repo. Those lines
+  now only mark the sibling as a tool, and a plain mention of a tool is an unconfirmed suggestion
+  unless the tool's docs name the repo back. On OpenFaaS this removed 15 of 19 wrong links.
+- Go modules outside a repo's root (`gateway/go.mod`) were never read: every go.mod in a repo now
+  is, except local ones (`module handler/function`), which no other repo can depend on.
 - Benchmark grading missed a file named with a line number (`lib/cart.ts:7`, `#L12`), the way
   Codex links files.
 - The locate and link benchmarks took the fetched tree's own `.complete` marker as theirs, so an

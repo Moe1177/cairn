@@ -402,7 +402,7 @@ cairn bench-links bench/suites/sockshop bench/suites/supabase-js
 | Supabase JS (real, held out) | 5 | 5 | 0 | 1.00 | 1.00 |
 | fleetline + shopverse (synthetic) | 26 | 26 | 0 | 1.00 | 1.00 |
 | GOV.UK One Login (real AWS, 10 repos, held out) | 24 | 12 | 0 | 1.00 | 0.50 |
-| OpenFaaS (real, 38 repos, held out) | 88 | 46 | 19 | 0.71 | 0.52 |
+| OpenFaaS (real, 38 repos) | 88 | 48 | 4 | 0.92 | 0.55 |
 
 What the misses and wrong links are:
 
@@ -412,10 +412,11 @@ What the misses and wrong links are:
   parameters behind stack parameters, shared Lambdas, KMS keys, exports). It misses the HTTP
   links (core calling each credential issuer, known from Pact contracts; stubs standing in for
   services) and one export whose stack name only a deploy script sets.
-- **OpenFaaS:** every wrong link is a README telling readers to install `faas-cli`, which is
-  documentation, not a dependency. Most misses are Go modules outside the repo root (the
-  gateway's `gateway/go.mod`), images used as Dockerfile base images, HTTP clients of the gateway, and the function store's JSON
-  catalogue.
+- **OpenFaaS:** it was held out until its first run showed 19 wrong links, all READMEs telling
+  readers to run `faas-cli`, and missed Go modules outside a repo's root (`gateway/go.mod`).
+  Both are fixed (it scored 0.70 precision and 0.51 recall before), so it is now tuned on, not
+  held out. Most misses left are images used as Dockerfile base images, HTTP clients of the
+  gateway, and the function store's JSON catalogue.
 
 Unconfirmed suggestions add one or two wrong links in most suites (a table name two repos share,
 look-alike repos).
