@@ -329,6 +329,11 @@ What this shows:
   (n.s.); the held-out Supabase effects are small and not significant.
 - **Correction:** our first, smaller run (2026-10-05) reported Haiku reaching 100% with the
   INDEX. With more runs that doesn't replicate (89-92%, the same as no map).
+- **A bigger workspace isn't enough to make no map hard.** A pilot on OpenFaaS (38 real repos,
+  2026-10-10, Sonnet 5.5, no map, one run per task) answered all ten of its tasks, for $0.07 a
+  task with two or three searches each: every answer holds a literal string one workspace-wide
+  search finds, vendored copies or not. Tasks where cairn should matter need answers no search
+  term leads to, such as which repos a change reaches through a route or image built at runtime.
 
 Methods, every table with 95% intervals, paired Wilcoxon tests (raw and Holm-adjusted), the
 regressions, and the held-out results:
