@@ -19,6 +19,8 @@ Keep the cairn workspace map accurate. Work from the workspace root (the folder 
 1. Run `cairn status`.
 2. For each repo under "Repos without an authored summary" or "Possibly stale summaries":
    - Read `.cairn/cards/<repo>.md`, then the repo's README if needed (stop after ~200 lines).
+     The card's first line may start with cairn's draft (what kind of repo it is, from what cairn
+     detected): keep what's right, fix what isn't.
    - Write one or two plain sentences: what the repo does and who or what uses it.
    - Save: `cairn set-summary <repo> "<summary>"`. Add `--alias <name>` for names people really use.
 3. For each line under "Unconfirmed links":

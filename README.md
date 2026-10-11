@@ -157,8 +157,10 @@ cairn install all      # optional: Codex, Gemini CLI, Cursor, the /cairn skill, 
 Open your agent in any repo under that folder. It now knows about every sibling repo.
 
 To give each repo a good one-line summary, run `/cairn` inside your agent. It writes the summaries
-with `cairn set-summary` and settles uncertain links. Until then, the index says "no summary yet"
-for that repo. README text is deliberately kept out of always-loaded context.
+with `cairn set-summary` and settles uncertain links. Until then, the index shows cairn's draft
+from what it detected, such as `draft: web app (104 routes, owns 46 tables)` or `draft: library
+(used as a package by 3 repos)`, and "no summary yet" where it found nothing to go on. A draft
+is built from counts only: README text is deliberately kept out of always-loaded context.
 
 ## How to use it
 
