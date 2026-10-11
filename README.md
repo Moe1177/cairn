@@ -329,6 +329,11 @@ What this shows:
   (n.s.); the held-out Supabase effects are small and not significant.
 - **Correction:** our first, smaller run (2026-10-05) reported Haiku reaching 100% with the
   INDEX. With more runs that doesn't replicate (89-92%, the same as no map).
+- **A bigger workspace isn't enough to make no map hard.** A pilot on OpenFaaS (38 real repos,
+  2026-10-10, Sonnet 5.5, no map, one run per task) answered all ten of its tasks, for $0.07 a
+  task with two or three searches each: every answer holds a literal string one workspace-wide
+  search finds, vendored copies or not. Tasks where cairn should matter need answers no search
+  term leads to, such as which repos a change reaches through a route or image built at runtime.
 
 Methods, every table with 95% intervals, paired Wilcoxon tests (raw and Holm-adjusted), the
 regressions, and the held-out results:
@@ -368,10 +373,25 @@ cairn bench-links bench/suites/sockshop bench/suites/supabase-js
 | Sock Shop (real, 9 repos) | 17 | 15 | 0 | 1.00 | 0.88 |
 | Supabase JS (real, held out) | 5 | 5 | 0 | 1.00 | 1.00 |
 | fleetline + shopverse (synthetic) | 26 | 26 | 0 | 1.00 | 1.00 |
+| GOV.UK One Login (real AWS, 10 repos, held out) | 24 | 12 | 0 | 1.00 | 0.50 |
+| OpenFaaS (real, 38 repos, held out) | 88 | 45 | 19 | 0.70 | 0.51 |
 
-The two Sock Shop links cairn misses are orders reading users and carts through URLs the
-front-end puts in each order: no hostname for them appears in orders' code. Unconfirmed
-suggestions add one wrong link in each of three suites (a table name two repos share).
+What the misses and wrong links are:
+
+- **Sock Shop:** orders reads users and carts through URLs the front-end puts in each order; no
+  hostname for them appears in orders' code.
+- **One Login:** cairn finds 11 of its 12 AWS links (SQS queues, DynamoDB tables and SSM
+  parameters behind stack parameters, shared Lambdas, KMS keys, exports). It misses the HTTP
+  links (core calling each credential issuer, known from Pact contracts; stubs standing in for
+  services) and one export whose stack name only a deploy script sets.
+- **OpenFaaS:** every wrong link is a README telling readers to install `faas-cli`, which is
+  documentation, not a dependency. Most misses are Go modules outside the repo root (the
+  gateway's `gateway/go.mod`), Java templates built against templates-sdk with Gradle, images
+  used as Dockerfile base images, HTTP clients of the gateway, and the function store's JSON
+  catalogue.
+
+Unconfirmed suggestions add one or two wrong links in most suites (a table name two repos share,
+look-alike repos).
 
 ## Performance
 

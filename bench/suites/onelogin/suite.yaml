@@ -1,0 +1,19 @@
+name: onelogin
+workspace: fetched
+related_repos_doc: related_repos.md
+# GOV.UK One Login identity proving (github.com/govuk-one-login), MIT: the shared credential-issuer
+# infrastructure and Lambdas, four credential-issuer APIs, a front end, and the IPV core with its
+# stubs. All CloudFormation/SAM, linked through SQS queues, DynamoDB tables, SSM parameters,
+# Lambda functions and stack exports. Held out (links only): never used to tune cairn.
+sources:
+  - {name: ipv-cri-common-infrastructure, url: "https://github.com/govuk-one-login/ipv-cri-common-infrastructure.git", sha: 10e7ef72eef6a6b826e5463f2657ece864ca06cd}
+  - {name: ipv-cri-common-lambdas, url: "https://github.com/govuk-one-login/ipv-cri-common-lambdas.git", sha: be6c3a9d776c2a3597bfe25374eab3ba7eb5f39c}
+  - {name: ipv-cri-address-api, url: "https://github.com/govuk-one-login/ipv-cri-address-api.git", sha: 196cb59010c5ccd8ffc6145778d72305c436fbed}
+  - {name: ipv-cri-kbv-api, url: "https://github.com/govuk-one-login/ipv-cri-kbv-api.git", sha: 1d3ef359ce621464e8e730afed5c5dd2a36a49e9}
+  - {name: ipv-cri-dl-api, url: "https://github.com/govuk-one-login/ipv-cri-dl-api.git", sha: e120722e043a1d69729bcab30d3e73819c25acce}
+  - {name: ipv-cri-dl-front, url: "https://github.com/govuk-one-login/ipv-cri-dl-front.git", sha: 410ae34f32691d38401d46f89aea61817a7519f1}
+  - {name: ipv-cri-check-hmrc-api, url: "https://github.com/govuk-one-login/ipv-cri-check-hmrc-api.git", sha: 79feb9f42e8947154d973df39d40c106b002a3cb}
+  - {name: ipv-core-back, url: "https://github.com/govuk-one-login/ipv-core-back.git", sha: 04dca4f6a58c01812c98573891dbaedefdf74085}
+  - {name: ipv-core-front, url: "https://github.com/govuk-one-login/ipv-core-front.git", sha: d49e4c88fdd4eb98c35a3ff26edb75b93b217941}
+  - {name: ipv-stubs, url: "https://github.com/govuk-one-login/ipv-stubs.git", sha: b79d87ec7dfebcea1c37782a24c03eb81120a3df}
+tasks: []

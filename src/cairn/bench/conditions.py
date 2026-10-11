@@ -21,6 +21,7 @@ from cairn.scan import scan_workspace
 from cairn.store.atomic import atomic_write_text
 
 CONDITIONS = ("A", "B", "C", "D", "E")
+_PRISTINE = "suite-cairn"  # the suite's own .cairn (authored summaries), kept beside the workspace
 
 
 @dataclass(frozen=True)
@@ -33,16 +34,38 @@ def prepare(
     condition: str, suite: Suite, suite_dir: Path, run_dir: Path, source: Path | None = None
 ) -> Prepared:
     """`source`: the fixture tree (fetched once per benchmark for an OSS suite)."""
+    return set_up(
+        condition, suite, suite_dir, make_workspace(suite, suite_dir, run_dir, source), run_dir
+    )
+
+
+def make_workspace(
+    suite: Suite, suite_dir: Path, run_dir: Path, source: Path | None = None
+) -> Path:
+    """The suite's repos as git repos under `run_dir`, ready for set_up."""
     tree = source or fetch_sources(suite_dir, suite)
     # A fetched upstream tree keeps its own names: renaming dot-git to .git would let it plant
     # hooks or config that the fixture commit would run.
-    ws = materialize(tree, run_dir / "ws", remotes=remotes(suite), rename_dots=not suite.sources)
-    if condition in ("A", "B"):
-        shutil.rmtree(cairn_dir(ws), ignore_errors=True)  # no authored summaries either
+    return materialize(tree, run_dir / "ws", remotes=remotes(suite), rename_dots=not suite.sources)
+
+
+def set_up(condition: str, suite: Suite, suite_dir: Path, ws: Path, run_dir: Path) -> Prepared:
+    """Make `ws` what `condition` needs, whatever an earlier condition left in it: one workspace
+    serves every condition, since copying a large suite into git repos takes many minutes."""
+    pristine = run_dir / _PRISTINE
+    if not pristine.exists():  # first use: keep what the suite ships in .cairn (authored notes)
+        if cairn_dir(ws).is_dir():
+            shutil.copytree(cairn_dir(ws), pristine)
+        else:
+            pristine.mkdir(parents=True)
+    shutil.rmtree(cairn_dir(ws), ignore_errors=True)
+    (ws / "CLAUDE.md").unlink(missing_ok=True)
+    if condition in ("A", "B"):  # no map, and no authored summaries either
         if condition == "B":
             doc = (suite_dir / suite.related_repos_doc).read_text(encoding="utf-8")
             atomic_write_text(ws / "CLAUDE.md", doc)
         return Prepared(ws, None)
+    shutil.copytree(pristine, cairn_dir(ws), dirs_exist_ok=True)
     result = scan_workspace(ws)
     write_outputs(ws, result)
     if condition == "C":

@@ -14,6 +14,20 @@ All notable changes to cairn are documented here. The format follows
   unconfirmed suggestions, and lists every missed and wrong link. Offline and free. Keys for Sock
   Shop, Supabase JS (held out), fleetline and shopverse: cairn shows 46 of 48 real links and no
   wrong ones.
+- **Two real-world suites, both held out.** OpenFaaS (`bench/suites/openfaas`): 38 repos, ten
+  tasks whose answers sit in repos whose names don't hint at them, and 88 real links. GOV.UK One
+  Login's identity-proving services (`bench/suites/onelogin`): 10 repos linked through AWS
+  (SQS, DynamoDB, SSM, Lambda, exports), 24 real links. cairn finds 11 of One Login's 12 AWS
+  links with none wrong; OpenFaaS shows where it falls short (README mentions of a CLI everyone
+  installs, Go modules outside the repo root, Gradle builds).
+
+### Changed
+- `cairn bench` copies a suite into git repos once per benchmark, not once per run, and sets
+  each condition up in place. A 38-repo suite took about 27 minutes to copy on Windows.
+
+### Fixed
+- The locate and link benchmarks took the fetched tree's own `.complete` marker as theirs, so an
+  interrupted copy looked finished and was used half-made.
 
 ## [0.8.2]
 

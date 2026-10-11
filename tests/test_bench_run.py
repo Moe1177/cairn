@@ -47,3 +47,54 @@ def test_bench_cli_rejects_unknown_condition_and_task(tmp_path: Path) -> None:
     assert bad.exit_code == 1 and "unknown condition" in bad.output
     bad = runner.invoke(app, ["bench", str(SUITE), "--tasks", "nope", "--out", str(tmp_path)])
     assert bad.exit_code == 1 and "unknown task" in bad.output
+
+
+def test_one_workspace_serves_every_condition_without_leaking_between_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 38-repo suite takes many minutes to copy into git repos: once per benchmark."""
+    import cairn.bench.run as run_module
+
+    monkeypatch.setenv("CAIRN_HOME", str(tmp_path / "ch"))
+    monkeypatch.setenv("CAIRN_USER_HOME", str(tmp_path / "uh"))
+    made: list[Path] = []
+    real = run_module.make_workspace
+
+    def counting(*args, **kwargs):
+        made.append(real(*args, **kwargs))
+        return made[-1]
+
+    seen: dict[str, tuple[bool, str]] = {}
+
+    def reply(prompt: str, cwd: Path) -> str:
+        ws = cwd.parent
+        claude = ws / "CLAUDE.md"
+        text = claude.read_text(encoding="utf-8") if claude.is_file() else ""
+        seen[condition_of(text, (ws / ".cairn").is_dir())] = ((ws / ".cairn").is_dir(), text[:20])
+        return _reply(prompt, cwd)
+
+    def condition_of(text: str, mapped: bool) -> str:
+        if not text:
+            return "A"
+        return "D" if mapped else ("B" if "Related" in text or "related" in text else "C")
+
+    monkeypatch.setattr(run_module, "make_workspace", counting)
+    records = run_bench(
+        SUITE,
+        conditions=("D", "A", "B", "C"),
+        runs=2,
+        task_ids=("cart-total", "gift-message"),
+        runner=FakeRunner(reply),
+        out_dir=tmp_path / "out",
+        now="20261005-120000",
+    )
+    assert len(made) == 1 and len(records) == 16
+    assert sorted(seen) == ["A", "B", "C", "D"]
+    assert seen["A"] == (False, "")  # after D: no map and no CLAUDE.md left behind
+    assert not seen["B"][0] and not seen["C"][0]  # C: the index only, no cards to read
+    assert [(r.condition, r.task_id, r.run) for r in records][:4] == [
+        ("D", "gift-message", 0),  # the suite's order
+        ("D", "gift-message", 1),
+        ("D", "cart-total", 0),
+        ("D", "cart-total", 1),
+    ]
