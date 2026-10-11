@@ -4,7 +4,9 @@ related_repos_doc: related_repos.md
 # GOV.UK One Login identity proving (github.com/govuk-one-login), MIT: the shared credential-issuer
 # infrastructure and Lambdas, four credential-issuer APIs, a front end, and the IPV core with its
 # stubs. All CloudFormation/SAM, linked through SQS queues, DynamoDB tables, SSM parameters,
-# Lambda functions and stack exports. Held out (links only): never used to tune cairn.
+# Lambda functions and stack exports. Its tasks were added for the hard-task benchmark and written
+# from the code alone (not from what cairn detects); the links key stays held out: never used to
+# tune cairn.
 sources:
   - {name: ipv-cri-common-infrastructure, url: "https://github.com/govuk-one-login/ipv-cri-common-infrastructure.git", sha: 10e7ef72eef6a6b826e5463f2657ece864ca06cd}
   - {name: ipv-cri-common-lambdas, url: "https://github.com/govuk-one-login/ipv-cri-common-lambdas.git", sha: be6c3a9d776c2a3597bfe25374eab3ba7eb5f39c}
@@ -16,4 +18,135 @@ sources:
   - {name: ipv-core-back, url: "https://github.com/govuk-one-login/ipv-core-back.git", sha: 04dca4f6a58c01812c98573891dbaedefdf74085}
   - {name: ipv-core-front, url: "https://github.com/govuk-one-login/ipv-core-front.git", sha: d49e4c88fdd4eb98c35a3ff26edb75b93b217941}
   - {name: ipv-stubs, url: "https://github.com/govuk-one-login/ipv-stubs.git", sha: b79d87ec7dfebcea1c37782a24c03eb81120a3df}
-tasks: []
+tasks:
+  # Hop 1: dl-front calls API.BASE_URL + /session and /authorization (src/lib/config.js, handed to
+  # the shared express lib in src/app-setup.js); deploy/template.yaml sets API_BASE_URL from
+  # Fn::ImportValue dl-cri-api-v1-PrivateDlApiGatewayId. Hop 2: ipv-cri-dl-api's
+  # infrastructure/lambda/template.yaml exports ${AWS::StackName}-PrivateDlApiGatewayId for
+  # PrivateDrivingPermitApi, whose body is private-api.yaml. There /check-driving-licence and
+  # /person-info go to this stack's own functions, but /session and /authorization go to Lambda
+  # ARNs built from names: ${CommonStackName}-SessionFunctionTS and
+  # ${CommonStackName}-AuthorizationFunctionTS. Hop 3: ipv-cri-common-lambdas'
+  # infrastructure/lambda/template.yaml names its functions ${AWS::StackName}-SessionFunctionTS
+  # (Handler session-handler.lambdaHandler, CodeUri ../../lambdas) and
+  # ${AWS::StackName}-AuthorizationFunctionTS (EntryPoints src/handlers/authorization-handler.ts), so
+  # the code is lambdas/src/handlers/{session,authorization}-handler.ts. Out: the Java
+  # SessionFunction and AuthorizationFunction in the same template (session/ and authorization/
+  # modules), which the DL API does not route to; create-auth-code-handler.ts, behind the dev-only
+  # /pre-merge-create-auth-code; and public-api.yaml (/token, /credential/issue), which the front end
+  # never calls.
+  - id: dl-front-session-handlers
+    category: localization
+    repo: ipv-cri-dl-front
+    prompt: >-
+      This front end sends its back-end API calls to a base URL that it is handed at deploy time.
+      Two of those calls, the one that opens a session when a user arrives and the one that asks
+      for an OAuth code when they finish, are not served by code in the API repo itself. Which
+      source files implement the handlers that serve those two calls, and which file routes the
+      calls to them? Give repo/path for each. Do not edit anything.
+    expect_files:
+      - ipv-cri-dl-api/infrastructure/lambda/private-api.yaml
+      - ipv-cri-common-lambdas/lambdas/src/handlers/session-handler.ts
+      - ipv-cri-common-lambdas/lambdas/src/handlers/authorization-handler.ts
+    hard: true
+  # A Pact chain no static map holds: provider names are strings, and the provider-side test takes
+  # its name from an environment variable. Hop 1: dl-api's only contract test,
+  # lambdas/issuecredential/.../pact/IssueCredentialHandlerTest.java, is
+  # @Provider("DrivingLicenceVcProvider") and names no consumer. Hop 2: that provider name is in
+  # ipv-core-back's process-cri-callback .../pact/drivingLicenceCri/CredentialTests.java (consumer
+  # IpvCoreBack); its sibling TokenTests.java holds the token pacts,
+  # @Pact(provider = "DrivingLicenceTokenProvider"). Hop 3: that name is in one other file,
+  # ipv-cri-common-lambdas' .github/workflows/check-pr.yml, in the pact-tests-java matrix, which
+  # passes it as cri-provider to run-pact-tests-java.yml; that sets CRI_UNDER_TEST, read by
+  # accesstoken/.../pact/AccessTokenHandlerTest.java as @Provider("${CRI_UNDER_TEST}"). Out:
+  # lambdas/tests/unit/handlers/contract/access-token-provider.test.ts, the TypeScript verifier,
+  # which the pact-tests-ts matrix runs only for the KBV, NINO and address token providers.
+  # run-pact-tests-java.yml is a fair extra but doesn't name the provider.
+  - id: dl-token-contract-verification
+    category: localization
+    repo: ipv-cri-dl-api
+    prompt: >-
+      The contract test in this repo only verifies what our consumer expects from the credential
+      endpoint. That consumer also records expectations about our token endpoint, and those are
+      verified somewhere else. Where are those token expectations written, which test verifies
+      them on the provider side, and which CI file names our provider so that test runs against
+      it? Give repo/path. Do not edit anything.
+    expect_files:
+      - ipv-core-back/lambdas/process-cri-callback/src/test/java/uk/gov/di/ipv/core/processcricallback/pact/drivingLicenceCri/TokenTests.java
+      - ipv-cri-common-lambdas/accesstoken/src/test/java/uk/gov/di/ipv/cri/common/api/handler/pact/AccessTokenHandlerTest.java
+      - ipv-cri-common-lambdas/.github/workflows/check-pr.yml
+    hard: true
+  # Hop 1: core/template.yaml creates ApiKey1 and ApiKey2 (AWS::ApiGateway::ApiKey) and exports them
+  # as ${AWS::StackName}-ApiKey1 and -ApiKey2, so the bridge is the export suffix (deploy.sh defaults
+  # the stack name to <user>-di-ipv-core-infra). Hop 2: the consumers import them as
+  # core-infrastructure-ApiKey1/-ApiKey2, each the KeyId of a LinkUsagePlanApiKey1/2
+  # (AWS::ApiGateway::UsagePlanKey), in exactly three templates: the address, driving licence and KBV
+  # credential issuers. Out: check-hmrc and ipv-cri-common-lambdas, which import other
+  # core-infrastructure exports (the VC signing and decryption KMS keys) but not the API keys;
+  # ipv-core-back, ipv-core-front and the stubs import no core-infrastructure export.
+  - id: retire-core-api-keys
+    category: impact
+    repo: ipv-cri-common-infrastructure
+    prompt: >-
+      We want to delete the two API keys that the core stack in this repo creates and exports.
+      Which CloudFormation templates in other repos import those keys, and so must change before
+      the exports can go? Give repo/path.
+    expect_files:
+      - ipv-cri-address-api/infrastructure/lambda/template.yaml
+      - ipv-cri-dl-api/infrastructure/lambda/template.yaml
+      - ipv-cri-kbv-api/infrastructure/lambda/template.yaml
+    hard: true
+  # A stub standing in for a real service, joined only by a URL in config and path strings. Hop 1:
+  # libs/cimit-service/.../service/CimitService.java builds URLs from the configured CIMIT
+  # apiBaseUrl (local-running/core.local.params.yaml: https://cimit-api.stubs.account.gov.uk) plus
+  # POST /contra-indicators/detect, POST /contra-indicators/mitigate and GET /contra-indicators.
+  # Hop 2: ipv-stubs' di-ipv-cimit-stub serves that host (custom domains in deploy/template.yaml), and
+  # its internal API body, openAPI/cimit-internal.yaml, routes GET /contra-indicators to
+  # GetContraIndicatorCredentialFunction, POST /contra-indicators/detect to PutContraIndicatorsFunction
+  # (named "put" although the call is a POST to detect) and POST /contra-indicators/mitigate to
+  # PostMitigationsFunction. Hop 3: each function's CodeUri/Handler gives the three handler files under
+  # lambdas/src/internal-api/. Out: openAPI/cimit-external.yaml and
+  # stub-management/stubManagementHandler.ts, the stub's own management API that tests use to seed
+  # CIs, which the client never calls.
+  - id: cimit-stub-endpoints
+    category: localization
+    repo: ipv-core-back
+    prompt: >-
+      When this repo runs locally or in dev, its CIMIT client talks to a fake rather than the real
+      service. For each of the three HTTP calls that client makes, which source file of the fake
+      handles it, and which file maps those calls onto the handlers? Also name the class here that
+      makes those calls. Give repo/path. Do not edit anything.
+    expect_files:
+      - ipv-core-back/libs/cimit-service/src/main/java/uk/gov/di/ipv/core/library/cimit/service/CimitService.java
+      - ipv-stubs/di-ipv-cimit-stub/openAPI/cimit-internal.yaml
+      - ipv-stubs/di-ipv-cimit-stub/lambdas/src/internal-api/get-contra-indicator-credential/getContraIndicatorCredentialHandler.ts
+      - ipv-stubs/di-ipv-cimit-stub/lambdas/src/internal-api/put-contra-indicators/putContraIndicatorsHandler.ts
+      - ipv-stubs/di-ipv-cimit-stub/lambdas/src/internal-api/post-mitigations/postMitigationsHandler.ts
+    hard: true
+  # Hop 1: deploy/template.yaml's SharedStubQueueEventSourceMapping (dev, build and staging) feeds
+  # process-async-cri-credential from sharedStubAsyncCriResponseQueueArn, an SQS ARN in another
+  # account: arn:aws:sqs:eu-west-2:388905755587:stubQueue_criResponseQueue (plus _${Environment} in
+  # the dev accounts; stubQueue_criResponseQueue_build in build). Nothing in ipv-core-back creates
+  # it. Hop 2: "stubQueue_criResponseQueue" leads to ipv-stubs' credential-issuer stub:
+  # deploy/face-to-face/template.yaml sets F2F_STUB_QUEUE_NAME to it and F2F_STUB_QUEUE_URL from SSM,
+  # and handlers/AuthorizeHandler.java POSTs {queueName, queueEvent} to that URL when a face-to-face
+  # VC (or error) is to go to the queue. Hop 3: the "stubQueue_" prefix and that request shape lead
+  # to di-ipv-queue-stub: enqueue-event/src/handlers/enqueueEvent.ts rejects names without the prefix
+  # and calls services/queueService.ts, whose getOrCreateSqsQueueUrl creates the queue (CreateQueue,
+  # then AddPermission for the core accounts) and whose enqueueEvent sends. Out: the face-to-face
+  # templates (configuration, not the code that sends); the DCMAW async stub's
+  # managementEnqueue*Handler.ts, which also post to the queue stub but take their queue name from an
+  # SSM config value and are not face-to-face; dequeueEvent.ts and cleanQueues.ts.
+  - id: async-result-queue-origin
+    category: orientation
+    repo: ipv-core-back
+    prompt: >-
+      In dev and build, the Lambda in this repo that consumes asynchronous credential results reads
+      from a queue that lives outside our AWS estate and that no template here creates. Which code
+      creates that queue when a message is first sent to it, and sends the messages? And which code
+      sends a face-to-face result to it? Give repo/path. Do not edit anything.
+    expect_files:
+      - ipv-stubs/di-ipv-queue-stub/enqueue-event/src/handlers/enqueueEvent.ts
+      - ipv-stubs/di-ipv-queue-stub/enqueue-event/src/services/queueService.ts
+      - ipv-stubs/di-ipv-credential-issuer-stub/src/main/java/uk/gov/di/ipv/stub/cred/handlers/AuthorizeHandler.java
+    hard: true

@@ -8,6 +8,15 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Hard benchmark tasks.** 11 tasks on OpenFaaS and One Login whose answers no search for the
+  prompt's own words finds, and whose prompts don't name the repo the answer is in. The agent has
+  to read an identifier in code first (an image, a stack export, a Pact provider name, a NATS
+  subject) and follow it to a repo it works out. `cairn bench-reach SUITE...` checks this offline
+  for every task, and fails on a task marked `hard: true` that breaks either rule. In a first
+  pilot, Sonnet answered all 11 with or without a map
+  (`bench/published/2026-10-11-hard-tasks.md`).
+- **`cairn bench-regrade SUITE LOG`** grades a finished run's log again with today's grading,
+  against a fresh copy of the suite's repos.
 - **Codex in the benchmark.** `cairn bench --harness codex` runs each task through `codex exec`
   (read-only sandbox, approvals off, sessions not saved) instead of Claude Code, with the same
   conditions and grading. Runs ignore your Codex config and rules and turn off connected apps,
@@ -45,6 +54,11 @@ All notable changes to cairn are documented here. The format follows
   each condition up in place. A 38-repo suite took about 27 minutes to copy on Windows.
 
 ### Fixed
+- **Benchmark grading credits two more ways of naming a file.** A path in a table row whose own
+  cell names the repo (`| ipv-cri-kbv-api | infrastructure/lambda/template.yaml |`) now counts
+  for that repo. A path written under a folder named once above it now counts for the one
+  workspace file it is the end of. Three correct answers in the hard-task pilot had been graded
+  as failures.
 - A README that runs a sibling as a command (`faas-cli deploy`, `| faas-cli login`, a `` `faas-cli
   new` `` code span) linked the two repos: running a tool isn't depending on its repo. Those lines
   now only mark the sibling as a tool, and a plain mention of a tool is an unconfirmed suggestion

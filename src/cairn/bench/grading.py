@@ -1,8 +1,10 @@
 """Deterministic grading of benchmark answers (spec §11): file recall or required keywords."""
 
+import os
 import posixpath
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from cairn.bench.suite import Task
@@ -15,6 +17,8 @@ _DRIVE = re.compile(r"([A-Za-z]):/(.*)")
 _MSYS = re.compile(r"/([A-Za-z])/(.*)")
 PASS_RECALL = 0.8
 _LINE = re.compile(r"(?::\d+){1,2}$|#L\d+(?:-L?\d+)?$")
+_SKIP_DIRS = frozenset({".git", ".cairn", "node_modules"})
+_CELL_TRIM = " `*_"
 
 
 @dataclass(frozen=True)
@@ -76,11 +80,48 @@ def _strip_root_tail(path: str, ws_parts: tuple[str, ...], repo_ids: set[str]) -
     return path
 
 
+@lru_cache(maxsize=8)
+def _by_suffix(ws_root: str) -> dict[str, tuple[str, ...]]:
+    """Every workspace file (`repo/path`) under each of its trailing paths of two or more parts:
+    `handlers/x.ts` -> (`stubs/queue/handlers/x.ts`, ...)."""
+    index: dict[str, list[str]] = {}
+    for current, dirnames, filenames in os.walk(ws_root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+        rel_dir = Path(current).relative_to(ws_root).as_posix()
+        if rel_dir == ".":
+            continue
+        for name in filenames:
+            parts = f"{rel_dir}/{name}".split("/")
+            for start in range(1, len(parts) - 1):
+                index.setdefault("/".join(parts[start:]), []).append("/".join(parts))
+    return {suffix: tuple(files) for suffix, files in index.items()}
+
+
+def _resolve(path: str, context: str, ws_root: Path) -> str:
+    """A bare path in `context`, or else the one workspace file it ends: an answer that writes
+    `handlers/x.ts` under "all in `stubs/queue/`" names that file if no other ends that way."""
+    candidate = f"{context}/{path}"
+    if (ws_root / candidate).is_file():
+        return candidate
+    matches = _by_suffix(str(ws_root)).get(path.strip("/"), ()) if ws_root.is_dir() else ()
+    return matches[0] if len(matches) == 1 else candidate
+
+
+def _row_repo(line: str, repo_ids: set[str]) -> str | None:
+    """The repo a table row names in a cell of its own: `| orders-svc | app/main.py |`."""
+    if not line.lstrip().startswith("|"):
+        return None
+    cells = {c.strip(_CELL_TRIM) for c in line.strip().strip("|").split("|")}
+    named = cells & repo_ids
+    return next(iter(named)) if len(named) == 1 else None
+
+
 def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[str]) -> set[str]:
     """Workspace paths (`repo/path`) named in `text`.
 
-    A bare path belongs to the repo named by the heading it sits under (`**orders-svc:**`),
-    else to the working repo.
+    A bare path belongs to the repo its table row names, else to the repo named by the heading
+    it sits under (`**orders-svc:**`), else to the working repo; failing that, to the one
+    workspace file it is the end of.
     """
     roots = _root_spellings(ws_root)
     ws_parts = tuple(p for p in ws_root.as_posix().split("/") if p)
@@ -89,8 +130,9 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
     for line in text.splitlines():
         heading = _heading_repo(line, repo_ids)
         if heading is not False:
-            context = heading or working_repo
+            context = heading if isinstance(heading, str) else working_repo
             continue
+        row = _row_repo(line, repo_ids) or context
         for token in _PATH.findall(line):
             # `lib/cart.ts:7`, `lib/cart.ts:7:3`, `lib/cart.ts#L7`: the file, not a line in it.
             path = _LINE.sub("", token.replace("\\", "/").rstrip(_TRAILING)).rstrip(_TRAILING)
@@ -102,7 +144,7 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             else:
                 path = _strip_root_tail(path, ws_parts, repo_ids)
                 if path.split("/", 1)[0] not in repo_ids:
-                    path = f"{context}/{path}"
+                    path = _resolve(path, row, ws_root)
             path = posixpath.normpath(path)
             if not path.startswith(".."):
                 found.add(path)

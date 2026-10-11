@@ -236,3 +236,152 @@ tasks:
       mode is used when none is set? Give paths as repo/path.
     expect_files: [of-watchdog/config/config.go, of-watchdog/config/config_modes.go]
     expect_keywords: [streaming]
+  # Hard tasks (`hard: true`): no search for the prompt's own words leads to the answer, and the
+  # prompt names no answer repo; each needs an identifier read from code first (checked with
+  # `cairn bench-reach bench/suites/openfaas`).
+  #
+  # Chain: faas-netes chart value nats.channel -> rendered as env faas_nats_channel into BOTH
+  # templates/gateway-dep.yaml and templates/queueworker-ce-dep.yaml (the CE Deployment, used when
+  # openfaasPro is false; image ghcr.io/openfaas/queue-worker, which nats-queue-worker's publish
+  # workflow builds) -> the gateway honours it (faas/gateway/types/readconfig.go reads it and
+  # gateway/main.go passes it to CreateNATSQueue in nats-queue-worker/handler/handler.go) -> the CE
+  # worker binary does not: nats-queue-worker/readconfig.go never reads faas_nats_channel (no field
+  # for it in QueueWorkerConfig, declared there too) and main.go subscribes with the hard-coded
+  # `const sharedQueue = "faas-request"` (subject: sharedQueue). Both files must change. Out:
+  # types.go (NATSQueue already takes a subject), handler/ (the gateway-side publisher, already
+  # honours the channel), readconfig_test.go (already sets the variable; an assertion is optional),
+  # the chart templates and the gateway (already correct).
+  - id: async-channel-ignored
+    category: localization
+    repo: faas-netes
+    prompt: >-
+      In this repo's openfaas Helm chart, an operator changed the chart value that names where the
+      gateway publishes deferred (asynchronous) invocations on the message bus. The gateway picks up
+      the new name, but on a Community Edition install those requests are now accepted and never
+      executed: the component that consumes them keeps listening on the old name, even though the
+      chart passes it the same setting. Which existing files must change so that consumer honours
+      the setting? List them as repo/path. Do not edit anything.
+    expect_files:
+      - nats-queue-worker/main.go
+      - nats-queue-worker/readconfig.go
+    expect_keywords: [faas_nats_channel]
+    hard: true
+  # Chain: the CLI's store command (faas-cli/commands/store.go) defaults to
+  # https://raw.githubusercontent.com/openfaas/store/master/functions.json -> store/functions.json ->
+  # the "shasum" entry ("Generate a shasum for the given input") deploys
+  # ghcr.io/openfaas/alpine:latest with "fprocess": "sha512sum" (store_deploy.go passes the entry's
+  # fprocess) -> that image is built from store-functions/alpine/Dockerfile (stack.yml: alpine,
+  # lang dockerfile, image .../alpine). Trap: store-functions/shasum/Dockerfile builds a separate
+  # ghcr.io/openfaas/shasum image (ENV fprocess="sha512sum") that the catalogue does NOT reference,
+  # so naming it alone misses the alpine keyword. Also out: the gateway UI's funcstore.js (same URL,
+  # not this CLI), store/templates.json (templates, not functions).
+  - id: catalogue-hash-entry
+    category: orientation
+    repo: faas-cli
+    prompt: >-
+      This CLI has a command that lists ready-made functions a user can deploy, downloaded from a
+      catalogue at an address hard-coded in this repo. One catalogue entry returns a hash of whatever
+      it is sent. Which file in this workspace is that catalogue, which container image does that
+      entry deploy, which file builds it, and what command does the entry have it run? Give files as
+      repo/path.
+    expect_files:
+      - store/functions.json
+      - store-functions/alpine/Dockerfile
+    expect_keywords: [ghcr.io/openfaas/alpine, sha512sum]
+    hard: true
+  # Chain: faas-cli/builder/remote_builder.go reads the --payload-secret file and passes it to
+  # sdkbuilder.WithHmacAuth, imported from github.com/openfaas/go-sdk/builder -> go-sdk/builder/
+  # builder.go signs the tar with hmac.Sign(..., sha256.New) and sets
+  # `X-Build-Signature: sha256=<hex>` on the POST to <url>/build -> the CLI's examples point the
+  # secret at /var/openfaas/secrets/payload-secret; on the server side the pro-builder chart
+  # (faas-netes/chart/pro-builder/templates/deployment.yml) mounts Secret "payload-secret" as volume
+  # payload-secret at /var/openfaas/secrets/. Out: faas-cli/vendor/.../go-sdk/builder/builder.go (a
+  # vendored copy; the prompt asks for the owning repo), python-sdk's builder client and
+  # function-builder-examples (other clients that sign the same way, not this CLI's path), the
+  # chart's values.yaml (only disableHmac) and README.md (kubectl instructions, not the mount).
+  - id: remote-build-signature
+    category: orientation
+    repo: faas-cli
+    prompt: >-
+      When this CLI hands a function's packaged sources to a remote build service, the request body
+      is signed with a shared secret. Which source computes that signature and attaches it to the
+      request, and under which header? On the receiving side, which Helm chart template mounts that
+      shared secret into the build service's Pod, and at which directory? Give files as repo/path,
+      naming the repository that owns each file rather than a vendored copy.
+    expect_files:
+      - go-sdk/builder/builder.go
+      - faas-netes/chart/pro-builder/templates/deployment.yml
+    expect_keywords: [X-Build-Signature, /var/openfaas/secrets]
+    hard: true
+  # Chain: of-watchdog/config/config.go reads `oauth_enabled` into OAuthEnabled -> pkg/watchdog.go,
+  # when set, calls oauth.ReadConfig/NewOAuthHandler/NewOAuthMiddleware from
+  # github.com/openfaas/faas-middleware/oauth and mounts the handler under "/auth/" ->
+  # faas-middleware/oauth/config.go reads oauth_issuer_url, oauth_client_id, oauth_client_secret,
+  # oauth_base_url, oauth_scopes, ... (and derives the redirect URL as BaseURL + "/auth/callback")
+  # -> faas-middleware/oauth/handler.go maps "/auth/callback" (beside /auth/login, /auth/logout) to
+  # h.callback. Out: of-watchdog/pkg/watchdog.go registers only the "/auth/" prefix, not the full
+  # path; faas-middleware/auth/jwt_authenticator.go is the jwt_auth function-token check, not
+  # interactive sign-on; of-watchdog/vendor/... copies are excluded by the prompt.
+  - id: function-sign-in-callback
+    category: orientation
+    repo: of-watchdog
+    prompt: >-
+      Functions served by this binary can require single sign-on through an external identity
+      service before requests reach them. Which environment variable switches it on, and which file
+      in this repo reads it? Which file reads the identity service settings, and which file maps the
+      full path people return to from that service onto its handler? Give files as repo/path, naming
+      the repository that owns each file rather than a vendored copy, and state that path.
+    expect_files:
+      - of-watchdog/config/config.go
+      - faas-middleware/oauth/config.go
+      - faas-middleware/oauth/handler.go
+    expect_keywords: [oauth_enabled, /auth/callback]
+    hard: true
+  # Chain: the delaying function is store-functions/sleep (sleep_duration env, X-Sleep headers; it
+  # has only handler.go and go.mod) -> stack.yml builds it with `lang: golang-middleware` and its
+  # `configuration.templates` pulls golang-middleware from
+  # https://github.com/openfaas/golang-http-template -> golang-http-template/template/
+  # golang-middleware/main.go starts the http.Server on port 8082 with function.Handle, and its
+  # Dockerfile's first stage is ghcr.io/openfaas/of-watchdog:0.12.4 (upstream_url
+  # http://127.0.0.1:8082). Out: golang-middleware-inproc (runs the handler in-process, no
+  # upstream server) and golang-http (a different template, built on templates-sdk), and the
+  # store-functions Dockerfile-based functions, which use the classic watchdog.
+  - id: delay-function-template
+    category: orientation
+    repo: store-functions
+    prompt: >-
+      The function in this repo that delays its response for a configurable duration is built from
+      a language template that does not live in this repo. Which file of that template starts the
+      server that calls the function's handler, and on which port? Which file pins the version of
+      the process supervisor image the function's container runs, and what version is it? Give
+      files as repo/path.
+    expect_files:
+      - golang-http-template/template/golang-middleware/main.go
+      - golang-http-template/template/golang-middleware/Dockerfile
+    expect_keywords: ["8082", "0.12.4"]
+    hard: true
+  # Chain: faas-netes/chart/openfaas/templates/prometheus-cfg.yaml's alert APIHighInvocationRate
+  # queries gateway_function_invocation_total -> grep that name (excluding vendor/, *.md, tests):
+  # the gateway's own Prometheus query in faas/gateway/metrics/add_metrics.go, the Grafana
+  # dashboard faas/contrib/grafana.json, and the Pro recording rule in prometheus-pro-cfg.yaml. The
+  # definition is NOT found by that grep: faas/gateway/metrics/metrics.go builds the name from
+  # Namespace "gateway", Subsystem "function", Name "invocation_total". Out: exporter_test.go and
+  # requests/prometheus_test.go (tests), faas/api-docs/spec.openapi.yml (an example alert payload's
+  # generatorURL; nothing breaks), faas-swarm's alert.rules.yml and openfaas-cloud's
+  # metrics/handler.go (archived, excluded by the prompt), docs/ and workshop/ (Markdown).
+  - id: rename-invocation-counter
+    category: impact
+    repo: faas-netes
+    prompt: >-
+      The Prometheus that the openfaas chart installs has an alerting rule that fires when a
+      function is invoked too often; it queries a metric exported by the gateway. We are renaming
+      that metric. Which file in the gateway defines it, and which other non-test files query it by
+      name and must change? Ignore Markdown docs and the archived projects (faas-swarm,
+      openfaas-cloud). List them as repo/path.
+    expect_files:
+      - faas/gateway/metrics/metrics.go
+      - faas/gateway/metrics/add_metrics.go
+      - faas/contrib/grafana.json
+      - faas-netes/chart/openfaas/templates/prometheus-cfg.yaml
+      - faas-netes/chart/openfaas/templates/prometheus-pro-cfg.yaml
+    hard: true

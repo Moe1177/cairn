@@ -18,7 +18,10 @@ from cairn.bench.suite import load_suite
 from cairn.errors import CairnError
 from cairn.store.atomic import atomic_write_text
 
-__all__ = ["BenchStopped", "RunRecord", "render_markdown", "run_bench"]
+__all__ = ["BenchStopped", "RunRecord", "regrade_log", "render_markdown", "run_bench"]
+
+# The run's own workspace (a temp dir, gone once the run ends) as an answer spells it.
+_RUN_WS = re.compile(r"(?:[A-Za-z]:)?[\\/][^\s`'\"()|]*?cairn-bench-[^\\/\s]+[\\/]ws(?=[\\/])")
 
 
 @dataclass(frozen=True)
@@ -114,6 +117,41 @@ def run_bench(
     report = {"meta": header, "records": [asdict(r) for r in out]}
     atomic_write_text(stem.with_suffix(".json"), json.dumps(report, indent=2))
     atomic_write_text(stem.with_suffix(".md"), render_markdown(out, meta=header))
+    return out
+
+
+def regrade_log(log: Path, suite_dir: Path, ws: Path) -> tuple[RunRecord, ...]:
+    """Grade a run's log again with today's grading, against `ws` (the suite's repos, made
+    again: the run's own copy is gone). Writes `<stem>.json` and `.md`; the log is untouched."""
+    suite = load_suite(suite_dir)
+    tasks = {t.id: t for t in suite.tasks}
+    repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
+    records = []
+    for record in load_records(log):
+        task = tasks.get(record.task_id)
+        if task is None:
+            raise CairnError(f"{log} has task {record.task_id}, which {suite.name} doesn't")
+        text = _RUN_WS.sub(lambda _: ws.as_posix(), record.result.result_text)
+        records.append(
+            RunRecord(
+                record.condition,
+                record.task_id,
+                record.run,
+                grade(task, text, ws, repo_ids),
+                record.result,
+            )
+        )
+    headers = [
+        json.loads(line)["_header"]
+        for line in log.read_text(encoding="utf-8").splitlines()
+        if line.startswith('{"_header"')
+    ]
+    meta = {**(headers[0] if headers else {}), "regraded_with": cairn.__version__}
+    out = tuple(records)
+    stem = log.with_suffix("")
+    report = {"meta": meta, "records": [asdict(r) for r in out]}
+    atomic_write_text(stem.with_suffix(".json"), json.dumps(report, indent=2))
+    atomic_write_text(stem.with_suffix(".md"), render_markdown(out, meta=meta))
     return out
 
 

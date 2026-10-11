@@ -353,8 +353,18 @@ What this shows:
 - **A bigger workspace isn't enough to make no map hard.** A pilot on OpenFaaS (38 real repos,
   2026-10-10, Sonnet 5.5, no map, one run per task) answered all ten of its tasks, for $0.07 a
   task with two or three searches each: every answer holds a literal string one workspace-wide
-  search finds, vendored copies or not. Tasks where cairn should matter need answers no search
-  term leads to, such as which repos a change reaches through a route or image built at runtime.
+  search finds.
+- **Neither are hard tasks** (2026-10-11 pilot, one run per cell). There are 11 of them, on
+  OpenFaaS and One Login. No search for a task's own words finds its answer, and the prompt
+  doesn't name the repo the answer is in. The agent has to read an identifier in code and follow
+  it to a repo it works out itself.
+  - Sonnet answered 11/11 in every condition.
+  - Haiku answered 10/11 in every condition.
+  - With a map, Sonnet's cost fell 17-19% on OpenFaaS and rose 19-29% on One Login.
+  - The one failure a map clearly prevented: Haiku with no map never looked outside the repo it
+    started in.
+  - [bench/published/2026-10-11-hard-tasks.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-11-hard-tasks.md)
+    has the tasks, the definition and every failure.
 
 Methods, every table with 95% intervals, paired Wilcoxon tests (raw and Holm-adjusted), the
 regressions, and the held-out results:
@@ -369,6 +379,15 @@ cairn bench bench/suites/sockshop --runs 3 --model haiku    # fetches the pinned
 cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
 cairn bench bench/suites/sockshop --resume bench/results/<stamp>.jsonl   # after a usage limit
 cairn bench bench/suites/sockshop --harness codex --runs 3      # Codex instead of Claude Code
+cairn bench-regrade bench/suites/sockshop bench/results/<stamp>.jsonl   # grade a log again
+```
+
+A task marked `hard: true` in a suite must be one that no search for the prompt's own words
+answers, and whose prompt doesn't name the repo the answer is in. `cairn bench-reach` checks
+this offline, and fails on a hard task that breaks either rule:
+
+```bash
+cairn bench-reach bench/suites/openfaas bench/suites/onelogin
 ```
 
 With `--harness codex`, each run is `codex exec` in a read-only sandbox that ignores your Codex
@@ -482,6 +501,8 @@ how to report a vulnerability.
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
 | `cairn bench-links SUITE...` | Score cairn's links against each suite's real ones, offline |
+| `cairn bench-regrade SUITE LOG` | Grade a finished run's log again with today's grading |
+| `cairn bench-reach SUITE...` | Which tasks a search for the prompt's own words answers, offline; fails on a hard task that one does |
 | `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
 | `cairn --install-completion` | Tab completion for your shell (bash, zsh, fish, PowerShell) |
 | `cairn --version` | Versions of cairn, Python, the platform, and mcp |
@@ -545,7 +566,10 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
    CloudFormation/SAM, Serverless Framework, CDK, Lambda, SSM), and Railway, Fly.io and Render
    services (0.8).
 7. ✅ Codex in the benchmark, Maven and Gradle, real-world link benchmarks, draft summaries.
-8. Harder benchmark tasks: a 38-repo workspace alone doesn't make answers hard to find without a map.
+8. ✅ Harder benchmark tasks: 11 tasks that no search for their own words answers, checked by
+   `cairn bench-reach`. Without a map, Sonnet still answered all of them.
+9. Benchmark sessions that start with only their own repo in view, the way a session opened in
+   one repo does.
 
 ## Contributing
 

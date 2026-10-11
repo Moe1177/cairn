@@ -777,6 +777,57 @@ def bench_locate(
     typer.echo(report)
 
 
+@app.command("bench-regrade")
+def bench_regrade(
+    suite_dir: Annotated[Path, typer.Argument(help="The suite the run was made from.")],
+    log: Annotated[Path, typer.Argument(help="The run's .jsonl log.")],
+    cache: Annotated[
+        Path, typer.Option("--cache", help="Where the materialised repos are kept.")
+    ] = Path("bench/.locate-cache"),
+) -> None:
+    """Grade a finished run again with today's grading (rewrites its .json and .md report)."""
+    from cairn.bench.locate_eval import prepare_workspace
+    from cairn.bench.report import render_markdown
+    from cairn.bench.run import regrade_log
+
+    if not log.is_file():
+        _fail(f"no run log at {log}.")
+    try:
+        records = regrade_log(log, suite_dir, prepare_workspace(suite_dir, cache.resolve()))
+    except (CairnError, OSError, ValueError, KeyError, TypeError) as exc:
+        _fail(str(exc))
+    typer.echo(render_markdown(records))
+    stem = log.with_suffix("")
+    typer.echo(f"Reports: {stem}.md and {stem}.json")
+
+
+@app.command("bench-reach")
+def bench_reach(
+    suites: Annotated[list[Path], typer.Argument(help="Suite folders, each with a suite.yaml.")],
+    cache: Annotated[
+        Path, typer.Option("--cache", help="Where the materialised repos are kept.")
+    ] = Path("bench/.locate-cache"),
+) -> None:
+    """Offline: which tasks a search for the prompt's own words answers. Exits 1 when a task
+    marked hard is one of them, or an answer file doesn't exist."""
+    from cairn.bench.locate_eval import prepare_workspace
+    from cairn.bench.reach import load_corpus, reach, summarize
+    from cairn.bench.suite import load_suite
+
+    problems = 0
+    try:
+        for suite_dir in suites:
+            suite = load_suite(suite_dir)
+            corpus = load_corpus(prepare_workspace(suite_dir, cache.resolve()))
+            results = [reach(task, corpus) for task in suite.tasks]
+            problems += sum(r.problem for r in results)
+            typer.echo(summarize(suite.name, results))
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    if problems:
+        _fail(f"{problems} task(s) marked hard are easy, or name answer files that don't exist")
+
+
 @app.command("bench-links")
 def bench_links(
     suites: Annotated[

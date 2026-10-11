@@ -88,3 +88,55 @@ def test_a_file_named_with_a_line_number_is_that_file(tmp_path: Path) -> None:
     )
     found = mentioned_files(text, ws, "storefront", IDS)
     assert {"storefront/lib/cart.ts", "orders-svc/app/main.py", "admin/lib/db.ts"} <= found
+
+
+def _ws(tmp_path: Path, files: tuple[str, ...]) -> Path:
+    ws = tmp_path / "ws"
+    for rel in files:
+        (ws / rel).parent.mkdir(parents=True, exist_ok=True)
+        (ws / rel).write_text("x", encoding="utf-8")
+    for repo in {f.split("/", 1)[0] for f in files}:
+        (ws / repo / ".git").mkdir(exist_ok=True)
+    return ws
+
+
+def test_a_table_row_that_names_a_repo_holds_its_paths(tmp_path: Path) -> None:
+    # Benchmark finding: a correct answer put repo and path in separate columns.
+    ws = _ws(tmp_path, ("orders-svc/infra/template.yaml", "admin/infra/template.yaml"))
+    text = (
+        "| Repo | Path |\n|---|---|\n"
+        "| `orders-svc` | `infra/template.yaml` |\n| **admin** | infra/template.yaml |\n"
+    )
+    assert mentioned_files(text, ws, "storefront", IDS) == {
+        "orders-svc/infra/template.yaml",
+        "admin/infra/template.yaml",
+    }
+
+
+def test_a_path_written_under_a_stated_folder_names_the_one_file_it_ends(tmp_path: Path) -> None:
+    # Benchmark finding: "all under `admin/stubs/queue/`" and then `handlers/enqueue.ts`.
+    ws = _ws(
+        tmp_path,
+        (
+            "admin/stubs/queue/handlers/enqueue.ts",
+            "admin/stubs/a/config.ts",
+            "orders-svc/b/config.ts",
+            "storefront/src/app.ts",
+        ),
+    )
+    text = (
+        "All under `admin/stubs/queue/`:\n- `handlers/enqueue.ts`\n- `b/config.ts` and src/app.ts"
+    )
+    assert mentioned_files(text, ws, "storefront", IDS) == {
+        "admin/stubs/queue/handlers/enqueue.ts",
+        "admin/stubs/queue",  # the stated folder itself
+        "orders-svc/b/config.ts",  # the only file ending b/config.ts
+        "storefront/src/app.ts",  # in the working repo: no search needed
+    }
+
+
+def test_an_ending_two_files_share_stays_in_the_working_repo(tmp_path: Path) -> None:
+    ws = _ws(tmp_path, ("admin/lib/config.ts", "orders-svc/lib/config.ts"))
+    assert mentioned_files("see lib/config.ts", ws, "storefront", IDS) == {
+        "storefront/lib/config.ts"
+    }
