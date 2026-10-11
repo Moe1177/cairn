@@ -353,6 +353,26 @@ cairn bench-locate bench/suites/sockshop bench/suites/networkx   # builds code g
 cairn bench-locate bench/suites/shopverse --no-build --locators grep
 ```
 
+The link benchmark is offline and free too. Each suite's `links.yaml` lists the pairs of repos
+that really link, written from the code and never from cairn's output; `cairn bench-links` scans
+the suite and scores the links cairn shows (and, separately, its unconfirmed suggestions) as
+pairs of repos: how many real links it finds, how many it finds that aren't real, and whether
+it points them the right way.
+
+```bash
+cairn bench-links bench/suites/sockshop bench/suites/supabase-js
+```
+
+| Links cairn shows (2026-10-10) | real links | found | not real | precision | recall |
+|---|---|---|---|---|---|
+| Sock Shop (real, 9 repos) | 17 | 15 | 0 | 1.00 | 0.88 |
+| Supabase JS (real, held out) | 5 | 5 | 0 | 1.00 | 1.00 |
+| fleetline + shopverse (synthetic) | 26 | 26 | 0 | 1.00 | 1.00 |
+
+The two Sock Shop links cairn misses are orders reading users and carts through URLs the
+front-end puts in each order: no hostname for them appears in orders' code. Unconfirmed
+suggestions add one wrong link in each of three suites (a table name two repos share).
+
 ## Performance
 
 cairn walks each repo once, reads each file once, and scans repos in parallel. A refresh
@@ -385,7 +405,7 @@ It also:
 
 cairn makes **no network calls and collects no telemetry**. Three commands start programs that
 do, and only when you run them: `cairn deep enable` runs your package installer (uv, pipx or pip)
-to add graphify; `cairn bench` and `cairn bench-locate` fetch their pinned benchmark repos with
+to add graphify; `cairn bench`, `cairn bench-locate` and `cairn bench-links` fetch their pinned benchmark repos with
 git, and `cairn bench` runs the `claude` CLI.
 
 See [SECURITY.md](https://github.com/Moe1177/cairn/blob/main/SECURITY.md) for the threat model and
@@ -413,6 +433,7 @@ how to report a vulnerability.
 | `cairn context` | What a Claude Code session should know about its folder: the index, or an offer to build a map (the plugin's session hook runs it) |
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
+| `cairn bench-links SUITE...` | Score cairn's links against each suite's real ones, offline |
 | `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
 | `cairn --install-completion` | Tab completion for your shell (bash, zsh, fish, PowerShell) |
 | `cairn --version` | Versions of cairn, Python, the platform, and mcp |

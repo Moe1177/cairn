@@ -1,0 +1,66 @@
+# Which repos really link (cairn bench-links), written from the code, never from cairn's output.
+# A link is a pair of repos; `from` uses or depends on `to`.
+split: dev
+links:
+  # --- package: package.json "workspace:*" deps on packages published by ui-kit / api-types
+  # admin-console/package.json + app/drivers/[id]/page.tsx import { Button } from "@fleetline/ui-kit"
+  - {from: admin-console, to: ui-kit, kind: package}
+  # driver-web/package.json + app/earnings/page.tsx import { Button, Card } from "@fleetline/ui-kit"
+  - {from: driver-web, to: ui-kit, kind: package}
+  # driver-web/package.json + lib/api.ts, app/onboarding/page.tsx import DriverApplication from "@fleetline/api-types"
+  - {from: driver-web, to: api-types, kind: package}
+  # rider-web/package.json + app/ride/page.tsx import { Button } from "@fleetline/ui-kit"
+  - {from: rider-web, to: ui-kit, kind: package}
+  # rider-web/package.json + lib/api.ts, app/receipt/[tripId]/page.tsx import Trip from "@fleetline/api-types"
+  - {from: rider-web, to: api-types, kind: package}
+
+  # --- http
+  # rider-web/lib/api.ts: fetch(`${GATEWAY}/trips`, POST) and /trips/{id}; trips-svc/app/routes.py serves POST /trips
+  - {from: rider-web, to: trips-svc, kind: http}
+
+  # --- database: readers of tables created by another repo's migrations
+  # admin-console/lib/db.ts SELECT ... FROM trips   (trips-svc/migrations/001_trips.sql creates trips)
+  - {from: admin-console, to: trips-svc, kind: database}
+  # admin-console/lib/db.ts SELECT ... FROM drivers (drivers-svc/migrations/001_drivers.sql creates drivers)
+  - {from: admin-console, to: drivers-svc, kind: database}
+  # admin-console/lib/db.ts SELECT ... FROM payouts (payments-svc/migrations/001_payments.sql creates payouts)
+  - {from: admin-console, to: payments-svc, kind: database}
+  # analytics-etl/jobs/daily_revenue.sql FROM trips t JOIN payments p
+  - {from: analytics-etl, to: trips-svc, kind: database}
+  - {from: analytics-etl, to: payments-svc, kind: database}
+  # analytics-etl/jobs/driver_quality.sql FROM drivers (uses drivers-svc's license_no column)
+  - {from: analytics-etl, to: drivers-svc, kind: database}
+  # analytics-etl/jobs/surge_report.sql FROM surge_zones (pricing-svc/migrations/001_pricing.sql creates it)
+  - {from: analytics-etl, to: pricing-svc, kind: database}
+  # payments-svc/internal/charge/charge.go: SELECT fare_cents FROM trips WHERE ... status = 'completed'
+  - {from: payments-svc, to: trips-svc, kind: database}
+
+  # --- events, stated only in notifications-worker/README.md ("Consumes `trip.completed` events
+  # published by trips-svc and `payout.sent` events published by payments-svc"). The worker has
+  # matching handlers (worker/handlers.py on_trip_completed / on_payout_sent) but no topic string,
+  # and neither publisher has publish code: really pubsub, evidenced only by the README.
+  - {from: trips-svc, to: notifications-worker, kind: docs, note: "pubsub trip.completed, README only"}
+  - {from: payments-svc, to: notifications-worker, kind: docs, note: "pubsub payout.sent, README only"}
+
+  # --- deploys: infra/docker-compose.yml builds ../<repo> for each service (also a path link);
+  # infra/docker-compose.dev.yml additionally mounts ../trips-svc/app
+  - {from: infra, to: trips-svc, kind: deploys, note: "build: ../trips-svc (path too)"}
+  - {from: infra, to: drivers-svc, kind: deploys, note: "build: ../drivers-svc (path too)"}
+  - {from: infra, to: pricing-svc, kind: deploys, note: "build: ../pricing-svc (path too)"}
+  - {from: infra, to: payments-svc, kind: deploys, note: "build: ../payments-svc (path too)"}
+unsure:
+  - {between: [driver-web, drivers-svc], note: "driver-web/lib/api.ts POSTs ${GATEWAY}/drivers/applications; drivers-svc owns drivers but defines no routes (bare FastAPI app) and no gateway repo exists"}
+  - {between: [driver-web, payments-svc], note: "driver-web/lib/api.ts GETs ${GATEWAY}/payouts/me; payments-svc owns payouts but has no HTTP server code"}
+  - {between: [api-types, trips-svc], note: "api-types/src/trip.ts hand-mirrors trips-svc's Trip model/trips columns (a contract), but neither imports the other"}
+  - {between: [api-types, drivers-svc], note: "api-types/src/driver.ts hand-mirrors drivers-svc's Driver model, but neither imports the other"}
+
+# Look-alikes that are NOT links:
+# - legacy-dispatch: legacy_trips / legacy_drivers (license_number) in its own database
+#   (README: "Has its own database"); nothing reads them and it reads nobody else's tables.
+# - geo-svc: Rust ETA/geohash service; nothing calls it, it calls nothing.
+# - riders-svc: owns riders / rider_ratings, but no other repo reads them or calls it
+#   (trips.rider_id has no FK; rider-web only calls /trips).
+# - infra/terraform/main.tf aws_db_instance "main": no repo references it by name; the
+#   services only share a generic DATABASE_URL, which is not a link.
+# - infra's postgres:16 compose service is a public image, not a repo.
+# - admin-console / analytics-etl vs legacy-dispatch: "drivers" vs "legacy_drivers" differ.

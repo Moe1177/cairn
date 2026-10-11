@@ -1,0 +1,28 @@
+# Which repos really link (cairn bench-links), written from the code, never from cairn's output.
+# A link is a pair of repos; `from` uses or depends on `to`.
+split: dev
+links:
+  # storefront/app/checkout/page.tsx: fetch(`${NEXT_PUBLIC_ORDERS_API}/orders`, POST);
+  # orders-svc/app/main.py serves POST /orders
+  - {from: storefront, to: orders-svc, kind: http}
+  # storefront/package.json "@shopverse/types": "workspace:*"; checkout/page.tsx imports Order
+  # (shared-types/package.json publishes @shopverse/types)
+  - {from: storefront, to: shared-types, kind: package}
+  # admin/package.json "@shopverse/types": "workspace:*" (declared dependency; no import in code yet)
+  - {from: admin, to: shared-types, kind: package}
+  # admin/lib/db.ts SELECT/UPDATE orders; orders-svc/migrations/001_orders.sql creates orders
+  - {from: admin, to: orders-svc, kind: database}
+  # payments-svc/internal/ledger.go SELECT id, status FROM orders (orders-svc owns it)
+  - {from: payments-svc, to: orders-svc, kind: database}
+  # notifications-worker/worker/main.py TOPIC = "order.paid"; its README says payments-svc
+  # publishes it. payments-svc has no publish code, so the pair is evidenced by the README
+  # (the relationship itself is pubsub).
+  - {from: payments-svc, to: notifications-worker, kind: docs, note: "pubsub order.paid, publisher named only in README"}
+unsure:
+  - {between: [shared-types, orders-svc], note: "shared-types/src/order.ts mirrors orders-svc's Order model (status pending/paid/refunded, total) as a contract, but neither imports the other"}
+
+# Look-alikes that are NOT links:
+# - payments-svc's payments_ledger table is its own (payments-svc/migrations/001_ledger.sql);
+#   only its order_id column points at orders, which is already covered by the database link.
+# - order_items / refunds are created and used only by orders-svc.
+# - notifications-worker has no link to orders-svc despite "order" in its topic name.
