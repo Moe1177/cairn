@@ -18,6 +18,8 @@ class Task(Frozen):
     prompt: str
     expect_files: tuple[str, ...] = ()  # workspace paths: repo/path
     expect_keywords: tuple[str, ...] = ()
+    # No search for the prompt's own words leads to the answer (`cairn bench-reach` checks it).
+    hard: bool = False
 
 
 class Source(Frozen):

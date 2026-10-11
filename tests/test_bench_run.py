@@ -98,3 +98,34 @@ def test_one_workspace_serves_every_condition_without_leaking_between_them(
         ("D", "cart-total", 0),
         ("D", "cart-total", 1),
     ]
+
+
+def test_regrade_grades_a_finished_log_again_against_a_fresh_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CAIRN_HOME", str(tmp_path / "ch"))
+    monkeypatch.setenv("CAIRN_USER_HOME", str(tmp_path / "uh"))
+    run_bench(
+        SUITE,
+        conditions=("A",),
+        runs=1,
+        task_ids=("cart-total",),
+        runner=FakeRunner(_reply),
+        out_dir=tmp_path / "out",
+        now="20261011-120000",
+    )
+    log = tmp_path / "out" / "20261011-120000.jsonl"
+    lines = log.read_text(encoding="utf-8").splitlines()
+    record = json.loads(lines[1])
+    # The run's workspace was a temp dir, gone now: its paths must still count.
+    record["result"]["result_text"] = "C:\Temp\cairn-bench-x1\ws\storefront\lib\cart.ts"
+    record["grade"] = {"success": False, "recall": 0.0, "precision": 0.0}
+    log.write_text("\n".join([lines[0], json.dumps(record)]) + "\n", encoding="utf-8")
+    cache = tmp_path / "cache"
+    result = CliRunner().invoke(app, ["bench-regrade", str(SUITE), str(log), "--cache", str(cache)])
+    assert result.exit_code == 0, result.output
+    data = json.loads(log.with_suffix(".json").read_text(encoding="utf-8"))
+    assert data["records"][0]["grade"]["success"] and data["meta"]["regraded_with"]
+    assert json.loads(log.read_text(encoding="utf-8").splitlines()[1])["grade"]["success"] is False
+    missing = CliRunner().invoke(app, ["bench-regrade", str(SUITE), str(tmp_path / "nope.jsonl")])
+    assert missing.exit_code == 1 and "no run log" in missing.output
