@@ -4,8 +4,8 @@ related_repos_doc: related_repos.md
 # OpenFaaS (github.com/openfaas), 38 repos: the coupled core (gateway, providers, CLI, SDKs,
 # queue worker, watchdogs, connectors, templates, store) and the org's other repos a developer
 # would have cloned beside it (docs, archived cloud/bootstrap, release tooling). Mostly MIT; faas,
-# faas-netes and faasd carry extra notices. Fetched at pinned commits, never vendored. Held out:
-# never used to tune cairn's detectors.
+# faas-netes and faasd carry extra notices. Fetched at pinned commits, never vendored. Held out until
+# its first link run (2026-10-10), which tuned doc mentions and Go module discovery.
 sources:
   - {name: faas, url: "https://github.com/openfaas/faas.git", sha: 8d803bf9e2655aec6a60fd0e25b392839f96af95}
   - {name: faas-provider, url: "https://github.com/openfaas/faas-provider.git", sha: f53fe6362ce959e032b8c063318ca5e38c0cbed8}

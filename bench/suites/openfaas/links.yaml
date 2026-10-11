@@ -6,7 +6,7 @@
 # queue-worker <- nats-queue-worker (publish.yaml), license-check <- license-check (publish.yaml),
 # of-watchdog <- of-watchdog (Makefile), classic-watchdog <- classic-watchdog (publish.yaml),
 # cron-/mqtt-/nats-connector, ingress-operator, faas-netes, ofc-* <- their own repos.
-split: held  # never used to tune cairn
+split: dev  # held out until 2026-10-10; its first run tuned doc mentions and Go modules
 links:
   # ---------------- package (go.mod require / npm / pip / maven) ----------------
   # certifier/go.mod requires github.com/openfaas/faas-cli; certifier/tests import faas-cli/proxy, stack, config

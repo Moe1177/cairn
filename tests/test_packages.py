@@ -63,3 +63,29 @@ def test_malformed_manifests_do_not_crash(tmp_path: Path) -> None:
     )
     result = PackagesDetector().run(ctx_for(tmp_path, repo))
     assert result.exposes == () and result.consumes == ()
+
+
+def test_go_modules_in_folders_count_and_local_ones_do_not(tmp_path: Path) -> None:
+    """faas keeps its gateway's module in gateway/go.mod; a template's function module is local."""
+    repo = make_repo(
+        tmp_path,
+        "faas",
+        {
+            "go.mod": "module github.com/openfaas/faas\n",
+            "gateway/go.mod": (
+                "module github.com/openfaas/faas/gateway\n"
+                "require (\n\tgithub.com/openfaas/faas-provider v0.25.0\n"
+                "\thandler/function v0.0.0\n)\n"
+            ),
+            "template/go/function/go.mod": "module handler/function\n",
+            "vendor/github.com/x/y/go.mod": "module github.com/x/y\n",
+        },
+    )
+    result = PackagesDetector().run(ctx_for(tmp_path, repo))
+    assert _values(result.exposes) == [
+        "go:github.com/openfaas/faas",
+        "go:github.com/openfaas/faas/gateway",
+    ]
+    assert _values(result.consumes) == ["go:github.com/openfaas/faas-provider"]
+    gateway = next(f for f in result.consumes if f.value.endswith("faas-provider"))
+    assert gateway.evidence[0].file == "gateway/go.mod"

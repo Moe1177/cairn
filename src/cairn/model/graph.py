@@ -30,6 +30,7 @@ class FactKind(StrEnum):
     TOPIC = "topic"
     PATH_REF = "path_ref"
     DOC_MENTION = "doc_mention"
+    DOC_COMMAND = "doc_command"  # docs run a sibling repo's name as a command: a tool
     CLI = "cli"
     DB_PROVIDER = "db_provider"
     SERVICE_HOST = "service_host"

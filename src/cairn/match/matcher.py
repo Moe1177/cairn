@@ -356,21 +356,32 @@ def _path_edges(repos: list[RepoFacts]) -> list[Edge]:
 
 
 def _mention_edges(repos: list[RepoFacts]) -> list[Edge]:
+    """A README naming a sibling repo. A sibling some docs run as a command is a tool: naming it
+    is usually how-to (`install faas-cli first`), so that mention is only a suggestion, unless
+    the tool's own docs name the repo back."""
     known = {r.id for r in repos}
-    return [
-        _edge(
-            repo.id,
-            f.value,
-            EdgeType.MENTIONS,
-            Confidence.INFERRED,
-            0.5,
-            ["doc_mention"],
-            f.evidence,
-        )
-        for repo in repos
-        for f in _facts(repo, False, FactKind.DOC_MENTION)
-        if f.value in known and f.value != repo.id
-    ]
+    tools = {f.value for r in repos for f in _facts(r, False, FactKind.DOC_COMMAND)}
+    mentioned = {(r.id, f.value) for r in repos for f in _facts(r, False, FactKind.DOC_MENTION)}
+    edges = []
+    for repo in repos:
+        for f in _facts(repo, False, FactKind.DOC_MENTION):
+            if f.value not in known or f.value == repo.id:
+                continue
+            how_to = f.value in tools and (f.value, repo.id) not in mentioned
+            confidence = Confidence.AMBIGUOUS if how_to else Confidence.INFERRED
+            signals = ["doc_mention", "names a tool"] if how_to else ["doc_mention"]
+            edges.append(
+                _edge(
+                    repo.id,
+                    f.value,
+                    EdgeType.MENTIONS,
+                    confidence,
+                    0.2 if how_to else 0.5,
+                    signals,
+                    f.evidence,
+                )
+            )
+    return edges
 
 
 def _merge_key(edge: Edge) -> tuple[str, str, str]:
