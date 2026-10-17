@@ -118,7 +118,7 @@ def test_regrade_grades_a_finished_log_again_against_a_fresh_copy(
     lines = log.read_text(encoding="utf-8").splitlines()
     record = json.loads(lines[1])
     # The run's workspace was a temp dir, gone now: its paths must still count.
-    record["result"]["result_text"] = "C:\Temp\cairn-bench-x1\ws\storefront\lib\cart.ts"
+    record["result"]["result_text"] = r"C:\Temp\cairn-bench-x1\ws\storefront\lib\cart.ts"
     record["grade"] = {"success": False, "recall": 0.0, "precision": 0.0}
     log.write_text("\n".join([lines[0], json.dumps(record)]) + "\n", encoding="utf-8")
     cache = tmp_path / "cache"
