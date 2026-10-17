@@ -79,11 +79,11 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
     @server.tool()
     def find_similar(task: str, terms: list[str], org: str = "") -> str:
         """Before building a feature, find where the org already implemented it (searches the
-        org's repos on GitHub; nothing is cloned). task: the feature in a sentence. terms: 2-4
-        short searches the existing code would literally contain — class or function names, SDK
-        calls, library names, config keys, headers (e.g. ["RateLimiter", "X-RateLimit-Remaining",
-        "express-rate-limit"]), not the request's own words. Each term is one search; they run at
-        once. org: only when several orgs are configured."""
+        org's repos on GitHub or GitLab; nothing is cloned). task: the feature in a sentence.
+        terms: 2-4 short searches the existing code would literally contain — class or function
+        names, SDK calls, library names, config keys, headers (e.g. ["RateLimiter",
+        "X-RateLimit-Remaining", "express-rate-limit"]), not the request's own words. Each term is
+        one search; they run at once. org: only when several orgs are configured."""
         return answer(lambda ws: tools.similar_text(ws, task, terms, org))
 
     @server.tool()
@@ -91,7 +91,7 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
         """The org's stack: the languages, datastores, queues, frameworks, auth, test and deploy
         tools its recently pushed repos use, their common libraries, and the org's own shared
         packages: what new code for the org should be built with. Cached for a week; the first
-        call reads the org over GitHub's API (about 15 s)."""
+        call reads the org over its host's API (about 15 s)."""
         return answer(lambda ws: tools.profile_text(ws, org))
 
     @server.tool()
@@ -100,7 +100,7 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
         HTTP, test helpers): use these before a public package. Empty: the most used, with where
         each is defined. query: words to filter by (e.g. "retry http"). name: one package's
         home, every repo using it, and code that calls it. The first call of a day reads the
-        org's manifests over GitHub's API (about 35 s for 600 repos; after that only repos
+        org's manifests over its host's API (about 35 s for 600 repos; after that only repos
         pushed since)."""
         return answer(lambda ws: tools.packages_text(ws, name, query, org))
 

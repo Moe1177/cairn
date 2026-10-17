@@ -38,7 +38,7 @@ from cairn.errors import CairnError
 from cairn.model.graph import Frozen
 from cairn.org.similar import weight
 from cairn.org.tech import CATEGORIES, CATEGORY, repo_techs
-from cairn.remote.github import GitHub, RepoInfo
+from cairn.remote.host import CodeHost, RepoInfo
 
 SAMPLE = 200  # repos read: the most recently pushed ones
 MANIFESTS_PER_REPO = 3  # the shallowest: a repo's own, not its examples' or fixtures'
@@ -118,7 +118,7 @@ class RepoStack:
 
 
 def build_profile(
-    client: GitHub,
+    client: CodeHost,
     org: str,
     host: str = "github.com",
     *,
@@ -152,7 +152,7 @@ def build_profile(
 
 
 def active_repos(
-    client: GitHub, org: str, sample: int, *, max_pages: int = _MAX_PAGES
+    client: CodeHost, org: str, sample: int, *, max_pages: int = _MAX_PAGES
 ) -> list[RepoInfo]:
     """The `sample` most recently pushed repos that aren't archived (forks count)."""
     batch = min(-(-sample // 100) + 1, _LIST_BATCH)
@@ -310,12 +310,14 @@ def own_packages(org: str, host: str, stacks: Sequence[RepoStack]) -> tuple[OwnP
 
 
 def under_org(package: str, org: str, host: str) -> bool:
+    """Whether a package's name puts it in the org. A Go module path names the org (on GitLab,
+    a subgroup too); other ecosystems name only a top-level group, as npm scopes do."""
     ecosystem, _, name = package.partition(":")
-    org = org.lower()
+    if ecosystem == "go":
+        return name.startswith(f"{host.lower()}/{org.lower()}/")
+    org = org.partition("/")[0].lower()
     if ecosystem == "npm":
         return name.startswith(f"@{org}/")
-    if ecosystem == "go":
-        return name.startswith(f"{host.lower()}/{org}/")
     if ecosystem == "maven":
         group = name.split(":", 1)[0]
         return org.replace("-", "") in group.split(".")
@@ -328,14 +330,14 @@ def _counts(pairs: Iterable[tuple[str, int]]) -> tuple[Count, ...]:
     return tuple(Count(name=name, repos=repos) for name, repos in pairs)
 
 
-def _tree(client: GitHub, repo: RepoInfo) -> tuple[str, ...] | None:
+def _tree(client: CodeHost, repo: RepoInfo) -> tuple[str, ...] | None:
     try:
         return client.tree(repo.name, repo.default_branch)[0]
     except CairnError:
         return None
 
 
-def _read(client: GitHub, repo: RepoInfo, path: str) -> str | None:
+def _read(client: CodeHost, repo: RepoInfo, path: str) -> str | None:
     try:
         return client.read_file(repo.name, path) or ""
     except CairnError:

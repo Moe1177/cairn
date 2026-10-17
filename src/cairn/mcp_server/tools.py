@@ -41,7 +41,7 @@ from cairn.org.profile import (
 from cairn.org.similar import find_similar, render_similar
 from cairn.org.view import org_card, org_matches
 from cairn.paths import cards_dir, org_packages_file, org_profile_file
-from cairn.remote.github import GitHub
+from cairn.remote.host import CodeHost
 from cairn.render.card import relate_line
 from cairn.render.links import Neighbor, hidden_count, neighbors, render_links, repo_at
 from cairn.resolve import resolve_repo
@@ -432,7 +432,7 @@ def org_file_text(ws_root: Path, repo: str, path: str, org: str = "") -> str:
     return f"{full}/{inside} ({len(lines)} lines)\n{body}{more}"
 
 
-def _with_client(source: OrgSource, call: Callable[[GitHub], T]) -> T:
+def _with_client(source: OrgSource, call: Callable[[CodeHost], T]) -> T:
     try:
         return call(client_for(source))
     except CairnError as exc:

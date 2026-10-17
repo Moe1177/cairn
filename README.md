@@ -212,7 +212,7 @@ and you can commit them so your team shares them.
 | `related` | Everything connected to a repo, with evidence |
 | `find_across` | Which repos expose or use a table, package, or path |
 | `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
-| `find_similar` | Where the org already implemented a feature (its repos on GitHub, nothing cloned); needs `orgs:` in the config |
+| `find_similar` | Where the org already implemented a feature (its repos on GitHub or GitLab, nothing cloned); needs `orgs:` in the config |
 | `read_org_file` | A file from an org repo, without cloning it |
 | `org_profile` | The org's stack: the datastores, frameworks, auth, test and deploy tools and libraries its active repos use, and its own shared packages |
 | `org_packages` | The org's own libraries its repos share, where each is defined and who uses it; with a name, one package's users and code that calls it |
@@ -324,10 +324,15 @@ Name the org in `.cairn/config.yaml`:
 ```yaml
 orgs:
   - org: acme              # github.com; for GitHub Enterprise add `host: git.acme.com`
+  - org: acme/platform     # a GitLab group (its subgroups too)
+    host: gitlab.com       # self-managed: your host, plus `kind: gitlab` unless it starts with gitlab.
 ```
 
-cairn uses your GitHub login (`gh auth login`, or `GH_TOKEN`), so it sees exactly the repos you
-can. Then an agent calls `find_similar` with the feature and a few words its code would contain,
+cairn uses your own login, so it sees exactly the repos you can: on GitHub `gh auth login` (or
+`GH_TOKEN`), on GitLab `glab auth login` (or `GITLAB_TOKEN`, a token with `read_api`). Every org
+feature works on both. On GitLab a repo's name is its full path (`acme/platform/api`), and
+`find_similar` needs the group's code search, which is GitLab's advanced search (a paid tier on
+gitlab.com, Elasticsearch or Zoekt when self-managed); without it, it says so. Then an agent calls `find_similar` with the feature and a few words its code would contain,
 and `read_org_file` to read what it finds:
 
 ```text
@@ -643,8 +648,10 @@ cairn **collects no telemetry**, and mapping your folder makes **no network call
 to a server only when you ask it to:
 - with `orgs:` in the config, `find_similar`, `read_org_file`, `org_profile`, `org_packages`,
   `cairn similar`, `cairn org-profile` and `cairn org-packages` call your code host's API, and
-  so do `resolve_repo` and `repo_card` once a day, to read the org's repo listing (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
-  host, else `gh auth token`). They send the search terms (the task's own words when no terms are
+  so do `resolve_repo` and `repo_card` once a day, to read the org's repo listing (with your own login: on GitHub `GH_TOKEN`, or
+  `GH_ENTERPRISE_TOKEN` for an Enterprise host, else `gh auth token`; on GitLab `GITLAB_TOKEN`
+  or `GITLAB_ACCESS_TOKEN`, else `glab config get token`). The token goes only to the host its
+  org is configured on. They send the search terms (the task's own words when no terms are
   given) and the org's name, and read back matching files; nothing from your local repos is sent.
   They only ever reach the orgs in your config: a call naming another org, or another owner's
   repo, is refused, and a search hit from outside the org is dropped;
@@ -680,8 +687,8 @@ how to report a vulnerability.
 | `cairn serve` | The MCP server (harnesses start it for you) |
 | `cairn links [REPO]` | Which repos a repo is linked to, one line each with its direction; the repo you're in by default (`--evidence`, `--all`, `--json`) |
 | `cairn context` | What a Claude Code session should know about its folder: the index, or an offer to build a map (the plugin's session hook runs it) |
-| `cairn similar TASK --terms A,B` | Where your org already implemented a feature, over GitHub's API |
-| `cairn org-profile [--refresh]` | Your org's stack, read from its recently pushed repos over GitHub's API (cached for a week) |
+| `cairn similar TASK --terms A,B` | Where your org already implemented a feature, over the host's API |
+| `cairn org-profile [--refresh]` | Your org's stack, read from its recently pushed repos over the host's API (cached for a week) |
 | `cairn org-packages [NAME] [--query WORDS] [--refresh]` | Your org's own packages: where each is defined and which repos use it (cached for a day) |
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
@@ -765,7 +772,9 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
     defined, which repos use it and which files call it, measured by `cairn bench-packages`.
 12. ✅ Org repos nobody cloned: `resolve_repo` and `repo_card` reach them from the org's
     catalog, and INDEX lists those the workspace depends on, measured by `cairn bench-repos`.
-13. Benchmark sessions that start with only their own repo in view, the way a session opened in
+13. ✅ GitLab (gitlab.com and self-managed, groups with subgroups) for every org feature.
+14. Orgs on any git host, from a list of repo URLs.
+15. Benchmark sessions that start with only their own repo in view, the way a session opened in
     one repo does.
 
 ## Contributing

@@ -437,3 +437,41 @@ def test_packages_tool_caches_and_shows_one_package(
     tools.packages_text(tmp_path, refresh=True)
     assert len(built) == 2 and built[1] is not None  # a refresh starts from the last index
     assert (tmp_path / ".cairn" / "cache" / "orgs" / "github.com" / "acme.packages.json").is_file()
+
+
+def test_a_gitlab_groups_packages_reach_into_subgroups() -> None:
+    from cairn.org.profile import under_org
+
+    idx = index(
+        record("platform/kit", description="Shared kit"),  # no manifest defines the module
+        record("platform/log", defines=[("npm:@acme/log", "package.json", "")]),
+        record(
+            "svc",
+            uses=[
+                ("go:gitlab.com/acme/platform/kit/retry", "go.mod"),
+                ("go:gitlab.com/acme/platform/kit", "go.mod"),
+                ("npm:@acme/log", "package.json"),
+                ("go:gitlab.com/other/kit", "go.mod"),  # another group's
+            ],
+        ),
+    ).model_copy(update={"org": "acme/platform", "host": "gitlab.com"})
+    found = {p.name: p for p in org_packages(idx)}
+    assert found["go:gitlab.com/acme/platform/kit/retry"].home == "acme/platform/kit"
+    assert found["go:gitlab.com/acme/platform/kit/retry"].description == ""  # a part of kit
+    assert found["npm:@acme/log"].home == "acme/platform/log"  # npm scopes name the top group
+    assert found["go:gitlab.com/acme/platform/kit"].description == "Shared kit"  # its root
+    assert "go:gitlab.com/other/kit" not in found
+    assert under_org("npm:@acme/x", "acme/platform", "gitlab.com")
+    assert under_org("go:gitlab.com/acme/platform/x", "acme/platform", "gitlab.com")
+    assert not under_org("go:gitlab.com/acme/x", "acme/platform", "gitlab.com")
+
+
+def test_usage_files_in_a_subgroup_org() -> None:
+    hits = (
+        CodeHit("acme/platform/svc", "main.go", ()),
+        CodeHit("acme/other/svc", "main.go", ()),  # the top group, outside the subgroup
+    )
+    client = FakeGitHub([], {}, {}, hits=hits)
+    package = OrgPackage("go:gitlab.com/acme/platform/kit", "acme/platform/kit", "go.mod", "", ())
+    files = usage_files(client, "acme/platform", package)  # type: ignore[arg-type]
+    assert [(f.repo, f.path) for f in files] == [("acme/platform/svc", "main.go")]
