@@ -214,6 +214,7 @@ and you can commit them so your team shares them.
 | `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
 | `find_similar` | Where the org already implemented a feature (its repos on GitHub, nothing cloned); needs `orgs:` in the config |
 | `read_org_file` | A file from an org repo, without cloning it |
+| `org_profile` | The org's stack: the datastores, frameworks, auth, test and deploy tools and libraries its active repos use, and its own shared packages |
 | `refresh` | Update the map now |
 
 ### What cairn detects
@@ -351,6 +352,30 @@ in 18 on the tasks cairn was tuned on and 10 in 12 on tasks written after it, ag
 
 Code search allows 10 requests a minute, so `find_similar` makes at most four (one per term);
 past the limit it waits, and its answer says how long.
+
+### The org's stack
+
+New code should be built with what the org builds with. `org_profile` (or `cairn org-profile`)
+says what that is, read from its 200 most recently pushed repos: their languages, datastores,
+queues, web frameworks, auth, test and deploy tools, their most used libraries per ecosystem, and
+the org's own packages that other repos depend on, each with the share of repos that use it:
+
+```text
+The stack of aws-samples (github.com): what its 200 most recently pushed repos use (share of those repos), read 2026-10-17.
+Languages: Python 40%, TypeScript 26%, JavaScript 8%, ...
+Datastores: S3 42%, DynamoDB 27%, OpenSearch/Elasticsearch 10%, PostgreSQL 8%, MySQL 7%, Redis 6%, ...
+Auth: Cognito 26%, JWT 14%
+Deploy and CI: Docker 54%, AWS CDK 50%, GitHub Actions 43%, Terraform 19%, ...
+Python libraries: boto3 42%, strands-agents 24%, pytest 18%, requests 18%, ...
+```
+
+It reads one listing page per 100 repos, each repo's file tree and up to three of its manifests
+(about 15 s, some 800 API requests), then answers from a cache for a week.
+
+It does not make `find_similar` find more. Terms written after reading the profile found prior
+art for 10 of 12 held-out tasks against 11 of 12 for terms written from the task alone
+([results](bench/published/2026-10-17-org-profile.md)), so cairn doesn't tell agents to search
+with it.
 
 ## Benchmarks
 
@@ -532,13 +557,14 @@ It also:
 
 cairn **collects no telemetry**, and mapping your folder makes **no network calls**. It talks
 to a server only when you ask it to:
-- with `orgs:` in the config, `find_similar`, `read_org_file` and `cairn similar` call your code
-  host's API (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
+- with `orgs:` in the config, `find_similar`, `read_org_file`, `org_profile`, `cairn similar` and
+  `cairn org-profile` call your code host's API (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
   host, else `gh auth token`). They send the search terms (the task's own words when no terms are
   given) and the org's name, and read back matching files; nothing from your local repos is sent.
   They only ever reach the orgs in your config: a call naming another org, or another owner's
   repo, is refused, and a search hit from outside the org is dropped;
-- `cairn bench-prior-art` calls the same API, and with `--make-terms` runs the `claude` CLI;
+- `cairn bench-prior-art` calls the same API, and with `--make-terms` runs the `claude` CLI
+  (with `--make-profile`, it also reads the org's profile);
 - `cairn deep enable` runs your package installer (uv, pipx or pip) to add graphify;
 - `cairn bench`, `cairn bench-locate` and `cairn bench-links` fetch their pinned benchmark repos
   with git, and `cairn bench` runs the `claude` CLI.
@@ -567,6 +593,7 @@ how to report a vulnerability.
 | `cairn links [REPO]` | Which repos a repo is linked to, one line each with its direction; the repo you're in by default (`--evidence`, `--all`, `--json`) |
 | `cairn context` | What a Claude Code session should know about its folder: the index, or an offer to build a map (the plugin's session hook runs it) |
 | `cairn similar TASK --terms A,B` | Where your org already implemented a feature, over GitHub's API |
+| `cairn org-profile [--refresh]` | Your org's stack, read from its recently pushed repos over GitHub's API (cached for a week) |
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
 | `cairn bench-links SUITE...` | Score cairn's links against each suite's real ones, offline |
@@ -640,9 +667,12 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
    `cairn bench-reach`. Without a map, Sonnet still answered all of them.
 9. ✅ Prior art across an org too big to clone: `find_similar` and `read_org_file` over GitHub's
    API, measured by `cairn bench-prior-art` on ~9,300 repos.
-10. The org's conventions (its logging, HTTP and auth libraries, the internal packages it
-    publishes), so the words an agent searches for are the org's own.
-11. Benchmark sessions that start with only their own repo in view, the way a session opened in
+10. ✅ The org's stack: `org_profile` lists what the org's active repos build with, in about
+    15 s and from a cache after. Writing search terms from it didn't find more prior art, and
+    the benchmark says so.
+11. The org's internal packages across repos nobody cloned: where each is defined, who depends
+    on it, and how it is used.
+12. Benchmark sessions that start with only their own repo in view, the way a session opened in
     one repo does.
 
 ## Contributing

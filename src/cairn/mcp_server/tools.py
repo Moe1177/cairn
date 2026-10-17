@@ -1,8 +1,10 @@
 """cairn MCP tool logic: workspace path + arguments in, short capped markdown out."""
 
+import contextlib
 import functools
 import threading
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypeVar
 
@@ -15,8 +17,16 @@ from cairn.load import load_authored, load_config
 from cairn.mcp_server.query import answer as query_answer
 from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.org.access import client_for, forget_client, org_repo, pick_org
+from cairn.org.profile import (
+    build_profile,
+    is_degraded,
+    is_stale,
+    load_profile,
+    render_profile,
+    save_profile,
+)
 from cairn.org.similar import find_similar, render_similar
-from cairn.paths import cards_dir
+from cairn.paths import cards_dir, org_profile_file
 from cairn.remote.github import GitHub
 from cairn.render.card import relate_line
 from cairn.render.links import Neighbor, hidden_count, neighbors, render_links, repo_at
@@ -308,6 +318,27 @@ def similar_text(ws_root: Path, task: str, terms: list[str], org: str = "") -> s
     return render_similar(
         _with_client(source, lambda client: find_similar(client, source.org, task, terms))
     )
+
+
+_PROFILE_LOCK = threading.Lock()  # two calls at once read the org once
+
+
+def profile_text(ws_root: Path, org: str = "", *, refresh: bool = False) -> str:
+    """The org's stack, from the cache while it is under a week old, else read over the API
+    (about 15 s). Reads only the config, so it never waits on the workspace lock."""
+    source = pick_org(load_config(ws_root).orgs, org)
+    path = org_profile_file(ws_root, source.host, source.org)
+    with _PROFILE_LOCK:
+        profile = None if refresh else load_profile(path)
+        if profile is None or is_stale(profile, datetime.now(UTC)):
+            profile = _with_client(
+                source, lambda client: build_profile(client, source.org, source.host)
+            )
+            # A read-only workspace still gets the answer, just not the cache.
+            with contextlib.suppress(OSError):
+                if not is_degraded(profile):
+                    save_profile(path, profile)
+    return render_profile(profile)
 
 
 def org_file_text(ws_root: Path, repo: str, path: str, org: str = "") -> str:

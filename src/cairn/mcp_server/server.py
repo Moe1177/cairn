@@ -87,6 +87,14 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
         return answer(lambda ws: tools.similar_text(ws, task, terms, org))
 
     @server.tool()
+    def org_profile(org: str = "") -> str:
+        """The org's stack: the languages, datastores, queues, frameworks, auth, test and deploy
+        tools its recently pushed repos use, their common libraries, and the org's own shared
+        packages: what new code for the org should be built with. Cached for a week; the first
+        call reads the org over GitHub's API (about 15 s)."""
+        return answer(lambda ws: tools.profile_text(ws, org))
+
+    @server.tool()
     def read_org_file(repo: str, path: str, org: str = "") -> str:
         """Read a file from an org repo's default branch (e.g. one find_similar returned), without
         cloning. repo: its name in the org (or owner/name); path: inside the repo."""

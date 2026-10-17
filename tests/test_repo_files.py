@@ -88,7 +88,14 @@ def test_readme_documents_every_command() -> None:
     assert "collects no telemetry" in readme
     # Every command that reaches a server is named where the README promises none do.
     safety = readme.split("## Safety", 1)[1].split("\n## ", 1)[0]
-    for command in ("find_similar", "cairn similar", "cairn bench-prior-art", "cairn deep enable"):
+    for command in (
+        "find_similar",
+        "org_profile",
+        "cairn similar",
+        "cairn org-profile",
+        "cairn bench-prior-art",
+        "cairn deep enable",
+    ):
         assert command in safety, command
 
 

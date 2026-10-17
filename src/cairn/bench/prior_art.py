@@ -28,6 +28,7 @@ from cairn.bench.locate_eval import Outcome, summarize
 from cairn.errors import CairnError
 from cairn.locate.terms import concept_terms, literal_terms
 from cairn.model.graph import Frozen
+from cairn.org.profile import build_profile, render_profile
 from cairn.org.similar import find_similar, render_similar
 from cairn.remote.github import GitHub
 
@@ -40,6 +41,12 @@ TERMS_PROMPT = (
     "an existing implementation of this in other repos. Each query is 1 to 3 words that would "
     "literally appear in such code: class or function names, SDK calls, library names, config "
     "keys. One query per line, nothing else."
+)
+PROFILE_FILE = "org_profile.md"  # the org's stack as org_profile showed it, kept with the key
+PROFILE_TERMS_FILE = "agent_terms_profile.yaml"
+PROFILE_TERMS_PROMPT = (
+    "The code you'll search belongs to an org whose repos use this stack:\n\n{profile}\n\n"
+    + TERMS_PROMPT
 )
 _LIST_MARK = re.compile(r"^(?:[-*•]|\d+[.)])\s*")
 _PREAMBLE = re.compile(r"(?i)^(?:here (?:are|is)|sure|queries)(?=[\s:!,.]|$)")
@@ -140,7 +147,11 @@ LOCATORS: dict[str, Locator] = {
     "search-raw": search_raw,
     "search-terms": search_terms,
     "cairn": cairn_similar,
+    # The same search, given the terms of an agent that read the org's profile first.
+    "cairn-profile": cairn_similar,
 }
+# Where each term-taking locator's terms are kept beside the key.
+TERMS_FILES = {"cairn": TERMS_FILE, "cairn-profile": PROFILE_TERMS_FILE}
 
 
 def _search(client: GitHub, pset: PriorArtSet, words: str, limit: int) -> Found:
@@ -180,9 +191,9 @@ def key_problems(client: GitHub, pset: PriorArtSet) -> list[str]:
     return problems
 
 
-def load_terms(suite_dir: Path) -> dict[str, tuple[str, ...]]:
+def load_terms(suite_dir: Path, name: str = TERMS_FILE) -> dict[str, tuple[str, ...]]:
     """The terms an agent passed per task (empty when the suite has none yet)."""
-    path = suite_dir / TERMS_FILE
+    path = suite_dir / name
     if not path.is_file():
         return {}
     try:
@@ -202,13 +213,15 @@ def parse_terms(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(found))[:TERM_COUNT]
 
 
-def ask_model_for_terms(task: str, model: str = TERMS_MODEL) -> tuple[str, ...]:
+def ask_model_for_terms(
+    task: str, model: str = TERMS_MODEL, *, prompt: str = TERMS_PROMPT
+) -> tuple[str, ...]:
     """What an agent would pass find_similar for `task`: a headless, isolated `claude -p`."""
     from cairn.bench.runner import ClaudeRunner  # the benchmark's isolated runner
 
     with tempfile.TemporaryDirectory(prefix="cairn-terms-") as tmp:
         result = ClaudeRunner(model=model, timeout=120).run(
-            TERMS_PROMPT.format(task=task), Path(tmp), Path(tmp), None
+            prompt.replace("{task}", task), Path(tmp), Path(tmp), None
         )
     if result.is_error:
         raise CairnError(f"claude couldn't suggest terms: {result.result_text.strip()[:200]}")
@@ -218,26 +231,71 @@ def ask_model_for_terms(task: str, model: str = TERMS_MODEL) -> tuple[str, ...]:
 def write_terms(
     suite_dir: Path,
     pset: PriorArtSet,
-    ask: Callable[[str], tuple[str, ...]] = ask_model_for_terms,
+    ask: Callable[[str], tuple[str, ...]] | None = None,
     *,
     model: str = TERMS_MODEL,
     today: str = "",
+    name: str = TERMS_FILE,
+    prompt: str = TERMS_PROMPT,
 ) -> dict[str, tuple[str, ...]]:
     """Ask for terms for every task that has none yet, and save them beside the key: a run is
     then repeatable and free, and the terms are a model's, never hand-tuned to the key."""
-    terms = load_terms(suite_dir)
+    asker = ask or (lambda task: ask_model_for_terms(task, model, prompt=prompt))
+    terms = load_terms(suite_dir, name)
     for query in pset.queries:
         if not terms.get(query.id):
-            terms[query.id] = ask(query.task)
+            terms[query.id] = asker(query.task)
     ordered = {q.id: terms[q.id] for q in pset.queries}
-    doc = AgentTerms(model=model, generated=today, prompt=TERMS_PROMPT, terms=ordered)
+    doc = AgentTerms(model=model, generated=today, prompt=prompt, terms=ordered)
+    source = "the task alone" if prompt == TERMS_PROMPT else f"the task and {PROFILE_FILE}"
     header = (
         "# What an agent passes find_similar for each task in prior_art.yaml: written by a model\n"
-        "# from the task alone (cairn bench-prior-art --make-terms), never edited by hand.\n"
+        f"# from {source} (cairn bench-prior-art --make-terms), never edited by hand.\n"
     )
     body = yaml.safe_dump(doc.model_dump(), sort_keys=False, width=100, allow_unicode=True)
-    (suite_dir / TERMS_FILE).write_text(header + body, encoding="utf-8", newline="\n")
+    (suite_dir / name).write_text(header + body, encoding="utf-8", newline="\n")
     return ordered
+
+
+def suite_terms(
+    suite_dir: Path,
+    pset: PriorArtSet,
+    locators: Sequence[str],
+    *,
+    make: bool = False,
+    today: str = "",
+) -> dict[str, dict[str, tuple[str, ...]]]:
+    """Each term-taking locator's terms per task: read from beside the key, or with `make`
+    asked for first where missing (cairn-profile's agent reads the suite's PROFILE_FILE)."""
+    found = {}
+    for name in locators:
+        if name not in TERMS_FILES:
+            continue
+        if not make:
+            found[name] = load_terms(suite_dir, TERMS_FILES[name])
+            continue
+        prompt = TERMS_PROMPT if name == "cairn" else _profile_prompt(suite_dir)
+        found[name] = write_terms(
+            suite_dir, pset, today=today, name=TERMS_FILES[name], prompt=prompt
+        )
+    return found
+
+
+def _profile_prompt(suite_dir: Path) -> str:
+    path = suite_dir / PROFILE_FILE
+    try:
+        profile = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise CairnError(f"no {path}: build it first with --make-profile") from exc
+    return PROFILE_TERMS_PROMPT.replace("{profile}", profile)
+
+
+def write_profile(suite_dir: Path, client: GitHub, pset: PriorArtSet) -> str:
+    """Read the org's profile over the API and keep the text an agent saw beside the key, so
+    the terms made from it can be checked and the run repeated."""
+    text = render_profile(build_profile(client, pset.org, pset.host))
+    (suite_dir / PROFILE_FILE).write_text(text + "\n", encoding="utf-8", newline="\n")
+    return text
 
 
 def evaluate(
@@ -248,8 +306,19 @@ def evaluate(
     terms: Mapping[str, tuple[str, ...]] | None = None,
     limit: int = 10,
     registry: dict[str, Locator] | None = None,
+    terms_by_locator: Mapping[str, Mapping[str, tuple[str, ...]]] | None = None,
 ) -> list[PriorArtOutcome]:
-    return list(iter_outcomes(client, pset, locators, terms=terms, limit=limit, registry=registry))
+    return list(
+        iter_outcomes(
+            client,
+            pset,
+            locators,
+            terms=terms,
+            limit=limit,
+            registry=registry,
+            terms_by_locator=terms_by_locator,
+        )
+    )
 
 
 def iter_outcomes(
@@ -260,12 +329,15 @@ def iter_outcomes(
     terms: Mapping[str, tuple[str, ...]] | None = None,
     limit: int = 10,
     registry: dict[str, Locator] | None = None,
+    terms_by_locator: Mapping[str, Mapping[str, tuple[str, ...]]] | None = None,
 ) -> Iterator[PriorArtOutcome]:
-    """Each task's outcome as soon as it is scored, so a run that fails late keeps the rest."""
+    """Each task's outcome as soon as it is scored, so a run that fails late keeps the rest.
+    A locator's own terms (terms_by_locator) win over the shared `terms`."""
     chosen = registry or LOCATORS
-    given = terms or {}
+    own = terms_by_locator or {}
     for query in pset.queries:
         for name in locators:
+            given = own.get(name, terms or {})
             started = time.perf_counter()
             found = chosen[name](client, pset, query, limit, given.get(query.id, ()))
             # Wall time minus rate-limit waits: the waits depend on what ran before, not on
