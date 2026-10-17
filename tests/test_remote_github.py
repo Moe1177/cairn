@@ -276,3 +276,35 @@ def test_transport_connections_are_per_thread(connections: list[FakeConnection])
     worker.start()
     worker.join()
     assert len(connections) == 2
+
+
+def test_read_file_returns_text_and_refuses_what_isnt_prior_art() -> None:
+    transport = FakeTransport(
+        Response(200, {}, b"\xef\xbb\xbfprint('hi')\n"),
+        Response(404, {}, b"{}"),
+        Response(200, {}, b"PNG\x00\x01"),
+        Response(200, {}, b"x" * 50),
+    )
+    client = GitHub("tok", transport=transport)
+    assert client.read_file("acme/api", "src/a.py") == "print('hi')\n"
+    assert client.read_file("acme/api", "gone.py") is None
+    assert client.read_file("acme/api", "logo.png") is None
+    assert client.read_file("acme/api", "big.csv", max_bytes=10) is None
+    assert transport.calls[0][2]["Accept"] == "application/vnd.github.raw+json"
+
+
+@pytest.mark.parametrize("path", ["../secrets", "a/../../b", "", "a//b", "./a"])
+def test_paths_must_stay_inside_the_repo(path: str) -> None:
+    with pytest.raises(CairnError, match="isn't a path inside a repo"):
+        GitHub("tok", transport=FakeTransport()).read_file("acme/api", path)
+
+
+def test_read_file_of_a_folder_or_moved_repo() -> None:
+    transport = FakeTransport(
+        Response(200, {"content-type": "application/json; charset=utf-8"}, b"[]"),
+        Response(301, {}, b"{}"),
+    )
+    client = GitHub("tok", transport=transport)
+    assert client.read_file("acme/api", "src") is None
+    with pytest.raises(CairnError, match="has moved"):
+        client.read_file("acme/old", "a.py")

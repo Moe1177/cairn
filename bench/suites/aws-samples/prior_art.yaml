@@ -4,160 +4,255 @@
 # technology; vocabulary tasks describe the need the way a developer would, in words the code
 # rarely uses. The org holds many more implementations than any key lists: see `rejected` and the
 # report's judged@5 before reading a low score as a miss.
+# Hits from the first locators' top fives were judged by reading each file (2026-10-17).
 host: github.com
 org: aws-samples
 split: dev
 queries:
+
   - id: stripe-webhook
     category: literal
     task: Verify Stripe webhook signatures before trusting the event payload.
     answers:
-      - webhooks/receive-webhooks/src/webhook/app/providers/stripe.py
-      - serverless-patterns/lambda-web-webhooks/nodejs/sam/src/lib/verify.js
-      - sample-hospitality-systems/src/payment/stripe_webhook.py
+    - webhooks/receive-webhooks/src/webhook/app/providers/stripe.py
+    - serverless-patterns/lambda-web-webhooks/nodejs/sam/src/lib/verify.js
+    - sample-hospitality-systems/src/payment/stripe_webhook.py
+    - serverless-patterns/eventbridge-webhooks/1-stripe/src/app.py
     rejected:
-      - sample-hospitality-systems/src/layers/common/utils/stripe_client.py
+    - sample-hospitality-systems/src/layers/common/utils/stripe_client.py
+    - sample-supabase-on-aws/app/supabase/apps/studio/components/interfaces/Functions/Functions.templates.ts
+    - sample-supabase-on-aws/app/function-deploy/apps/studio/components/interfaces/Functions/Functions.templates.ts
     note: construct_event / HMAC over the t=,v1= header.
 
   - id: cognito-authorizer
     category: literal
     task: Write an API Gateway Lambda authorizer that validates Cognito JWTs.
     answers:
-      - serverless-trivia-game/backend/Step4/functions/authorizer/app.ts
-      - serverless-eda-insurance-claims-processing/lib/authorizer/handlers/authorizer.js
-      - amazon-ivs-ugc-platform-web-demo/cdk/api/shared/authorizer.ts
-      - serverless-patterns/apigw-websocket-api-lambda-authorizer/src/LambdaAuthorizer/CognitoJwtVerifier.cs
+    - serverless-trivia-game/backend/Step4/functions/authorizer/app.ts
+    - serverless-eda-insurance-claims-processing/lib/authorizer/handlers/authorizer.js
+    - amazon-ivs-ugc-platform-web-demo/cdk/api/shared/authorizer.ts
+    - serverless-patterns/apigw-websocket-api-lambda-authorizer/src/LambdaAuthorizer/CognitoJwtVerifier.cs
+    - serverless-patterns/strands-agentcore-mcp/src/shared/jwt_utils.py
+    - serverless-patterns/apigw-websocket-api-lambda-authorizer/src/LambdaAuthorizer/Function.cs
+    - serverless-patterns/cloudfront-lambda-edge-s3-cdk/cdk/authorizer/app.js
+    - generative-ai-use-cases/packages/cdk/lambda/utils/auth.ts
     note: aws-jwt-verify's CognitoJwtVerifier, then an allow/deny policy.
+    rejected:
+    - serverless-patterns/apigw-apikey-tenantid-cdk/src/lib/lambda/dynamodb-authorizer.js
+    - aws-saas-factory-serverless-workshop/resources/lambda-authorizer/src/main/java/com/amazon/aws/partners/saasfactory/TokenAuthorizerRequest.java
 
   - id: presigned-upload
     category: literal
     task: Let the browser upload a file straight to S3 using a presigned URL.
     answers:
-      - serverless-eda-insurance-claims-processing/lib/services/customer/app/handlers/preSignedURLGenerator.js
-      - serverless-tasks-webapp/sam/src/handlers/getSignedUrl/app.mjs
-      - aws-cdk-examples/python/image-content-search/src/getSignedUrl/main.py
-      - serverless-test-samples/workshops/serverless-testing-workshop/src/GetSignedUrlForInventoryFilePost/app.py
-    note: getSignedUrl(PutObjectCommand) or generate_presigned_post. Vendored botocore/signers.py copies are not prior art.
+    - serverless-eda-insurance-claims-processing/lib/services/customer/app/handlers/preSignedURLGenerator.js
+    - serverless-tasks-webapp/sam/src/handlers/getSignedUrl/app.mjs
+    - aws-cdk-examples/python/image-content-search/src/getSignedUrl/main.py
+    - serverless-test-samples/workshops/serverless-testing-workshop/src/GetSignedUrlForInventoryFilePost/app.py
+    - sample-OpenClaw-on-AWS-with-Bedrock/skills/s3-files-skill/skills/s3-files/generate-upload-page.js
+    - migrate-blob-data-from-rdbms-to-amazon-s3/lambda_fns/order.js
+    - amazon-ivs-ugc-platform-web-demo/cdk/api/channel/helpers.ts
+    - sample-slm-finetuning-and-evaluation-platform/backend/app/uploads.py
+    note: 'getSignedUrl(PutObjectCommand) or generate_presigned_post. Vendored botocore/signers.py copies
+      are not prior art. A 6,500-line handler that also presigns is rejected: too broad to learn from.'
+    rejected:
+    - sample-collaborative-ai-dlc/lambda/intents/index.js
+    - sample-aicc-builder-for-amazon-connect-ai-agent/backend/ecs/app.py
 
   - id: optimistic-locking
     category: literal
     task: Add optimistic locking to DynamoDB updates with a version attribute.
     answers:
-      - sample-on-demand-workflow-orchestrator/lib/python/orchestrator.py
-    note: update_item conditioned on "#version = :curr_version", bumping the version.
+    - sample-on-demand-workflow-orchestrator/lib/python/orchestrator.py
+    - amazon-dynamodb-implementing-priority-queuing/src/main/java/com/awsblog/queueing/model/SystemInfo.java
+    - sample-dynamodb-data-access-layer-prompt-generator/output_code_generated/PROJECT_CUSTOMER_POLICY_BOTO3/data/dal/customer_orders_dal.py
+    - sample-dynamodb-data-access-layer-prompt-generator/output_code_generated/PROJECT_CUSTOMER_POLICY_BOTO3_LSI/data/dal/customer_orders_dal.py
+    - sample-dynamodb-data-access-layer-prompt-generator/output_code_generated/PROJECT_DAL_GEN_2_BOTO3/data/dal/ddb_table_one_dal.py
+    - sample-fraud-detection-and-prevention-fdp-agentic-platform/app/api/_lib/dynamodb.py
+    note: update_item conditioned on "#version = :curr_version", bumping the version. DynamoDBVersionAttribute
+      (DynamoDBMapper) counts; existence-only conditions don't.
+    rejected:
+    - amazon-textract-serverless-large-scale-document-processing/src/datastore.py
+    - serverless-patterns/lambda-df-slack/src/dedup.py
+    - amazon-textract-serverless-large-scale-document-processing/textract-pipeline/lambda/helper/python/datastore.py
 
   - id: bedrock-streaming
     category: literal
     task: Stream an Amazon Bedrock model's response to the client as it is generated.
     answers:
-      - serverless-patterns/apigw-rest-api-lambda-python-response-streaming/src/app.py
-      - serverless-patterns/apigw-websocket-api-bedrock-streaming/src/invoke.py
+    - serverless-patterns/apigw-rest-api-lambda-python-response-streaming/src/app.py
+    - serverless-patterns/apigw-websocket-api-bedrock-streaming/src/invoke.py
+    - sample-strands-werewolf-demo/utils/BedrockRuntimeWrapper.py
     note: invoke_model_with_response_stream, relayed as chunks (HTTP streaming or WebSocket).
+    rejected:
+    - amazon-bedrock-connect-helper/src/bedrock_connect_helper/bedrock_connect_helper.py
+    - bedrock-claude-chatbot/bedrock-chat.py
 
   - id: appconfig-flags
     category: literal
     task: Read AppConfig feature flags from a Lambda function.
     answers:
-      - aws-cdk-examples/typescript/appconfig-hosted-lambda/lambda/index.py
+    - aws-cdk-examples/typescript/appconfig-hosted-lambda/lambda/index.py
+    - sample-python-helper-aws-appconfig/appconfig_helper/appconfig_helper.py
+    - aws-smart-product-onboarding/packages/smart-product-onboarding/core-utils/amzn_smart_product_onboarding_core_utils/appconfig_client.py
     note: the AppConfig Lambda extension on localhost:2772.
 
   - id: pii-redaction
     category: literal
     task: Redact PII from documents with Amazon Comprehend before others can read them.
     answers:
-      - sample-amazon-quick-suite-knowledge-hub/infrastructure/quick-legal-hold-agent/lambda/redact/handler.py
-      - amazon-comprehend-s3-object-lambda-functions/src/handler.py
+    - sample-amazon-quick-suite-knowledge-hub/infrastructure/quick-legal-hold-agent/lambda/redact/handler.py
+    - amazon-comprehend-s3-object-lambda-functions/src/handler.py
+    - amazon-comprehend-s3-object-lambda-functions/src/clients/comprehend_client.py
+    - aws-ai-phi-deidentification/idp-cdk-app/src/lambda/idp-phi-redact-doc.py
     note: DetectPiiEntities, masking each span.
 
   - id: idempotent-payment
     category: vocabulary
     task: Make sure a payment request that arrives twice only charges the customer once.
     answers:
-      - sample-agentic-resolution-pipeline/intake/jira/idempotency.py
-      - sample-learning-radiologist-personal-style-preferences/backend/lambda/db/idempotency.py
-      - sample-voice-of-customer-datalake/voc-datalake/lambda/shared/idempotency.py
-      - step-functions-workflows-collection/idempotent-workflow/lib/idempotent-workflow.ts
+    - sample-agentic-resolution-pipeline/intake/jira/idempotency.py
+    - sample-learning-radiologist-personal-style-preferences/backend/lambda/db/idempotency.py
+    - sample-voice-of-customer-datalake/voc-datalake/lambda/shared/idempotency.py
+    - step-functions-workflows-collection/idempotent-workflow/lib/idempotent-workflow.ts
+    - step-functions-workflows-collection/idempotent-workflow/lambda/idempotency-config/index.py
+    - serverless-patterns/lambda-df-slack/src/dedup.py
+    - step-functions-workflows-collection/idempotent-workflow-sam/lambda/idempotency-config/index.py
     note: an idempotency key claimed with a conditional write (attribute_not_exists).
+    rejected:
+    - sample-autonomous-cloud-coding-agents/cdk/src/handlers/create-task.ts
 
   - id: rate-limit-clients
     category: vocabulary
     task: Stop any single client from flooding our API with too many requests.
     answers:
-      - sample-player-gateway-for-live-games-with-cloudfront/lib/constructs/rate-limiter.ts
-      - sample-bedrock-proxy-gateway/backend/app/core/rate_limit/limiter.py
+    - sample-player-gateway-for-live-games-with-cloudfront/lib/constructs/rate-limiter.ts
+    - sample-bedrock-proxy-gateway/backend/app/core/rate_limit/limiter.py
+    - sample-bedrock-api-proxy/app/middleware/rate_limit.py
+    - sample-blitz-asr-oss/blitz/security/rate_limiter.py
+    - sample-aws-genai-ops-demos/observability/eks-investigation-devops-agent/services/merchant-gateway/src/middleware/rate-limit.ts
+    - sample-multi-tenant-saas-mcp-server/mcp_server/src/index.ts
     rejected:
-      - sample-partner-agents/Integration_with_different_tools/Slack/src/middleware/rateLimiter.js
+    - sample-partner-agents/Integration_with_different_tools/Slack/src/middleware/rateLimiter.js
+    - sample-kolya-br-proxy/backend/app/middleware/security.py
+    - agents4energy/src/utils/rateLimiter.ts
     note: per-client token bucket / fixed window. The Slack one paces our own outgoing calls.
 
   - id: circuit-breaker
     category: vocabulary
     task: When a downstream service keeps failing, stop calling it for a while and fail fast.
     answers:
-      - sample-press-release-generator-with-genai-agents/backend/src/services/factChecking/CircuitBreaker.js
-      - aws-kr-startup-samples/gen-ai/claude-code-proxy/backend/src/proxy/circuit_breaker.py
-      - sample-bedrock-model-routing/src/utils/circuit-breaker.ts
+    - sample-press-release-generator-with-genai-agents/backend/src/services/factChecking/CircuitBreaker.js
+    - aws-kr-startup-samples/gen-ai/claude-code-proxy/backend/src/proxy/circuit_breaker.py
+    - sample-bedrock-model-routing/src/utils/circuit-breaker.ts
+    - sample-agentic-value-accelerator/platform/control_plane/gateway_client/circuit_breaker.py
+    - sample-citadel/arbiter/supervisor/circuit_breaker.py
+    - amazon-elasticache-samples/agentic-memory-with-valkey/src/agentic_shopping_demo/memory/errors.py
+    - sample-agentic-ai-acceleration-kr/projects/agentops-kit/api/session.py
+    - sample-voice-of-customer-datalake/voc-datalake/plugins/_shared/circuit_breaker.py
     note: closed / open / half-open states with a failure threshold.
 
   - id: backoff-retry
     category: vocabulary
     task: Retry a flaky call, waiting a little longer after each failure.
     answers:
-      - aurora-dsql-samples/sample-amazon-aurora-dsql-auth-session-mgmt/src/utils/retryWithBackoff.ts
-      - sample-glacier-restore-datasync-transfer-orchestrator/src/orchestrator/utils/retry.ts
-      - sample-enterprise-integration-patterns-cdk/lib/patterns/retry-with-backoff.ts
-    note: exponential backoff with jitter. Vendored urllib3/util/retry.py copies are not prior art.
+    - aurora-dsql-samples/sample-amazon-aurora-dsql-auth-session-mgmt/src/utils/retryWithBackoff.ts
+    - sample-glacier-restore-datasync-transfer-orchestrator/src/orchestrator/utils/retry.ts
+    - sample-enterprise-integration-patterns-cdk/lib/patterns/retry-with-backoff.ts
+    - serverless-patterns/strands-agentcore-lambda/src/shared/error_utils.py
+    - serverless-patterns/strands-agentcore-apigw/src/shared/error_utils.py
+    - amazon-sqs-dlq-replay-backoff/src/backoff.py
+    - sample-pacer/crates/pacer-backend/src/retry.rs
+    - sample-aws-pricing-calculator-mcp/lib/aws/fetch-resilience.js
+    - sample-enterprise-document-migration/src/main/java/com/example/documentbulkloader/utils/ExponentialBackoff.java
+    note: 'exponential backoff with jitter. Vendored urllib3/util/retry.py copies are not prior art. A backoff
+      simulator, and a urllib3 Retry config, are rejected: neither retries a call itself.'
+    rejected:
+    - aws-arch-backoff-simulator/src/backoff_simulator.py
+    - serverless-patterns/bedrock-agents-lambda-cdk/lambda/bedrock_agents_lambda.py
 
   - id: upload-thumbnails
     category: vocabulary
     task: Make small preview versions of pictures as soon as users upload them.
     answers:
-      - serverless-patterns/s3-lambda-resizing-python/src/app.py
-      - step-functions-workflows-collection/generate-thumbnail/lambda/generateThumbnail/lambda_function.py
+    - serverless-patterns/s3-lambda-resizing-python/src/app.py
+    - step-functions-workflows-collection/generate-thumbnail/lambda/generateThumbnail/lambda_function.py
+    - dotnet-serverless-imagerecognition/Application/StepFunctions/thumbnail/Function.cs
+    - serverless-patterns/xray-lambdalayers-cdk-python/lambda_code/lambda-handler.py
     note: an S3 event triggers a Lambda that resizes with PIL.
+    rejected:
+    - aws-cdk-mediaservices-refarch/LIVE_THUMBNAIL_MONITORING/src/@infrastructure/stacks/thumbnail-api.ts
+    - aws-cdk-mediaservices-refarch/LIVE_THUMBNAIL_MONITORING/src/@infrastructure/index.ts
 
   - id: sms-login-code
     category: vocabulary
     task: Text users a one-time code they type in to sign in.
     answers:
-      - amazon-cognito-passwordless-auth/cdk/custom-auth/sms-otp-stepup.ts
-      - serverless-patterns/apigw-lambda-sns-sms/src/lambda_function.py
+    - amazon-cognito-passwordless-auth/cdk/custom-auth/sms-otp-stepup.ts
+    - serverless-patterns/apigw-lambda-sns-sms/src/lambda_function.py
+    - sample-apj-sup-sa/agentic-workloads/restaurant-order-agent/services/backend/app/auth.py
     note: an OTP sent by SNS SMS (Cognito custom auth for the first).
+    rejected:
+    - sample-aws-enterprise-community-portal/services/identity-access/src/auth_service.py
+    - sample-apj-sup-sa/agentic-workloads/restaurant-order-agent/services/backend/app/main.py
+    - sample-apj-sup-sa/agentic-workloads/restaurant-order-agent/services/backend/app/chat.py
 
   - id: gradual-feature
     category: vocabulary
     task: Turn a new feature on or off without redeploying the service.
     answers:
-      - aws-cdk-examples/typescript/appconfig-hosted-lambda/lambda/index.py
-      - serverless-patterns/appconfig-feature-flag-cdk/lib/app-config-feature-flag-cdk-stack.ts
+    - aws-cdk-examples/typescript/appconfig-hosted-lambda/lambda/index.py
+    - serverless-patterns/appconfig-feature-flag-cdk/lib/app-config-feature-flag-cdk-stack.ts
+    - sample-patterns-for-aws-marketplace/agentic-ai/module10/flags.py
+    - aws-cdk-examples/typescript/appconfig-hosted-lambda/index.ts
+    - sample-python-helper-aws-appconfig/appconfig_helper/appconfig_helper.py
+    - sample-e2b-on-aws/packages/shared/pkg/featureflags/flags.go
+    - sample-e2b-on-aws/packages/api/internal/middleware/launchdarkly.go
     note: AppConfig feature flags.
 
   - id: push-to-browsers
     category: vocabulary
     task: Push an update to every browser that has a page open, the moment it happens.
     answers:
-      - sample-automated-systems-design-fleet-tracker/src/lambdas/websocket-broadcast/index.ts
-      - sample-collaborative-ai-dlc/lambda/shared/ws-fanout.js
+    - sample-automated-systems-design-fleet-tracker/src/lambdas/websocket-broadcast/index.ts
+    - sample-collaborative-ai-dlc/lambda/shared/ws-fanout.js
+    - well-architected-iac-analyzer/ecs_fargate_app/backend/src/modules/analyzer/analyzer.gateway.ts
+    - elasticache-refarch-chatapp/server.js
     note: API Gateway WebSocket connections stored in DynamoDB, PostToConnection to each.
+    rejected:
+    - amazon-nova-samples/speech-to-speech/amazon-nova-2-sonic/sample-codes/websocket-dotnet/WebSocket/WebSocketServer.cs
+    - aws-cdk-examples/typescript/apigw-streaming-lambda-bedrock/src/index.js
+    - serverless-patterns/apigw-streaming-lambda-bedrock-cdk/src/index.js
 
   - id: hot-partition
     category: vocabulary
     task: Spread writes for one busy key across the table so a single partition doesn't take all the traffic.
     answers:
-      - aws-dynamodb-examples/schema_design/BuildingBlocks/WriteSharding/python/WriteShardingExample.py
+    - aws-dynamodb-examples/schema_design/BuildingBlocks/WriteSharding/python/WriteShardingExample.py
     note: write sharding with a random suffix.
 
   - id: temporary-download
     category: vocabulary
     task: Give someone a link to download a private file that stops working after an hour.
     answers:
-      - sample-aws-idp-pipeline/packages/backend/app/s3.py
-      - bedrock-chat/backend/app/utils.py
+    - sample-aws-idp-pipeline/packages/backend/app/s3.py
+    - bedrock-chat/backend/app/utils.py
+    - serverless-rag-demo/containers/multi-agent/utils.py
     note: generate_presigned_url("get_object", ExpiresIn=...).
+    rejected:
+    - generative-ai-use-cases/packages/web/src/hooks/useFileApi.ts
 
   - id: rotate-credentials
     category: vocabulary
     task: Replace a stored API credential with a new one automatically on a schedule.
     answers:
-      - sample-intelligent-insights-extraction/src/lambdas/secretmanager_rotate/handler.py
-      - secure-messenger-genai-chatbot/cdk_packages/assets/lambda_functions/secret_rotation_iam/secret_rotation_iam.py
+    - sample-intelligent-insights-extraction/src/lambdas/secretmanager_rotate/handler.py
+    - secure-messenger-genai-chatbot/cdk_packages/assets/lambda_functions/secret_rotation_iam/secret_rotation_iam.py
+    - Automated-Database-User-Management-Aurora-MySQL/secret_rotation_manager.py
+    - aws-cdk-examples/typescript/secrets-manager-rotation/index.ts
+    - serverless-patterns/eventbridge-schedule-secret-rotation-cdk/cdk/eventbridge_schedule_secret_rotation_stack.py
+    - secure-messenger-genai-chatbot/cdk_packages/cognito_user_rotation.py
     note: a Secrets Manager rotation Lambda (createSecret / setSecret / testSecret / finishSecret).
+    rejected:
+    - sample-MSP-Ops-Automation/secrets_credential_manager.py
+    - sample-citadel/backend/src/utils/credential-manager.ts

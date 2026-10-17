@@ -1,0 +1,56 @@
+# What an agent passes find_similar for each task in prior_art.yaml: written by a model
+# from the task alone (cairn bench-prior-art --make-terms), never edited by hand.
+model: haiku
+generated: '2026-10-17'
+prompt: 'A developer wants to build: "{task}" Write 3 GitHub code-search queries that would find an existing
+  implementation of this in other repos. Each query is 1 to 3 words that would literally appear in such
+  code: class or function names, SDK calls, library names, config keys. One query per line, nothing else.'
+terms:
+  ses-email:
+  - SendEmailCommand
+  - ses.send_email
+  - SESClient
+  emf-metrics:
+  - aws_embedded_metrics
+  - CloudWatchMetrics
+  - aws-embedded-metrics
+  vector-index:
+  - knn_vector
+  - index.knn
+  - OpenSearchVectorSearch
+  transcribe-upload:
+  - start_transcription_job
+  - StartTranscriptionJobCommand
+  - TranscribeClient
+  google-sign-in:
+  - SupportedIdentityProviders
+  - identity_provider=Google
+  - accounts.google.com
+  shared-counter:
+  - AtomicInteger
+  - incrementAndGet
+  - atomic.AddInt64
+  wait-for-callback:
+  - sendTaskSuccess
+  - waitForCallback
+  - task_token
+  one-at-a-time:
+  - pg_try_advisory_lock
+  - RedLock
+  - DistributedLock
+  remember-results:
+  - TTLCache
+  - stdTTL
+  - lru_cache
+  records-expire:
+  - expireAfterSeconds
+  - RetentionPolicy
+  - pg_cron
+  email-link-sign-in:
+  - signInWithEmailLink
+  - sendMagicLink
+  - magic_link
+  read-aloud:
+  - gTTS
+  - texttospeech
+  - SpeechSynthesizer

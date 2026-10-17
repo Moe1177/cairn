@@ -43,6 +43,8 @@ def test_key_depends_on_config_and_requires_git(tmp_path: Path) -> None:
     # Review Focus 2
     a = cache_key("abc1234", "fp", CairnConfig())
     assert a and a != cache_key("abc1234", "fp", CairnConfig(card_budget=600))
+    # Orgs are read over the API, never scanned: configuring one keeps every repo's cache.
+    assert a == cache_key("abc1234", "fp", CairnConfig.model_validate({"orgs": [{"org": "acme"}]}))
     assert cache_key(None, "fp", CairnConfig()) is None
     assert cache_key("abc", None, CairnConfig()) is None
     assert worktree_fingerprint(tmp_path) is None  # not a git repo

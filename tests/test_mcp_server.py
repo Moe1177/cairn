@@ -22,7 +22,7 @@ def test_find_workspace_walks_up(materialize, tmp_path: Path, monkeypatch) -> No
 
 
 @pytest.mark.anyio
-async def test_server_exposes_seven_tools(materialize) -> None:
+async def test_server_exposes_nine_tools(materialize) -> None:
     ws = materialize("mini-eats").resolve()
     tools.rescan(ws)
     server = build_server(ws)
@@ -31,8 +31,10 @@ async def test_server_exposes_seven_tools(materialize) -> None:
         names = sorted(t.name for t in (await client.list_tools()).tools)
         assert names == [
             "find_across",
+            "find_similar",
             "links",
             "query",
+            "read_org_file",
             "refresh",
             "related",
             "repo_card",

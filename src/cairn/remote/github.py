@@ -90,13 +90,31 @@ class GitHub:
 
     def file_exists(self, repo: str, path: str) -> bool:
         """Whether `path` is a file on `repo`'s default branch (what code search indexes)."""
-        response, _, _ = self._get(f"/repos/{_repo(repo)}/contents/{quote(path, safe='/')}")
+        response, _, _ = self._get(
+            f"/repos/{_repo(repo)}/contents/{quote(_inside(path), safe='/')}"
+        )
         if response.status == 404:
             return False
         if 300 <= response.status < 400:
             raise CairnError(f"{repo} has moved (renamed or transferred): update the key")
         data = _json(_checked(response))
         return isinstance(data, dict) and data.get("type") == "file"
+
+    def read_file(self, repo: str, path: str, *, max_bytes: int = 200_000) -> str | None:
+        """A file's text on `repo`'s default branch: None when it isn't there, is binary, or
+        is longer than `max_bytes` (an agent reads prior art, not datasets)."""
+        url = f"/repos/{_repo(repo)}/contents/{quote(_inside(path), safe='/')}"
+        response, _, _ = self._get(url, accept="application/vnd.github.raw+json")
+        if response.status == 404:
+            return None
+        if 300 <= response.status < 400:
+            raise CairnError(f"{repo} has moved (renamed or transferred)")
+        body = _checked(response).body
+        if response.headers.get("content-type", "").startswith("application/json"):
+            return None  # a folder: GitHub lists its entries instead of sending a file
+        if len(body) > max_bytes or b"\x00" in body[:8192]:
+            return None
+        return body.decode("utf-8", errors="replace").removeprefix("﻿")
 
     def _get(
         self, path: str, *, accept: str = "application/vnd.github+json"
@@ -173,6 +191,14 @@ def _repo(repo: str) -> str:
     if not _REPO.fullmatch(repo):
         raise CairnError(f"{repo!r} isn't a GitHub repo (owner/name)")
     return repo
+
+
+def _inside(path: str) -> str:
+    """A path inside a repo: no `..` or empty segments, no leading slash."""
+    parts = path.split("/")
+    if not path or any(part in ("", ".", "..") for part in parts):
+        raise CairnError(f"{path!r} isn't a path inside a repo")
+    return path
 
 
 def _checked(response: Response) -> Response:

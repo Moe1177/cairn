@@ -6,23 +6,31 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
 
+from cairn.config import OrgSource
 from cairn.discover.git import head_sha
 from cairn.emit import write_outputs
 from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
-from cairn.load import load_authored
+from cairn.load import load_authored, load_config
 from cairn.mcp_server.query import answer as query_answer
 from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
+from cairn.org.access import client_for, forget_client, org_repo, pick_org
+from cairn.org.similar import find_similar, render_similar
 from cairn.paths import cards_dir
+from cairn.remote.github import GitHub
 from cairn.render.card import relate_line
 from cairn.render.links import Neighbor, hidden_count, neighbors, render_links, repo_at
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
+from cairn.security.redact import redact
 from cairn.security.text import clean_inline
 from cairn.store.lock import workspace_lock
 from cairn.store.workspace_store import load_workspace
 
 MAX_LINES = 30
+MAX_FILE_LINES = 400  # an org file is read to learn its approach; past this, it is a dataset
+MAX_FILE_CHARS = 40_000
+MAX_LINE_CHARS = 400
 
 
 def rescan(ws_root: Path) -> ScanResult:
@@ -289,3 +297,44 @@ def query_text(ws_root: Path, repo: str, question: str) -> str:
     workspace, found = resolved
     header, lines, notes = query_answer(ws_root, workspace, found, question)
     return "\n".join([header, *_cap(lines), *notes]) + note
+
+
+def similar_text(ws_root: Path, task: str, terms: list[str], org: str = "") -> str:
+    """The org's existing implementations of `task`, over the host's API (nothing is cloned).
+    Reads only the config, so it never waits on the workspace lock."""
+    source = pick_org(load_config(ws_root).orgs, org)
+    if not task.strip() and not any(t.strip() for t in terms):
+        return "Say what you're building (task) and a few terms its code would contain (terms)."
+    return render_similar(
+        _with_client(source, lambda client: find_similar(client, source.org, task, terms))
+    )
+
+
+def org_file_text(ws_root: Path, repo: str, path: str, org: str = "") -> str:
+    """A file from an org repo's default branch, numbered like a code view, with secrets masked
+    as in every snippet cairn shows."""
+    source = pick_org(load_config(ws_root).orgs, org)
+    full = org_repo(source, repo)
+    inside = path.strip().lstrip("/")
+    text = _with_client(source, lambda client: client.read_file(full, inside))
+    if text is None:
+        return f"No readable text file {inside} in {full} (missing, binary, or over 200 KB)."
+    lines = text.splitlines()
+    shown, size = [], 0
+    for line in lines[:MAX_FILE_LINES]:
+        size += len(line) + 1
+        if size > MAX_FILE_CHARS:  # a minified file is one huge line
+            break
+        shown.append(redact(line[:MAX_LINE_CHARS]))
+    body = "\n".join(f"{n:>5}  {line}" for n, line in enumerate(shown, start=1))
+    more = f"\n… {len(lines) - len(shown)} more lines" if len(lines) > len(shown) else ""
+    return f"{full}/{inside} ({len(lines)} lines)\n{body}{more}"
+
+
+def _with_client(source: OrgSource, call: Callable[[GitHub], T]) -> T:
+    try:
+        return call(client_for(source))
+    except CairnError as exc:
+        if "rejected the token" in str(exc):
+            forget_client(source)  # read the token again next time: a new login then works
+        raise

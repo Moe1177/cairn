@@ -15,8 +15,11 @@ from cairn.bench.prior_art import (
     judged_at_5,
     key_problems,
     load_prior_art_set,
+    load_terms,
+    parse_terms,
     report,
     search_terms,
+    write_terms,
 )
 from cairn.cli import app
 from cairn.errors import CairnError
@@ -96,7 +99,7 @@ def test_nothing_found_is_fully_judged(tmp_path: Path) -> None:
 def test_search_terms_keeps_a_few_task_words(tmp_path: Path) -> None:
     pset = key(tmp_path)
     client = FakeGitHub({})
-    found = search_terms(client, pset, pset.queries[1], 10)  # type: ignore[arg-type]
+    found = search_terms(client, pset, pset.queries[1], 10, ())  # type: ignore[arg-type]
     assert isinstance(found, Found) and found.searches == 1
     words = client.queries[0].removesuffix(" org:acme").split()
     assert 1 <= len(words) <= 3 and "stripe" in [w.lower() for w in words]
@@ -176,7 +179,9 @@ def test_query_paths_are_checked() -> None:
 def test_ms_leaves_out_rate_limit_waits(tmp_path: Path) -> None:
     pset = key(tmp_path)
 
-    def slow(client: object, pset: PriorArtSet, query: PriorArtQuery, limit: int) -> Found:
+    def slow(
+        client: object, pset: PriorArtSet, query: PriorArtQuery, limit: int, terms: tuple
+    ) -> Found:
         time.sleep(0.06)  # 60 ms, of which a 50 ms rate-limit wait
         return Found(("gateway/src/limiter.py",), "", searches=1, waited=0.05)
 
@@ -226,3 +231,54 @@ def test_cli_reports_what_it_scored_before_failing(
     assert "503: busy" in result.output and "the 1 outcomes scored before it" in result.output
     data = json.loads(next(out.glob("prior-art-*.json")).read_text(encoding="utf-8"))
     assert [o["query_id"] for o in data] == ["limiter"]
+
+
+@pytest.mark.parametrize(
+    ("text", "terms"),
+    [
+        (
+            "express-rate-limit\nX-RateLimit-Remaining\nTokenBucket",
+            ("express-rate-limit", "X-RateLimit-Remaining", "TokenBucket"),
+        ),
+        (
+            "Here are three queries:\n\n1. `constructEvent`\n- 'Stripe-Signature'\n* webhook",
+            ("constructEvent", "Stripe-Signature", "webhook"),
+        ),
+        ("Sure! Queries:\nA\nA\nB\nC\nD", ("A", "B", "C")),
+        ("sure-thing\nSurely", ("sure-thing", "Surely")),
+    ],
+)
+def test_parse_terms_drops_preambles_and_list_marks(text: str, terms: tuple[str, ...]) -> None:
+    assert parse_terms(text) == terms
+
+
+def test_write_terms_asks_only_for_missing_tasks(tmp_path: Path) -> None:
+    pset = key(tmp_path)
+    asked: list[str] = []
+
+    def ask(task: str) -> tuple[str, ...]:
+        asked.append(task)
+        return ("RateLimiter",) if "flooding" in task else ("constructEvent",)
+
+    first = write_terms(tmp_path, pset, ask, today="2026-10-17")
+    assert first == {"limiter": ("RateLimiter",), "stripe": ("constructEvent",)}
+    assert load_terms(tmp_path) == first
+    text = (tmp_path / "agent_terms.yaml").read_text(encoding="utf-8")
+    assert "never edited by hand" in text and "generated: '2026-10-17'" in text
+    assert write_terms(tmp_path, pset, ask) == first and len(asked) == 2  # nothing asked again
+
+
+def test_invalid_terms_file_is_refused(tmp_path: Path) -> None:
+    (tmp_path / "agent_terms.yaml").write_text("terms: 3\n", encoding="utf-8")
+    with pytest.raises(CairnError, match="invalid agent terms"):
+        load_terms(tmp_path)
+
+
+def test_cairn_locator_uses_the_agent_terms(tmp_path: Path) -> None:
+    pset = key(tmp_path)
+    client = FakeGitHub({"RateLimiter": [("acme/gateway", "src/limiter.py")]})
+    terms = {"limiter": ("RateLimiter",)}
+    outcomes = evaluate(client, pset, ["cairn"], terms=terms)  # type: ignore[arg-type]
+    limiter = next(o for o in outcomes if o.query_id == "limiter")
+    assert limiter.rank == 1 and limiter.searches == 1
+    assert "RateLimiter org:acme" in client.queries

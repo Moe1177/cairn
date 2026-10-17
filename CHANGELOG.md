@@ -8,6 +8,15 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Prior art across your org, without cloning it.** Name an org in `.cairn/config.yaml`
+  (`orgs: [{org: acme}]`, GitHub or GitHub Enterprise) and agents get two tools:
+  `find_similar(task, terms)` finds where the org already implemented a feature, and
+  `read_org_file(repo, path)` reads what it found. `cairn similar TASK --terms A,B` does the same
+  from a terminal. The agent passes words the code would contain; each becomes a code search, all
+  run at once, and hits are merged by rank with vendored copies, docs, configs and tests weighed
+  down or dropped. Calls reach only the configured orgs. On `aws-samples` (~9,300 repos), the
+  top five held an existing implementation for 17 of 18 tuning tasks and 10 of 12 held-out
+  tasks (one plain search of three task words: 5 of 18, 2 of 12), in about 0.6 s a task.
 - **`cairn bench-prior-art`**, an offline benchmark for orgs too big to clone. Given a feature to
   build ("stop one client from flooding our API"), does a locator find the org's existing
   implementation of it, and how fast? It runs over GitHub's API (github.com or Enterprise), with
