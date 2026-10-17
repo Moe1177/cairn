@@ -8,6 +8,13 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **`cairn bench-prior-art`**, an offline benchmark for orgs too big to clone. Given a feature to
+  build ("stop one client from flooding our API"), does a locator find the org's existing
+  implementation of it, and how fast? It runs over GitHub's API (github.com or Enterprise), with
+  nothing cloned, and scores hit@k, MRR, recall, tokens and time per task, plus what share of each
+  top five the key has judged. The first suite covers `aws-samples` (~9,300 repos) with 18 tasks:
+  7 that name the technology and 11 that describe the need in words the code rarely uses. Tokens
+  come from `GH_TOKEN`/`GITHUB_TOKEN` or `gh auth token`; rate limits are waited out.
 - **Hard benchmark tasks.** 11 tasks on OpenFaaS and One Login whose answers no search for the
   prompt's own words finds, and whose prompts don't name the repo the answer is in. The agent has
   to read an identifier in code first (an image, a stack export, a Pact provider name, a NATS

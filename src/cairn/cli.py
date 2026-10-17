@@ -777,6 +777,63 @@ def bench_locate(
     typer.echo(report)
 
 
+@app.command("bench-prior-art")
+def bench_prior_art(
+    suites: Annotated[
+        list[Path], typer.Argument(help="Suite folders, each with a prior_art.yaml key.")
+    ],
+    locators: Annotated[
+        str, typer.Option("--locators", help="Comma list of search-raw,search-terms.")
+    ] = "search-raw,search-terms",
+    check: Annotated[
+        bool,
+        typer.Option("--check/--no-check", help="First check each answer file still exists."),
+    ] = True,
+    out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
+        "bench/results"
+    ),
+) -> None:
+    """Offline: does a locator find the org's existing implementation of a feature, and how
+    fast (over the host's API: no agent, no clone)."""
+    from cairn.bench.prior_art import (
+        LOCATORS,
+        PriorArtOutcome,
+        iter_outcomes,
+        key_problems,
+        load_prior_art_set,
+        outcomes_json,
+        report,
+    )
+    from cairn.remote.auth import github_token
+    from cairn.remote.github import GitHub
+
+    chosen = _comma_list(locators)
+    if not chosen or any(name not in LOCATORS for name in chosen):
+        _fail(f"unknown locator in {locators!r} (choose from {', '.join(LOCATORS)}).")
+    outcomes: list[PriorArtOutcome] = []
+    failure = None
+    try:
+        for suite_dir in suites:
+            pset = load_prior_art_set(suite_dir)
+            client = GitHub(github_token(pset.host), host=pset.host)
+            problems = key_problems(client, pset) if check else []
+            if problems:
+                _fail(f"the key of {suite_dir} doesn't match {pset.org}:\n" + "\n".join(problems))
+            outcomes.extend(iter_outcomes(client, pset, chosen))  # kept as each is scored
+    except (CairnError, OSError) as exc:
+        failure = str(exc)
+    if outcomes:  # a run that fails late still reports what it measured
+        text = report(outcomes)
+        out.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        (out / f"prior-art-{stamp}.md").write_text(text, encoding="utf-8")
+        (out / f"prior-art-{stamp}.json").write_text(outcomes_json(outcomes), encoding="utf-8")
+        typer.echo(text)
+    if failure is not None:
+        kept = f" (the {len(outcomes)} outcomes scored before it are in {out})" if outcomes else ""
+        _fail(failure + kept)
+
+
 @app.command("bench-regrade")
 def bench_regrade(
     suite_dir: Annotated[Path, typer.Argument(help="The suite the run was made from.")],
