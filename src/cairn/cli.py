@@ -388,6 +388,32 @@ def doctor(path: PathArg = Path(".")) -> None:
         raise typer.Exit(1)
 
 
+@app.command()
+def similar(
+    task: Annotated[str, typer.Argument(help="The feature you're about to build, in a sentence.")],
+    terms: Annotated[
+        str,
+        typer.Option(
+            "--terms",
+            help="Comma list of words its code would contain (RateLimiter,X-RateLimit-Remaining).",
+        ),
+    ] = "",
+    org: Annotated[str, typer.Option("--org", help="Which org, when several are configured.")] = "",
+) -> None:
+    """Where your org already implemented a feature: searches the org's repos on GitHub (set
+    `orgs:` in .cairn/config.yaml), nothing cloned."""
+    from cairn.integrations.registry import find_workspace
+    from cairn.mcp_server.tools import similar_text
+
+    ws_root = find_workspace(Path.cwd())
+    if ws_root is None:
+        _fail("No cairn map here. Run `cairn init` in the folder that contains your repos.")
+    try:
+        typer.echo(similar_text(ws_root, task, list(_comma_list(terms)), org))
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+
+
 @app.command("annotate-edge")
 def annotate_edge_cmd(
     key: str,
@@ -783,12 +809,19 @@ def bench_prior_art(
         list[Path], typer.Argument(help="Suite folders, each with a prior_art.yaml key.")
     ],
     locators: Annotated[
-        str, typer.Option("--locators", help="Comma list of search-raw,search-terms.")
-    ] = "search-raw,search-terms",
+        str, typer.Option("--locators", help="Comma list of search-raw,search-terms,cairn.")
+    ] = "search-raw,search-terms,cairn",
     check: Annotated[
         bool,
         typer.Option("--check/--no-check", help="First check each answer file still exists."),
     ] = True,
+    make_terms: Annotated[
+        bool,
+        typer.Option(
+            "--make-terms",
+            help="Ask claude (haiku) for the terms an agent would pass, for tasks without any.",
+        ),
+    ] = False,
     out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
         "bench/results"
     ),
@@ -801,8 +834,10 @@ def bench_prior_art(
         iter_outcomes,
         key_problems,
         load_prior_art_set,
+        load_terms,
         outcomes_json,
         report,
+        write_terms,
     )
     from cairn.remote.auth import github_token
     from cairn.remote.github import GitHub
@@ -819,7 +854,19 @@ def bench_prior_art(
             problems = key_problems(client, pset) if check else []
             if problems:
                 _fail(f"the key of {suite_dir} doesn't match {pset.org}:\n" + "\n".join(problems))
-            outcomes.extend(iter_outcomes(client, pset, chosen))  # kept as each is scored
+            terms = (
+                write_terms(suite_dir, pset, today=datetime.now().strftime("%Y-%m-%d"))
+                if make_terms
+                else load_terms(suite_dir)
+            )
+            if "cairn" in chosen and not terms:
+                typer.echo(
+                    f"note: {suite_dir} has no agent terms; cairn searches the task's own "
+                    "words (--make-terms writes them)",
+                    err=True,
+                )
+            # Kept as each is scored, so a run that fails late keeps the rest.
+            outcomes.extend(iter_outcomes(client, pset, chosen, terms=terms))
     except (CairnError, OSError) as exc:
         failure = str(exc)
     if outcomes:  # a run that fails late still reports what it measured

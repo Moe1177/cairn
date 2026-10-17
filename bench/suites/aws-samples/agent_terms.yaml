@@ -1,0 +1,80 @@
+# What an agent passes find_similar for each task in prior_art.yaml: written by a model
+# from the task alone (cairn bench-prior-art --make-terms), never edited by hand.
+model: haiku
+generated: '2026-10-17'
+prompt: 'A developer wants to build: "{task}" Write 3 GitHub code-search queries that would find an existing
+  implementation of this in other repos. Each query is 1 to 3 words that would literally appear in such
+  code: class or function names, SDK calls, library names, config keys. One query per line, nothing else.'
+terms:
+  stripe-webhook:
+  - constructEvent
+  - Stripe-Signature
+  - stripe.webhooks
+  cognito-authorizer:
+  - CognitoJwtVerifier
+  - aws-jwt-verify
+  - token_use
+  presigned-upload:
+  - createPresignedPost
+  - generate_presigned_post
+  - getSignedUrl PutObjectCommand
+  optimistic-locking:
+  - ConditionalCheckFailedException
+  - DynamoDBVersionAttribute
+  - ConditionExpression
+  bedrock-streaming:
+  - converse_stream
+  - invoke_model_with_response_stream
+  - ConverseStreamCommand
+  appconfig-flags:
+  - start_configuration_session
+  - get_latest_configuration
+  - AppConfigData
+  pii-redaction:
+  - detect_pii_entities
+  - PiiEntityTypes
+  - contains_pii_entities
+  idempotent-payment:
+  - Idempotency-Key
+  - idempotency_key
+  - IdempotencyKey
+  rate-limit-clients:
+  - RateLimiter
+  - TokenBucket
+  - express-rate-limit
+  circuit-breaker:
+  - acquire_circuit_breaker
+  - circuit_breaker
+  - CircuitBreaker.call
+  backoff-retry:
+  - backoff_factor
+  - ExponentialBackOff
+  - exponential backoff
+  upload-thumbnails:
+  - generateThumbnail
+  - createThumbnail
+  - thumbnail.resize
+  sms-login-code:
+  - otp_code
+  - send_otp
+  - verify_sms_code
+  gradual-feature:
+  - ci_flag_on_off
+  - feature_flag_toggle
+  - LaunchDarkly
+  push-to-browsers:
+  - text/event-stream
+  - socket.io
+  - pusher.trigger
+  hot-partition:
+  - shardCount
+  - keySuffix
+  - write_shard
+  temporary-download:
+  - generate_presigned_url
+  - getSignedUrl
+  - X-Amz-Expires
+  rotate-credentials:
+  - rotate_api_key
+  - RotateSecret
+  - rotation_schedule

@@ -138,7 +138,9 @@ def _tracked_changes(raw: bytes) -> bool:
 def cache_key(head_sha: str | None, fingerprint: str | None, config: CairnConfig) -> str | None:
     if not head_sha or fingerprint is None:
         return None
-    raw = f"{CACHE_VERSION}|{cairn.__version__}|{head_sha}|{fingerprint}|{config.model_dump_json()}"
+    # Orgs are read over the API, not scanned: adding one mustn't make every repo scan again.
+    settings = config.model_dump_json(exclude={"orgs"})
+    raw = f"{CACHE_VERSION}|{cairn.__version__}|{head_sha}|{fingerprint}|{settings}"
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 

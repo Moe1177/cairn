@@ -14,8 +14,9 @@ Judge those (add them to `answers` or `rejected`) and the numbers firm up, run b
 
 import json
 import re
+import tempfile
 import time
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -27,9 +28,21 @@ from cairn.bench.locate_eval import Outcome, summarize
 from cairn.errors import CairnError
 from cairn.locate.terms import concept_terms, literal_terms
 from cairn.model.graph import Frozen
+from cairn.org.similar import find_similar, render_similar
 from cairn.remote.github import GitHub
 
 PRIOR_ART_FILE = "prior_art.yaml"
+TERMS_FILE = "agent_terms.yaml"
+TERMS_MODEL = "haiku"  # the cheapest model: if it finds the words, any agent will
+TERM_COUNT = 3
+TERMS_PROMPT = (
+    'A developer wants to build: "{task}" Write 3 GitHub code-search queries that would find '
+    "an existing implementation of this in other repos. Each query is 1 to 3 words that would "
+    "literally appear in such code: class or function names, SDK calls, library names, config "
+    "keys. One query per line, nothing else."
+)
+_LIST_MARK = re.compile(r"^(?:[-*•]|\d+[.)])\s*")
+_PREAMBLE = re.compile(r"(?i)^(?:here (?:are|is)|sure|queries)(?=[\s:!,.]|$)")
 TOP = 5
 _SEARCH_TERMS = 3  # code search ANDs its terms: more than a few rarely all appear in one file
 _ORG = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")  # also keeps it out of the query
@@ -72,6 +85,13 @@ class PriorArtSet(Frozen):
         return queries
 
 
+class AgentTerms(Frozen):
+    model: str
+    generated: str = ""  # YYYY-MM-DD
+    prompt: str = ""
+    terms: dict[str, tuple[str, ...]]
+
+
 @dataclass(frozen=True)
 class Found:
     paths: tuple[str, ...]  # repo/path, best first
@@ -88,21 +108,39 @@ class PriorArtOutcome(Outcome):
     waited: float = 0.0
 
 
-Locator = Callable[[GitHub, PriorArtSet, PriorArtQuery, int], Found]
+# (client, key, task, how many paths, the terms an agent passed for the task) -> what it found
+Locator = Callable[[GitHub, PriorArtSet, PriorArtQuery, int, tuple[str, ...]], Found]
 
 
-def search_raw(client: GitHub, pset: PriorArtSet, query: PriorArtQuery, limit: int) -> Found:
+def search_raw(
+    client: GitHub, pset: PriorArtSet, query: PriorArtQuery, limit: int, terms: tuple[str, ...]
+) -> Found:
     """The task's own words as one code search: what pasting the request in would find."""
     return _search(client, pset, query.task, limit)
 
 
-def search_terms(client: GitHub, pset: PriorArtSet, query: PriorArtQuery, limit: int) -> Found:
+def search_terms(
+    client: GitHub, pset: PriorArtSet, query: PriorArtQuery, limit: int, terms: tuple[str, ...]
+) -> Found:
     """A few of the task's words (code identifiers first), as an agent's first search would."""
-    terms = list(dict.fromkeys((*literal_terms(query.task), *concept_terms(query.task))))
-    return _search(client, pset, " ".join(terms[:_SEARCH_TERMS]), limit)
+    words = list(dict.fromkeys((*literal_terms(query.task), *concept_terms(query.task))))
+    return _search(client, pset, " ".join(words[:_SEARCH_TERMS]), limit)
 
 
-LOCATORS: dict[str, Locator] = {"search-raw": search_raw, "search-terms": search_terms}
+def cairn_similar(
+    client: GitHub, pset: PriorArtSet, query: PriorArtQuery, limit: int, terms: tuple[str, ...]
+) -> Found:
+    """cairn's find_similar with the terms an agent would pass it (see TERMS_FILE)."""
+    result = find_similar(client, pset.org, query.task, terms, limit=limit)
+    paths = tuple(_org_path(pset.org, hit.repo, hit.path) for hit in result.hits)
+    return Found(paths, render_similar(result), result.searches, result.waited)
+
+
+LOCATORS: dict[str, Locator] = {
+    "search-raw": search_raw,
+    "search-terms": search_terms,
+    "cairn": cairn_similar,
+}
 
 
 def _search(client: GitHub, pset: PriorArtSet, words: str, limit: int) -> Found:
@@ -142,15 +180,76 @@ def key_problems(client: GitHub, pset: PriorArtSet) -> list[str]:
     return problems
 
 
+def load_terms(suite_dir: Path) -> dict[str, tuple[str, ...]]:
+    """The terms an agent passed per task (empty when the suite has none yet)."""
+    path = suite_dir / TERMS_FILE
+    if not path.is_file():
+        return {}
+    try:
+        return AgentTerms.model_validate(yaml.safe_load(path.read_text(encoding="utf-8"))).terms
+    except (OSError, yaml.YAMLError, ValidationError) as exc:
+        raise CairnError(f"invalid agent terms {path}: {exc}") from exc
+
+
+def parse_terms(text: str) -> tuple[str, ...]:
+    """A model's answer, one search per line, with its preamble and list marks dropped."""
+    found = []
+    for raw in text.splitlines():
+        line = _LIST_MARK.sub("", raw.strip()).strip().strip("`'\"").strip()
+        if not line or line.endswith(":") or _PREAMBLE.match(line) or len(line) > 100:
+            continue
+        found.append(line)
+    return tuple(dict.fromkeys(found))[:TERM_COUNT]
+
+
+def ask_model_for_terms(task: str, model: str = TERMS_MODEL) -> tuple[str, ...]:
+    """What an agent would pass find_similar for `task`: a headless, isolated `claude -p`."""
+    from cairn.bench.runner import ClaudeRunner  # the benchmark's isolated runner
+
+    with tempfile.TemporaryDirectory(prefix="cairn-terms-") as tmp:
+        result = ClaudeRunner(model=model, timeout=120).run(
+            TERMS_PROMPT.format(task=task), Path(tmp), Path(tmp), None
+        )
+    if result.is_error:
+        raise CairnError(f"claude couldn't suggest terms: {result.result_text.strip()[:200]}")
+    return parse_terms(result.result_text)
+
+
+def write_terms(
+    suite_dir: Path,
+    pset: PriorArtSet,
+    ask: Callable[[str], tuple[str, ...]] = ask_model_for_terms,
+    *,
+    model: str = TERMS_MODEL,
+    today: str = "",
+) -> dict[str, tuple[str, ...]]:
+    """Ask for terms for every task that has none yet, and save them beside the key: a run is
+    then repeatable and free, and the terms are a model's, never hand-tuned to the key."""
+    terms = load_terms(suite_dir)
+    for query in pset.queries:
+        if not terms.get(query.id):
+            terms[query.id] = ask(query.task)
+    ordered = {q.id: terms[q.id] for q in pset.queries}
+    doc = AgentTerms(model=model, generated=today, prompt=TERMS_PROMPT, terms=ordered)
+    header = (
+        "# What an agent passes find_similar for each task in prior_art.yaml: written by a model\n"
+        "# from the task alone (cairn bench-prior-art --make-terms), never edited by hand.\n"
+    )
+    body = yaml.safe_dump(doc.model_dump(), sort_keys=False, width=100, allow_unicode=True)
+    (suite_dir / TERMS_FILE).write_text(header + body, encoding="utf-8", newline="\n")
+    return ordered
+
+
 def evaluate(
     client: GitHub,
     pset: PriorArtSet,
     locators: Sequence[str],
     *,
+    terms: Mapping[str, tuple[str, ...]] | None = None,
     limit: int = 10,
     registry: dict[str, Locator] | None = None,
 ) -> list[PriorArtOutcome]:
-    return list(iter_outcomes(client, pset, locators, limit=limit, registry=registry))
+    return list(iter_outcomes(client, pset, locators, terms=terms, limit=limit, registry=registry))
 
 
 def iter_outcomes(
@@ -158,15 +257,17 @@ def iter_outcomes(
     pset: PriorArtSet,
     locators: Sequence[str],
     *,
+    terms: Mapping[str, tuple[str, ...]] | None = None,
     limit: int = 10,
     registry: dict[str, Locator] | None = None,
 ) -> Iterator[PriorArtOutcome]:
     """Each task's outcome as soon as it is scored, so a run that fails late keeps the rest."""
     chosen = registry or LOCATORS
+    given = terms or {}
     for query in pset.queries:
         for name in locators:
             started = time.perf_counter()
-            found = chosen[name](client, pset, query, limit)
+            found = chosen[name](client, pset, query, limit, given.get(query.id, ()))
             # Wall time minus rate-limit waits: the waits depend on what ran before, not on
             # the locator (they are reported on their own).
             ms = (time.perf_counter() - started) * 1000 - found.waited * 1000

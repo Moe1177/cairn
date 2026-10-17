@@ -1,8 +1,34 @@
 """User configuration (.cairn/config.yaml). Every field has a safe default."""
 
-from pydantic import Field
+import re
+
+from pydantic import Field, field_validator
 
 from cairn.model.graph import Frozen
+
+_ORG = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
+_HOST = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?(?:\.[A-Za-z0-9-]{1,63})+$")
+
+
+class OrgSource(Frozen):
+    """An org (or user) on a code host whose repos cairn reads over the API, never cloning."""
+
+    org: str
+    host: str = "github.com"
+
+    @field_validator("org")
+    @classmethod
+    def _org_name(cls, org: str) -> str:
+        if not _ORG.fullmatch(org):
+            raise ValueError("org must be a GitHub org or user name, like acme")
+        return org
+
+    @field_validator("host")
+    @classmethod
+    def _host_name(cls, host: str) -> str:
+        if not _HOST.fullmatch(host):
+            raise ValueError("host must be a host name, like github.com")
+        return host.lower()
 
 
 class CairnConfig(Frozen):
@@ -14,3 +40,4 @@ class CairnConfig(Frozen):
     stop_tables: tuple[str, ...] = ()
     stop_aliases: tuple[str, ...] = ()
     stale_file_threshold: int = Field(default=50, ge=1)
+    orgs: tuple[OrgSource, ...] = ()

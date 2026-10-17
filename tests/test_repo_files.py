@@ -85,7 +85,11 @@ def test_readme_documents_every_command() -> None:
         assert f"cairn {name}" in readme, name
     for heading in ("## Uninstall", "## Troubleshooting", "## Safety", "**Exit codes:**"):
         assert heading in readme
-    assert "no network calls and collects no telemetry" in readme
+    assert "collects no telemetry" in readme
+    # Every command that reaches a server is named where the README promises none do.
+    safety = readme.split("## Safety", 1)[1].split("\n## ", 1)[0]
+    for command in ("find_similar", "cairn similar", "cairn bench-prior-art", "cairn deep enable"):
+        assert command in safety, command
 
 
 def test_docs_have_no_private_names() -> None:

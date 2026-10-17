@@ -1,0 +1,152 @@
+# Held-out prior-art key for github.com/aws-samples: 12 tasks written after cairn's find_similar
+# was tuned on the dev key (../aws-samples), and scored once with no tuning after. Each answer
+# was found by searching for code identifiers (not the task's words) and confirmed by reading
+# the file on 2026-10-17. The org holds more implementations than any key lists: read a low
+# score next to the report's judged@5.
+# The pooled top fives of every locator's one run were then judged by reading each file.
+host: github.com
+org: aws-samples
+split: held
+queries:
+
+  - id: ses-email
+    category: literal
+    task: Send an email with Amazon SES from a Lambda function.
+    answers:
+    - sample-smart-machines-physical-hybrid-ai/infra/cdk/lib/stacks/websocket-api/handlers/send-email.ts
+    - sample-gen-ai-email-categorization-using-ses-mail-manager/lib/lambdas/python/send_email.py
+    - aws-serverless-batch-architecture/source/send-email/app.py
+    - amazon-cognito-passwordless-auth/cdk/custom-auth/magic-link.ts
+    - amazon-cognito-passwordless-auth/cdk/custom-auth/fido2-notification.ts
+    - amazon-connect-step-by-step-guides-module-library/examples/BackendIntegration/sampleLambdas/sendEmail.mjs
+    - aws-marketplace-serverless-saas-integration/src/register-new-subscriber.js
+    - compute-optimizer-automation/src/lambda/send-approval-email.py
+    - sample-automated-evaluation-notification-amazon-connect/source/ses/notification.mjs
+    note: SESv2Client SendEmailCommand, or boto3 sesv2/ses send_email.
+    rejected:
+    - aws-control-tower-guardduty-enabler/src/guardduty_enabler.py
+
+  - id: emf-metrics
+    category: literal
+    task: Publish custom CloudWatch metrics from a Lambda function with the embedded metric format.
+    answers:
+    - serverless-patterns/ddbstream-lambda-sfn-cdk-ts/src/lambda/index.js
+    - serverless-observability-workshop/code/backend/src/lib/logging/logger.js
+    - serverless-patterns/apigw-lambda-observability/src/app.js
+    - aws-saas-factory-saas-microservices-workshop/lib/fulfillment/app/code/app.py
+    - sample-kolya-br-proxy/backend/app/core/metrics.py
+    note: aws-embedded-metrics createMetricsLogger / putMetric.
+    rejected:
+    - amazon-dynamodb-monitoring/dynamodb_metrics_lambda/dynamodb_cloudwatch.py
+
+  - id: vector-index
+    category: literal
+    task: Create an OpenSearch index that stores vector embeddings for similarity search.
+    answers:
+    - serverless-patterns/s3-lambda-bedrock-aoss/src/index_creation.py
+    - serverless-patterns/eventbridge-bedrock-s3-aoss/functions/index_creation.py
+    - generative-ai-use-cases/packages/cdk/custom-resources/opensearch-index/oss-index.js
+    - amazon-bedrock-workshop/04_Agents/prereqs/knowledge_base.py
+    - amazon-bedrock-samples/data-automation-bda/workshops/05-rag/utils/knowledge_base.py
+    - step-functions-workflows-collection/bedrock-evaluations-sam/setup_opensearch.py
+    - sample-chatbot-for-bedrock-knowledge-base-and-multimodal-llms/scripts/create_kb.py
+    - sample-ai-enhanced-email-workflow/create-opensearch-index.sh
+    note: an index with knn enabled and a knn_vector field.
+
+  - id: transcribe-upload
+    category: literal
+    task: Transcribe an uploaded audio file with Amazon Transcribe.
+    answers:
+    - serverless-patterns/s3-lambda-transcribe-sam/src/app.py
+    - sample-ai-learning-assistant/backend/lib/lambda_functions/start-transcription/lambda-handler.py
+    - serverless-patterns/lambda-transcribe-sam-js/src/app.mjs
+    - generative-ai-use-cases/packages/cdk/lambda/startTranscription.ts
+    - s3-to-lambda-patterns/transcription/transcribeFunction/app.js
+    - serverless-patterns/apigw-lambda-sfn-transcribe-translate-polly-sam/src/transcribeLaunch.js
+    - AWS-First-GenAI-Journey/AWS-Meeting-Summarizer-with-Bedrock/app.py
+    note: start_transcription_job on the uploaded object.
+
+  - id: google-sign-in
+    category: literal
+    task: Let users sign in to a Cognito user pool with their Google account.
+    answers:
+    - bedrock-chat/cdk/lib/constructs/auth.ts
+    - cloudfront-cognito-login/cloudfront-cognito-stack/lib/InfrastructureStack.ts
+    note: UserPoolIdentityProviderGoogle on the user pool.
+    rejected:
+    - amazon-chime-media-capture-pipeline-demo/src/cognito.ts
+    - aws-saas-factory-eks-reference-architecture/lib/constructs/cognito.ts
+    - aws-iot-chat-example/client/src/lib/aws-cognito.js
+
+  - id: shared-counter
+    category: vocabulary
+    task: Keep a count that many workers bump at the same time without losing any of the updates.
+    answers:
+    - sample-apigw-websocket-multi-region-disaster-recovery/lambda/counter-lambda.py
+    - amazon-dynamodb-design-patterns/examples/version-control/number-based-version/atomic-counters/src/add_new_version/main.py
+    note: a DynamoDB atomic counter (UpdateExpression ADD).
+    rejected:
+    - sample-bedrock-insights/bedrock_insights/storage.py
+
+  - id: wait-for-callback
+    category: vocabulary
+    task: Pause a workflow step until an outside system reports back that its work is done.
+    answers:
+    - serverless-patterns/sfn-callback-cdk/lambda/send_callback_token.py
+    - sample-agentic-data-ingestion/shared/sfn_task_token.py
+    - serverless-patterns/sfn-to-sfn-cdk/lib/sfn-to-sfn-cdk-stack.ts
+    - serverless-coffee/backends/5-order-manager/robot/put.js
+    - amazon-rekognition-shot-detection-demo-using-segment-api/source/status-updater/lib/sns/index.js
+    note: a Step Functions task token (waitForTaskToken, send_task_success).
+    rejected:
+    - sample-aws-genai-db-modernizer/src/atx_orchestrator/orchestrator.py
+
+  - id: one-at-a-time
+    category: vocabulary
+    task: Make sure only one worker at a time runs a job, even when the workers are on different machines.
+    answers:
+    - amazon-textract-transformer-pipeline/pipeline/ocr/sfn_semaphore/__init__.py
+    - sample-automated-vpc-cidr-expansion/src/workflow/handler.py
+    - sample-ai-agent-factory/Agentic-ai-self-service/backend/src/app/services/gateway_mutation_lock.py
+    - sample-supabase-on-aws/app/storage/src/storage/protocols/tus/s3-locker.ts
+    note: a distributed lock or semaphore held in DynamoDB.
+    rejected:
+    - microservices-dotnet-aws-cdk/ServicesWorkerDb/src/apps/WorkerDb/Worker.cs
+
+  - id: remember-results
+    category: vocabulary
+    task: Remember the results of slow lookups for a while, so repeated requests come back fast.
+    answers:
+    - sample-ses-sender/backend/core/redis_cache.py
+    - sample-pellier-agentic-search-apg/pellier/backend/services/cache.py
+    - sample-bedrock-api-proxy/app/core/ttl_cache.py
+    - aws-kr-startup-samples/gen-ai/claude-code-proxy/backend/src/proxy/cache.py
+    note: a cache with a TTL (Redis / Valkey, in-memory fallback).
+
+  - id: records-expire
+    category: vocabulary
+    task: Have old records disappear from a table on their own after a set time.
+    answers:
+    - serverless-patterns/iot-dynamodbv2-ttl-cdk/iot-ddbv2/lib/dynamodb.ts
+    note: DynamoDB time to live (timeToLiveAttribute).
+    rejected:
+    - sample-trustops-enterprise-framework/src/data_models/storage.py
+
+  - id: email-link-sign-in
+    category: vocabulary
+    task: Let people sign in by clicking a link emailed to them instead of typing a password.
+    answers:
+    - amazon-cognito-passwordless-auth/cdk/custom-auth/magic-link.ts
+    note: a magic link through Cognito custom auth.
+    rejected:
+    - sample-supabase-on-aws/app/supabase/apps/studio/data/auth/user-send-magic-link-mutation.ts
+
+  - id: read-aloud
+    category: vocabulary
+    task: Turn a piece of text into an audio file of it being read aloud.
+    answers:
+    - serverless-patterns/s3-lambda-polly-sam/src/app.py
+    - serverless-patterns/lambda-s3-polly-cdk/pattern/assets/lambda_function.py
+    - sample-whatsapp-voice-to-voice-messaging/src/lambda/services/PollyService.ts
+    - amazon-sumerian-hosts/packages/amazon-sumerian-hosts-core/src/core/awspack/TextToSpeechFeature.js
+    note: Amazon Polly synthesize_speech.

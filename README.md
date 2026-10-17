@@ -212,6 +212,8 @@ and you can commit them so your team shares them.
 | `related` | Everything connected to a repo, with evidence |
 | `find_across` | Which repos expose or use a table, package, or path |
 | `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
+| `find_similar` | Where the org already implemented a feature (its repos on GitHub, nothing cloned); needs `orgs:` in the config |
+| `read_org_file` | A file from an org repo, without cloning it |
 | `refresh` | Update the map now |
 
 ### What cairn detects
@@ -307,6 +309,48 @@ forces a deep rebuild check even before any index exists.
   repo can take minutes. After that, `cairn refresh` (and the git hooks' background refresh)
   keeps indexes current, one build per repo at a time. When an index still falls behind, `query`
   and `cairn deep status` say so; the card's **Deeper** section flags new commits.
+
+## Prior art across your org
+
+Before an agent builds a feature, it should know whether the org already built it somewhere: the
+team's rate limiter, its way of verifying webhooks, the retry helper everyone uses. In an org of
+thousands of repos nobody has them all cloned, so cairn asks the code host instead. Nothing is
+cloned or downloaded beyond the files an agent chooses to read.
+
+Name the org in `.cairn/config.yaml`:
+
+```yaml
+orgs:
+  - org: acme              # github.com; for GitHub Enterprise add `host: git.acme.com`
+```
+
+cairn uses your GitHub login (`gh auth login`, or `GH_TOKEN`), so it sees exactly the repos you
+can. Then an agent calls `find_similar` with the feature and a few words its code would contain,
+and `read_org_file` to read what it finds:
+
+```text
+find_similar(task="stop one client from flooding our API",
+             terms=["RateLimiter", "X-RateLimit-Remaining", "express-rate-limit"])
+Prior art in acme for `RateLimiter`, `X-RateLimit-Remaining`, `express-rate-limit`: 10 files (3 searches, 0.6s).
+- gateway/src/middleware/rate-limit.ts  (matched RateLimiter, X-RateLimit-Remaining)
+- ...
+```
+
+From a terminal: `cairn similar "stop one client from flooding our API" --terms
+RateLimiter,X-RateLimit-Remaining`.
+
+The words matter. A request rarely shares words with the code that answers it ("flooding" never
+appears in a rate limiter), so the agent, which understands the request, supplies the code's
+words. Each term is one code search; they run at once. Hits are merged by rank, so a file several
+searches find rises, and what isn't prior art sinks or goes: vendored copies of libraries
+(`node_modules`, `site-packages`, Lambda layers), docs, notebooks, configs, tests. On ~9,300
+repos (`aws-samples`), a file that already implements the task was in the top five for 17 tasks
+in 18 on the tasks cairn was tuned on and 10 in 12 on tasks written after it, against 5 in 18 and
+2 in 12 for one plain search of three of the task's words, in about 0.6 s a task
+([results](bench/published/2026-10-17-find-similar.md)).
+
+Code search allows 10 requests a minute, so `find_similar` makes at most four (one per term);
+past the limit it waits, and its answer says how long.
 
 ## Benchmarks
 
@@ -413,10 +457,12 @@ on where the first answer file lands, how much text it returns and how long it t
 holds more implementations than a key can list, so the report also says what share of each
 locator's top five the key has judged; an unjudged hit is unknown, not wrong. It needs a GitHub
 login (`gh auth login`, or `GH_TOKEN`), and code search allows 10 requests a minute, so a run
-waits out the limit as it goes.
+waits out the limit as it goes (about ten minutes for both suites). The `cairn` locator searches
+with the terms an agent would pass, kept beside each key in `agent_terms.yaml`: a model wrote
+them from the task alone (`--make-terms`), and nobody edits them.
 
 ```bash
-cairn bench-prior-art bench/suites/aws-samples   # ~9,300 repos; about four minutes
+cairn bench-prior-art bench/suites/aws-samples bench/suites/aws-samples-held
 ```
 
 The link benchmark is offline and free too. Each suite's `links.yaml` lists the pairs of repos
@@ -484,10 +530,18 @@ It also:
 - **keeps README text out** of always-loaded context. Repo names that do appear are flattened and
   capped, so they can't inject instructions or break cairn's blocks.
 
-cairn makes **no network calls and collects no telemetry**. Three commands start programs that
-do, and only when you run them: `cairn deep enable` runs your package installer (uv, pipx or pip)
-to add graphify; `cairn bench`, `cairn bench-locate` and `cairn bench-links` fetch their pinned benchmark repos with
-git, and `cairn bench` runs the `claude` CLI.
+cairn **collects no telemetry**, and mapping your folder makes **no network calls**. It talks
+to a server only when you ask it to:
+- with `orgs:` in the config, `find_similar`, `read_org_file` and `cairn similar` call your code
+  host's API (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
+  host, else `gh auth token`). They send the search terms (the task's own words when no terms are
+  given) and the org's name, and read back matching files; nothing from your local repos is sent.
+  They only ever reach the orgs in your config: a call naming another org, or another owner's
+  repo, is refused, and a search hit from outside the org is dropped;
+- `cairn bench-prior-art` calls the same API, and with `--make-terms` runs the `claude` CLI;
+- `cairn deep enable` runs your package installer (uv, pipx or pip) to add graphify;
+- `cairn bench`, `cairn bench-locate` and `cairn bench-links` fetch their pinned benchmark repos
+  with git, and `cairn bench` runs the `claude` CLI.
 
 See [SECURITY.md](https://github.com/Moe1177/cairn/blob/main/SECURITY.md) for the threat model and
 how to report a vulnerability.
@@ -512,6 +566,7 @@ how to report a vulnerability.
 | `cairn serve` | The MCP server (harnesses start it for you) |
 | `cairn links [REPO]` | Which repos a repo is linked to, one line each with its direction; the repo you're in by default (`--evidence`, `--all`, `--json`) |
 | `cairn context` | What a Claude Code session should know about its folder: the index, or an offer to build a map (the plugin's session hook runs it) |
+| `cairn similar TASK --terms A,B` | Where your org already implemented a feature, over GitHub's API |
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
 | `cairn bench-links SUITE...` | Score cairn's links against each suite's real ones, offline |
@@ -583,8 +638,12 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 7. ✅ Codex in the benchmark, Maven and Gradle, real-world link benchmarks, draft summaries.
 8. ✅ Harder benchmark tasks: 11 tasks that no search for their own words answers, checked by
    `cairn bench-reach`. Without a map, Sonnet still answered all of them.
-9. Benchmark sessions that start with only their own repo in view, the way a session opened in
-   one repo does.
+9. ✅ Prior art across an org too big to clone: `find_similar` and `read_org_file` over GitHub's
+   API, measured by `cairn bench-prior-art` on ~9,300 repos.
+10. The org's conventions (its logging, HTTP and auth libraries, the internal packages it
+    publishes), so the words an agent searches for are the org's own.
+11. Benchmark sessions that start with only their own repo in view, the way a session opened in
+    one repo does.
 
 ## Contributing
 

@@ -77,6 +77,22 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
         return answer(lambda ws: tools.query_text(ws, repo, question))
 
     @server.tool()
+    def find_similar(task: str, terms: list[str], org: str = "") -> str:
+        """Before building a feature, find where the org already implemented it (searches the
+        org's repos on GitHub; nothing is cloned). task: the feature in a sentence. terms: 2-4
+        short searches the existing code would literally contain — class or function names, SDK
+        calls, library names, config keys, headers (e.g. ["RateLimiter", "X-RateLimit-Remaining",
+        "express-rate-limit"]), not the request's own words. Each term is one search; they run at
+        once. org: only when several orgs are configured."""
+        return answer(lambda ws: tools.similar_text(ws, task, terms, org))
+
+    @server.tool()
+    def read_org_file(repo: str, path: str, org: str = "") -> str:
+        """Read a file from an org repo's default branch (e.g. one find_similar returned), without
+        cloning. repo: its name in the org (or owner/name); path: inside the repo."""
+        return answer(lambda ws: tools.org_file_text(ws, repo, path, org))
+
+    @server.tool()
     def refresh() -> str:
         """Re-scan the workspace after repos changed."""
         return answer(tools.refresh_text)
