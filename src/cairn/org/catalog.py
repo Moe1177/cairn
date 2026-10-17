@@ -31,6 +31,7 @@ _TOPICS = 10
 _NAME_WEIGHT = 2.0  # a word in the repo's name says more than one in its description
 _TOKEN = re.compile(r"[a-z0-9]+")
 _CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _SUFFIX = re.compile(r"(?:ing|ed|s)$")  # "services" -> service, as "service" is
 _SYNONYMS = {"k8s": "kubernetes", "golang": "go", "js": "javascript", "ts": "typescript"}
 _STOPWORDS = frozenset(
@@ -213,9 +214,12 @@ def render_matches(catalog: OrgCatalog, matches: Sequence[RepoMatch]) -> list[st
     ]
 
 
-def render_org_card(repo: CatalogRepo, extra: Iterable[str] = ()) -> str:
+def render_org_card(
+    repo: CatalogRepo, extra: Iterable[str] = (), *, searchable: bool = True
+) -> str:
     """What cairn knows of an org repo nobody cloned: the listing's facts, and (from the
-    packages index, when read) what it defines and who uses it."""
+    packages index, when read) what it defines and who uses it. `searchable`: whether its host
+    has code search for find_similar (plain git hasn't)."""
     lines = [
         f"# {repo.name} (org repo, not cloned)",
         "",
@@ -225,16 +229,16 @@ def render_org_card(repo: CatalogRepo, extra: Iterable[str] = ()) -> str:
     facts = [f"Language: {repo.language}"] if repo.language else []
     if repo.topics:
         facts.append(f"Topics: {', '.join(repo.topics)}")
-    if repo.pushed:
+    if _DATE.match(repo.pushed):  # plain git's is a commit id, not a time
         facts.append(f"Last push: {repo.pushed[:10]}")
     if repo.fork:
         facts.append("A fork.")
     lines += [f"- {fact}" for fact in facts]
     lines += list(extra)
+    then = "; find_similar searches its code with the rest of the org." if searchable else "."
     lines += [
         "",
-        f"Read its files with read_org_file (repo {repo.name}, path README.md first); "
-        "find_similar searches its code with the rest of the org.",
+        f"Read its files with read_org_file (repo {repo.name}, path README.md first){then}",
     ]
     return "\n".join(lines)
 
