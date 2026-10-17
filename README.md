@@ -405,6 +405,20 @@ cairn bench-locate bench/suites/sockshop bench/suites/networkx   # builds code g
 cairn bench-locate bench/suites/shopverse --no-build --locators grep
 ```
 
+The prior-art benchmark asks the question an agent has when it starts a feature in a large org:
+does an implementation of this already exist, and where? Each suite's `prior_art.yaml` names a
+GitHub org and lists feature tasks with files in it that already implement them, found and read
+by hand. Every locator answers every task over GitHub's API, with nothing cloned, and is scored
+on where the first answer file lands, how much text it returns and how long it takes. An org
+holds more implementations than a key can list, so the report also says what share of each
+locator's top five the key has judged; an unjudged hit is unknown, not wrong. It needs a GitHub
+login (`gh auth login`, or `GH_TOKEN`), and code search allows 10 requests a minute, so a run
+waits out the limit as it goes.
+
+```bash
+cairn bench-prior-art bench/suites/aws-samples   # ~9,300 repos; about four minutes
+```
+
 The link benchmark is offline and free too. Each suite's `links.yaml` lists the pairs of repos
 that really link, written from the code and never from cairn's output; `cairn bench-links` scans
 the suite and scores the links cairn shows (and, separately, its unconfirmed suggestions) as
@@ -501,6 +515,7 @@ how to report a vulnerability.
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
 | `cairn bench-links SUITE...` | Score cairn's links against each suite's real ones, offline |
+| `cairn bench-prior-art SUITE...` | Score finding an org's existing implementation of a feature, over the host's API (no clone) |
 | `cairn bench-regrade SUITE LOG` | Grade a finished run's log again with today's grading |
 | `cairn bench-reach SUITE...` | Which tasks a search for the prompt's own words answers, offline; fails on a hard task that one does |
 | `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
