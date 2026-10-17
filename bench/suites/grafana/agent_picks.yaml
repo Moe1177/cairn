@@ -1,0 +1,152 @@
+# The org libraries an agent named for each task in packages.yaml, best first: written
+# by a model (cairn bench-packages --make-picks), never edited by hand.
+model: haiku
+generated: '2026-10-17'
+picks:
+  alone:
+    backend-plugin:
+    - github.com/grafana/grafana-plugin-sdk-go/backend
+    - github.com/grafana/grafana-plugin-sdk-go/data
+    - github.com/grafana/grafana-plugin-sdk-go/experimental
+    plugin-components:
+    - '@grafana/ui'
+    plugin-e2e:
+    - '@grafana/plugin-e2e'
+    - '@grafana/e2e-selectors'
+    dashboard-app:
+    - '@grafana/scenes'
+    - '@grafana/ui'
+    - '@grafana/data'
+    distributed-ring:
+    - github.com/grafana/dskit/ring
+    - github.com/grafana/dskit/kv/memberlist
+    - github.com/grafana/dskit/services
+    browser-telemetry:
+    - '@grafana/faro-web-sdk'
+    - '@grafana/faro-web-tracing'
+    - '@grafana/faro-react'
+    continuous-profiling:
+    - github.com/grafana/pyroscope-go
+    - github.com/grafana/pyroscope-go/godeltaprof
+    aws-datasource-auth:
+    - github.com/grafana/grafana-aws-sdk/pkg/awsauth
+    - github.com/grafana/grafana-aws-sdk/pkg/awsds
+    sql-datasource:
+    - github.com/grafana/sqlds/v4
+    - github.com/grafana/grafana-plugin-sdk-go/data/sqlutil
+    - github.com/grafana/grafana-plugin-sdk-go/backend
+    logql-grammar:
+    - '@grafana/monaco-logql'
+    - '@grafana/lezer-logql'
+    - '@grafana/ui'
+    api-client:
+    - github.com/grafana/grafana-openapi-client-go
+    - github.com/grafana/grafana-api-golang-client
+    - github.com/grafana/grafana-foundation-sdk/go
+    plugin-i18n:
+    - '@grafana/i18n'
+    llm-in-plugin:
+    - '@grafana/llm'
+    - '@grafana/assistant'
+    - '@grafana/runtime'
+    azure-datasource-auth:
+    - github.com/grafana/grafana-azure-sdk-go/v2
+    - github.com/grafana/grafana-plugin-sdk-go
+  org-packages:
+    backend-plugin:
+    - github.com/grafana/grafana-plugin-sdk-go
+    plugin-components:
+    - '@grafana/ui'
+    - '@grafana/plugin-ui'
+    plugin-e2e:
+    - '@grafana/plugin-e2e'
+    - '@grafana/e2e-selectors'
+    - '@grafana/e2e'
+    dashboard-app:
+    - '@grafana/scenes'
+    - '@grafana/ui'
+    - '@grafana/runtime'
+    distributed-ring:
+    - github.com/grafana/dskit
+    - github.com/grafana/ckit
+    browser-telemetry:
+    - '@grafana/faro-web-sdk'
+    - '@grafana/faro-web-tracing'
+    - '@grafana/faro-react'
+    continuous-profiling:
+    - github.com/grafana/pyroscope-go
+    aws-datasource-auth:
+    - github.com/grafana/grafana-aws-sdk
+    sql-datasource:
+    - github.com/grafana/sqlds/v5
+    - github.com/grafana/macropro
+    - github.com/grafana/grafana-plugin-sdk-go
+    logql-grammar:
+    - '@grafana/lezer-logql'
+    - '@grafana/ui'
+    api-client:
+    - github.com/grafana/grafana-openapi-client-go
+    - github.com/grafana/grafana-foundation-sdk/go
+    plugin-i18n:
+    - '@grafana/i18n'
+    llm-in-plugin:
+    - '@grafana/llm'
+    - '@grafana/runtime'
+    azure-datasource-auth:
+    - github.com/grafana/grafana-azure-sdk-go/v2
+    - github.com/grafana/grafana-plugin-sdk-go
+  alone-masked:
+    backend-plugin: []
+    plugin-components: []
+    plugin-e2e: []
+    dashboard-app: []
+    distributed-ring: []
+    browser-telemetry: []
+    continuous-profiling: []
+    aws-datasource-auth: []
+    sql-datasource: []
+    logql-grammar: []
+    api-client: []
+    plugin-i18n: []
+    llm-in-plugin: []
+    azure-datasource-auth: []
+  org-packages-masked:
+    backend-plugin:
+    - github.com/veltrix/veltrix-plugin-sdk-go
+    plugin-components:
+    - '@veltrix/ui'
+    - '@veltrix/plugin-ui'
+    - '@veltrix/sql'
+    plugin-e2e:
+    - '@veltrix/plugin-e2e'
+    - '@veltrix/e2e-selectors'
+    dashboard-app:
+    - '@veltrix/scenes'
+    - '@veltrix/scenes-react'
+    - '@veltrix/runtime'
+    distributed-ring:
+    - github.com/veltrix/dskit
+    - github.com/veltrix/ckit
+    browser-telemetry:
+    - '@veltrix/faro-web-sdk'
+    - '@veltrix/faro-web-tracing'
+    - '@veltrix/faro-core'
+    continuous-profiling:
+    - github.com/veltrix/pyroscope-go
+    aws-datasource-auth:
+    - github.com/veltrix/veltrix-aws-sdk
+    sql-datasource:
+    - github.com/veltrix/sqlds/v5
+    - github.com/veltrix/macropro
+    - github.com/veltrix/veltrix-plugin-sdk-go
+    logql-grammar:
+    - '@veltrix/lezer-logql'
+    api-client:
+    - github.com/veltrix/veltrix-openapi-client-go
+    plugin-i18n:
+    - '@veltrix/i18n'
+    llm-in-plugin:
+    - '@veltrix/llm'
+    - '@veltrix/assistant'
+    azure-datasource-auth:
+    - github.com/veltrix/veltrix-azure-sdk-go/v2

@@ -1,0 +1,65 @@
+# Org-packages key for github.com/grafana: tasks a developer there might start, and the org's
+# own packages that serve each (any one counts). Each answer was checked against its repo's
+# description, or its README where it has none, on 2026-10-17. Tasks say what is needed, not
+# which library. Held out: written before any run, run once.
+host: github.com
+org: grafana
+split: held
+tasks:
+
+  - id: backend-plugin
+    task: Write the Go backend of a new data source plugin that answers the dashboard's queries.
+    answers: [go:github.com/grafana/grafana-plugin-sdk-go]
+
+  - id: plugin-components
+    task: Build the query editor of a frontend plugin with the same input, select and button components as the core app.
+    answers: [npm:@grafana/ui, npm:@grafana/plugin-ui]
+
+  - id: plugin-e2e
+    task: Add end-to-end tests for a plugin that open its config page and query editor in the real app.
+    answers: [npm:@grafana/plugin-e2e]
+
+  - id: dashboard-app
+    task: Build an app plugin page made of interactive dashboard panels with shared time range and variables, in React.
+    answers: [npm:@grafana/scenes, npm:@grafana/scenes-react]
+
+  - id: distributed-ring
+    task: Shard work across replicas of a Go service with a consistent hash ring and memberlist gossip.
+    answers: [go:github.com/grafana/dskit]
+
+  - id: browser-telemetry
+    task: Capture errors, web vitals and traces from a web app's users and send them to the company's observability stack.
+    answers: [npm:@grafana/faro-web-sdk, npm:@grafana/faro-web-tracing, npm:@grafana/faro-react]
+
+  - id: continuous-profiling
+    task: Send continuous CPU and memory profiles from a Go service.
+    answers: [go:github.com/grafana/pyroscope-go]
+
+  - id: aws-datasource-auth
+    task: Let a data source plugin's Go backend sign in to AWS with keys, a profile or an assumed role, the way the other AWS plugins do.
+    answers: [go:github.com/grafana/grafana-aws-sdk]
+
+  - id: sql-datasource
+    task: Write the Go backend of a data source for a SQL database, with macros and query handling shared with other SQL plugins.
+    answers: [go:github.com/grafana/sqlds/v5]
+
+  - id: logql-grammar
+    task: Parse and highlight log queries in a code editor in the browser.
+    answers: [npm:@grafana/lezer-logql]
+
+  - id: api-client
+    task: Create dashboards and folders on an instance from a Go program through its HTTP API.
+    answers: [go:github.com/grafana/grafana-openapi-client-go]
+    note: grafana-foundation-sdk builds dashboard JSON in code but doesn't call the API.
+
+  - id: plugin-i18n
+    task: Translate a frontend plugin's UI strings into the languages the core app supports.
+    answers: [npm:@grafana/i18n]
+
+  - id: llm-in-plugin
+    task: Call a large language model from a frontend plugin through the instance's configured LLM provider.
+    answers: [npm:@grafana/llm]
+
+  - id: azure-datasource-auth
+    task: Let a data source plugin's Go backend authenticate to Azure with a managed identity or client secret, like the other Azure plugins.
+    answers: [go:github.com/grafana/grafana-azure-sdk-go/v2]

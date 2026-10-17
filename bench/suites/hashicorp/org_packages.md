@@ -1,0 +1,102 @@
+The own packages of hashicorp (github.com): the 226 libraries its 604 active repos use from one another, most used first (by how many repos), read 2026-10-17. Pass a name for where one is defined, every repo using it, and code that calls it.
+- github.com/hashicorp/go-hclog (Go) · 89 repos · in hashicorp/go-hclog — A common logging package for HashiCorp tools
+- github.com/hashicorp/hcl/v2 (Go) · 63 repos · in hashicorp/hcl — HCL is the HashiCorp configuration language.
+- github.com/hashicorp/go-multierror (Go) · 56 repos · in hashicorp/go-multierror — A Go (golang) package for representing a list of errors as a single error.
+- github.com/hashicorp/go-version (Go) · 46 repos · in hashicorp/go-version — A Go (golang) library for parsing and verifying versions and version constraints.
+- github.com/hashicorp/go-cleanhttp (Go) · 44 repos · in hashicorp/go-cleanhttp
+- github.com/hashicorp/vault/api (Go) · 43 repos · in hashicorp/vault/api
+- github.com/hashicorp/go-uuid (Go) · 40 repos · in hashicorp/go-uuid — Generates UUID-format strings using purely high quality random bytes
+- github.com/hashicorp/terraform-plugin-go (Go) · 37 repos · in hashicorp/terraform-plugin-go — A low-level Go binding for the Terraform protocol for integrations to be built on top of.
+- github.com/hashicorp/vault/sdk (Go) · 36 repos · in hashicorp/vault/sdk
+- github.com/hashicorp/terraform-plugin-framework (Go) · 34 repos · in hashicorp/terraform-plugin-framework — A next-generation framework for building Terraform providers.
+- github.com/hashicorp/copywrite (Go) · 30 repos · in hashicorp/copywrite — Automate copyright headers and license files at scale
+- github.com/hashicorp/terraform-plugin-log (Go) · 30 repos · in hashicorp/terraform-plugin-log — Module for logging from Terraform plugins.
+- github.com/hashicorp/terraform-plugin-testing (Go) · 27 repos · in hashicorp/terraform-plugin-testing — Module for testing Terraform providers
+- github.com/hashicorp/packer-plugin-sdk (Go) · 25 repos · in hashicorp/packer-plugin-sdk — Packer Plugin SDK enables building Packer plugins (builders, provisioners, or post-processors) to manage any service pr…
+- github.com/hashicorp/terraform-plugin-framework-validators (Go) · 23 repos · in hashicorp/terraform-plugin-framework-validators — Common Use Case Validators for terraform-plugin-framework
+- github.com/hashicorp/go-secure-stdlib/strutil (Go) · 22 repos · in hashicorp/go-secure-stdlib/strutil
+- github.com/hashicorp/consul/api (Go) · 20 repos · in hashicorp/consul/api
+- github.com/hashicorp/errwrap (Go) · 20 repos · in hashicorp/errwrap — Errwrap is a Go (golang) library for wrapping and querying errors.
+- github.com/hashicorp/terraform-plugin-docs (Go) · 20 repos · in hashicorp/terraform-plugin-docs — Generate and validate Terraform plugin/provider documentation.
+- github.com/hashicorp/terraform-plugin-sdk/v2 (Go) · 20 repos · in hashicorp/terraform-plugin-sdk — Terraform Plugin SDK enables building plugins (providers) to manage any service providers or custom in-house solutions
+- github.com/hashicorp/terraform-json (Go) · 19 repos · in hashicorp/terraform-json — Helper types for the Terraform external data representation
+- github.com/hashicorp/go-retryablehttp (Go) · 16 repos · in hashicorp/go-retryablehttp — Retryable HTTP client in Go
+- github.com/hashicorp/go-secure-stdlib/parseutil (Go) · 16 repos · in hashicorp/go-secure-stdlib/parseutil
+- github.com/hashicorp/cli (Go) · 15 repos · in hashicorp/cli — A Go library for implementing command-line interfaces.
+- github.com/hashicorp/go-cty (Go) · 15 repos · in hashicorp/go-cty — Fork of upstream zclconf/go-cty for use in the terraform-plugin-sdk
+- github.com/hashicorp/go-metrics (Go) · 14 repos · in hashicorp/go-metrics — A Golang library for exporting performance and runtime metrics to external metrics systems (i.e. statsite, statsd)
+- github.com/hashicorp/go-plugin (Go) · 14 repos · in hashicorp/go-plugin — Golang plugin system over RPC.
+- github.com/hashicorp/go-rootcerts (Go) · 14 repos · in hashicorp/go-rootcerts — Functions for loading root certificates for TLS connections.
+- github.com/hashicorp/consul/sdk (Go) · 13 repos · in hashicorp/consul/sdk
+- github.com/hashicorp/terraform-plugin-mux (Go) · 12 repos · in hashicorp/terraform-plugin-mux — A router for Terraform's RPC protocol.
+- github.com/hashicorp/go-sockaddr (Go) · 11 repos · in hashicorp/go-sockaddr — IP Address/UNIX Socket convenience functions for Go
+- github.com/hashicorp/go-msgpack/v2 (Go) · 10 repos · in hashicorp/go-msgpack — Open-Source Go Code. msgpack.org[Go]
+- github.com/hashicorp/go-getter (Go) · 9 repos · in hashicorp/go-getter — Package for downloading things from a string URL using a variety of protocols.
+- github.com/hashicorp/go-secure-stdlib/base62 (Go) · 9 repos · in hashicorp/go-secure-stdlib/base62
+- github.com/hashicorp/go-tfe/v2 (Go) · 9 repos · in hashicorp/go-tfe/v2
+- github.com/hashicorp/raft (Go) · 9 repos · in hashicorp/raft — Golang implementation of the Raft consensus protocol
+- github.com/hashicorp/terraform-exec (Go) · 9 repos · in hashicorp/terraform-exec — Terraform CLI commands via Go.
+- github.com/hashicorp/terraform-plugin-framework-timeouts (Go) · 9 repos · in hashicorp/terraform-plugin-framework-timeouts — Convenience functions and types for timeouts, for use with terraform-plugin-framework
+- github.com/hashicorp/go-secure-stdlib/awsutil/v2 (Go) · 8 repos · in hashicorp/go-secure-stdlib/awsutil
+- github.com/hashicorp/hc-install (Go) · 8 repos · in hashicorp/hc-install — Go module for downloading or locating HashiCorp binaries, verifying signatures and checksums, and asserting version con…
+- github.com/hashicorp/go-checkpoint (Go) · 7 repos · in hashicorp/go-checkpoint
+- github.com/hashicorp/go-kms-wrapping/v2 (Go) · 7 repos · in hashicorp/go-kms-wrapping — KMS wrapping libraries split out from Vault
+- github.com/hashicorp/go-syslog (Go) · 7 repos · in hashicorp/go-syslog — Golang syslog wrapper, cross-compile friendly
+- github.com/hashicorp/golang-lru/v2 (Go) · 7 repos · in hashicorp/golang-lru — Golang LRU cache
+- github.com/hashicorp/hcp-sdk-go (Go) · 7 repos · in hashicorp/hcp-sdk-go — Go SDK for HCP API.
+- github.com/hashicorp/nomad (Go) · 7 repos · in hashicorp/nomad — Nomad is an easy-to-use, flexible, and performant workload orchestrator that can deploy a mix of microservice, batch, c…
+- github.com/hashicorp/nomad/api (Go) · 7 repos · in hashicorp/nomad/api
+- github.com/hashicorp/aws-sdk-go-base/v2 (Go) · 6 repos · in hashicorp/aws-sdk-go-base — AWS Go SDK Base Client and Helper Function Library
+- github.com/hashicorp/cap (Go) · 6 repos · in hashicorp/cap — A collection of authentication Go packages related to OIDC, JWKs, Distributed Claims, LDAP
+- github.com/hashicorp/go-bexpr (Go) · 6 repos · in hashicorp/go-bexpr — Generic boolean expression evaluation in Go
+- github.com/hashicorp/logutils (Go) · 6 repos · in hashicorp/logutils — Utilities for slightly better logging in Go (Golang).
+- github.com/hashicorp/raft-boltdb (Go) · 6 repos · in hashicorp/raft-boltdb — Raft backend implementation using BoltDB
+- github.com/hashicorp/serf (Go) · 6 repos · in hashicorp/serf — Service orchestration and management tool.
+- github.com/hashicorp/boundary-sdk/sdk (Go) · 5 repos · in hashicorp/boundary-sdk/sdk
+- github.com/hashicorp/consul-template (Go) · 5 repos · in hashicorp/consul-template — Template rendering, notifier, and supervisor for @HashiCorp Consul and Vault data.
+- github.com/hashicorp/go-azure-helpers (Go) · 5 repos · in hashicorp/go-azure-helpers — This repository contains various helpers and wrappers for working with Azure and the Azure SDK for Go.
+- github.com/hashicorp/go-azure-sdk/sdk (Go) · 5 repos · in hashicorp/go-azure-sdk
+- github.com/hashicorp/go-immutable-radix/v2 (Go) · 5 repos · in hashicorp/go-immutable-radix — An immutable radix tree implementation in Golang
+- github.com/hashicorp/go-memdb (Go) · 5 repos · in hashicorp/go-memdb — Golang in-memory database built on immutable radix trees
+- github.com/hashicorp/go-set/v3 (Go) · 5 repos · in hashicorp/go-set — The go-set package provides generic Set implementations for Go, including HashSet for types with a Hash() function and …
+- github.com/hashicorp/terraform-plugin-framework-timetypes (Go) · 5 repos · in hashicorp/terraform-plugin-framework-timetypes — Timestamp Custom Types for Terraform Plugin Framework
+- github.com/hashicorp/terraform-registry-address (Go) · 5 repos · in hashicorp/terraform-registry-address — Library to represent, compare and parse Terraform Registry address
+- github.com/hashicorp/yamux (Go) · 5 repos · in hashicorp/yamux — Golang connection multiplexing library
+- @hashicorp/github-actions-core (npm) · 5 repos · in hashicorp/github-actions-core — A library of functions shared between GitHub Actions.
+- github.com/hashicorp/consul-server-connection-manager (Go) · 4 repos · in hashicorp/consul-server-connection-manager — Library for discovering and connecting to Consul servers
+- github.com/hashicorp/go-discover (Go) · 4 repos · in hashicorp/go-discover — Discover nodes in cloud environments
+- github.com/hashicorp/go-gcp-common (Go) · 4 repos · in hashicorp/go-gcp-common — Common code shared by GCP-maintained plugins
+- github.com/hashicorp/go-secure-stdlib/tlsutil (Go) · 4 repos · in hashicorp/go-secure-stdlib/tlsutil
+- github.com/hashicorp/go-slug (Go) · 4 repos · in hashicorp/go-slug — The slug package provides functions to create slug archives
+- github.com/hashicorp/jsonapi (Go) · 4 repos · in hashicorp/jsonapi — jsonapi.org style payload serializer and deserializer
+- github.com/hashicorp/terraform-svchost (Go) · 4 repos · in hashicorp/terraform-svchost — A library for the representation of friendly hostnames
+- @hashicorp/design-system-components (npm) · 4 repos · in hashicorp/design-system/packages/components — Helios Design System Components
+- @hashicorp/design-system-tokens (npm) · 4 repos · in hashicorp/design-system/packages/tokens — Helios Design Tokens
+- github.com/hashicorp/consul (Go) · 3 repos · in hashicorp/consul — Consul is a distributed, highly available, and data center aware solution to connect and configure applications across …
+- github.com/hashicorp/consul-awsauth (Go) · 3 repos · in hashicorp/consul-awsauth — AWS auth method implementation for use by Consul
+- github.com/hashicorp/consul/proto-public (Go) · 3 repos · in hashicorp/consul/proto-public
+- github.com/hashicorp/cronexpr (Go) · 3 repos · in hashicorp/cronexpr — Cron expression parser in Go language (golang)
+- github.com/hashicorp/gh-action-jira (Go) · 3 repos · in hashicorp/gh-action-jira — Library for GitHub Actions interacting with Jira
+- github.com/hashicorp/go-azure-sdk/resource-manager (Go) · 3 repos · in hashicorp/go-azure-sdk
+- github.com/hashicorp/go-gatedio (Go) · 3 repos · in hashicorp/go-gatedio — Provides a unified interface for wrapping io objects in a mutex
+- github.com/hashicorp/go-kms-wrapping/wrappers/awskms/v4 (Go) · 3 repos · in hashicorp/go-kms-wrapping/wrappers/awskms
+- github.com/hashicorp/go-kms-wrapping/wrappers/azurekeyvault/v2 (Go) · 3 repos · in hashicorp/go-kms-wrapping/wrappers/azurekeyvault
+- github.com/hashicorp/go-kms-wrapping/wrappers/gcpckms/v2 (Go) · 3 repos · in hashicorp/go-kms-wrapping/wrappers/gcpckms
+- github.com/hashicorp/go-kms-wrapping/wrappers/transit/v2 (Go) · 3 repos · in hashicorp/go-kms-wrapping/wrappers/transit
+- github.com/hashicorp/go-netaddrs (Go) · 3 repos · in hashicorp/go-netaddrs
+- github.com/hashicorp/memberlist (Go) · 3 repos · in hashicorp/memberlist — Golang package for gossip based membership and failure detection
+- github.com/hashicorp/raft-autopilot (Go) · 3 repos · in hashicorp/raft-autopilot — Raft Autopilot
+- github.com/hashicorp/raft-wal (Go) · 3 repos · in hashicorp/raft-wal — experimental raft storage
+- github.com/hashicorp/terraform-plugin-codegen-spec (Go) · 3 repos · in hashicorp/terraform-plugin-codegen-spec — Terraform Provider Code Generation Specification and Go Bindings
+- github.com/hashicorp/terraform-plugin-framework-jsontypes (Go) · 3 repos · in hashicorp/terraform-plugin-framework-jsontypes — JSON String Custom Types for Terraform Plugin Framework
+- @hashicorp/flight-icons (npm) · 3 repos · in hashicorp/design-system/packages/flight-icons — Flight: HashiCorp SVG icon set
+- @hashicorp/js-releases (npm) · 3 repos · in hashicorp/js-releases — Download packages from releases.hashicorp.com
+- github.com/hashicorp/aws-cloudformation-resource-schema-sdk-go (Go) · 2 repos · in hashicorp/aws-cloudformation-resource-schema-sdk-go — This package provides AWS CloudFormation Resource Schema functionality in Go
+- github.com/hashicorp/cap/ldap (Go) · 2 repos · in hashicorp/cap/ldap
+- github.com/hashicorp/eventlogger (Go) · 2 repos · in hashicorp/go-eventlogger — a flexible event system library implemented as a pub/sub model supporting middleware.
+- github.com/hashicorp/go-connlimit (Go) · 2 repos · in hashicorp/go-connlimit — A simple library that allows a network server to limit how may concurrent connections it supports from each client IP.
+- github.com/hashicorp/go-cty-funcs (Go) · 2 repos · in hashicorp/go-cty-funcs — go-cty specific functions; mainly used in HCL2 templates
+- github.com/hashicorp/go-dbw (Go) · 2 repos · in hashicorp/go-dbw — A simple package that encapsulates database operations.
+- github.com/hashicorp/go-hmac-drbg (Go) · 2 repos · in hashicorp/go-hmac-drbg — Deterministic random bit generator using hmac/sha256 as per NIST 800-90A
+- github.com/hashicorp/go-kms-wrapping/plugin/v2 (Go) · 2 repos · in hashicorp/go-kms-wrapping/plugin
+… 126 more: pass a query (words in the name or purpose).

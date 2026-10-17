@@ -435,6 +435,29 @@ def org_profile(
         _fail(str(exc))
 
 
+@app.command("org-packages")
+def org_packages_cmd(
+    name: Annotated[str, typer.Argument(help="One package: its home, users and usages.")] = "",
+    query: Annotated[str, typer.Option("--query", help="Words to filter the list by.")] = "",
+    org: Annotated[str, typer.Option("--org", help="Which org, when several are configured.")] = "",
+    refresh: Annotated[
+        bool, typer.Option("--refresh", help="Read what changed now, even if the cache is fresh.")
+    ] = False,
+) -> None:
+    """Your org's own packages: the libraries its repos use from one another, where each is
+    defined, and who uses it (read over GitHub's API, cached for a day)."""
+    from cairn.integrations.registry import find_workspace
+    from cairn.mcp_server.tools import packages_text
+
+    ws_root = find_workspace(Path.cwd())
+    if ws_root is None:
+        _fail("No cairn map here. Run `cairn init` in the folder that contains your repos.")
+    try:
+        typer.echo(packages_text(ws_root, name, query, org, refresh=refresh))
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+
+
 @app.command("annotate-edge")
 def annotate_edge_cmd(
     key: str,
@@ -910,6 +933,74 @@ def bench_prior_art(
     if failure is not None:
         kept = f" (the {len(outcomes)} outcomes scored before it are in {out})" if outcomes else ""
         _fail(failure + kept)
+
+
+@app.command("bench-packages")
+def bench_packages(
+    suites: Annotated[
+        list[Path], typer.Argument(help="Suite folders, each with a packages.yaml key.")
+    ],
+    make_list: Annotated[
+        bool,
+        typer.Option(
+            "--make-list",
+            help="Read the org's packages now and keep the list beside the key (the agent reads it).",
+        ),
+    ] = False,
+    make_picks: Annotated[
+        bool,
+        typer.Option(
+            "--make-picks", help="Ask claude (haiku) to pick libraries, for tasks without picks."
+        ),
+    ] = False,
+    out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
+        "bench/results"
+    ),
+) -> None:
+    """Offline: told what to build, does an agent name the org's own library for it, from memory
+    and after reading org_packages' list?"""
+    from cairn.bench.org_packages import (
+        LIST_FILE,
+        LOCATORS,
+        PickOutcome,
+        load_package_set,
+        load_picks,
+        outcomes_json,
+        read_list,
+        report,
+        score,
+        write_list,
+        write_picks,
+    )
+    from cairn.remote.auth import github_token
+    from cairn.remote.github import GitHub
+
+    outcomes: list[PickOutcome] = []
+    sizes: dict[str, int] = {}
+    try:
+        for suite_dir in suites:
+            pset = load_package_set(suite_dir)
+            if make_list:
+                write_list(suite_dir, GitHub(github_token(pset.host), host=pset.host), pset)
+            today = datetime.now().strftime("%Y-%m-%d")
+            picks = (
+                write_picks(suite_dir, pset, list(LOCATORS), today=today)
+                if make_picks
+                else load_picks(suite_dir)
+            )
+            if not picks:
+                _fail(f"{suite_dir} has no agent picks yet: run with --make-picks")
+            listing = read_list(suite_dir)
+            sizes[pset.split] = len(listing)
+            outcomes.extend(score(pset, picks, listing))
+    except (CairnError, OSError) as exc:
+        _fail(f"{exc} (the list is {LIST_FILE} beside the key)")
+    text = report(outcomes, sizes)
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    (out / f"packages-{stamp}.md").write_text(text, encoding="utf-8")
+    (out / f"packages-{stamp}.json").write_text(outcomes_json(outcomes), encoding="utf-8")
+    typer.echo(text)
 
 
 @app.command("bench-regrade")

@@ -22,7 +22,7 @@ def test_find_workspace_walks_up(materialize, tmp_path: Path, monkeypatch) -> No
 
 
 @pytest.mark.anyio
-async def test_server_exposes_ten_tools(materialize) -> None:
+async def test_server_exposes_eleven_tools(materialize) -> None:
     ws = materialize("mini-eats").resolve()
     tools.rescan(ws)
     server = build_server(ws)
@@ -33,6 +33,7 @@ async def test_server_exposes_ten_tools(materialize) -> None:
             "find_across",
             "find_similar",
             "links",
+            "org_packages",
             "org_profile",
             "query",
             "read_org_file",

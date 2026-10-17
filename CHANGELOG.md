@@ -8,6 +8,16 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **The org's own packages: `org_packages` and `cairn org-packages`.** The libraries an org's
+  repos use from one another, most shared first. Each comes with where it is defined (the repo
+  and manifest, a monorepo's subfolder included) and which repos use it. Pass a name to see
+  one package's users and up to five files that import it. Every active repo's tree and
+  manifests are read over GitHub's API (hashicorp's 604 repos: 35 s), then cached. A refresh
+  after a day reads only the repos pushed since (2.3 s when none were), and when the hour's
+  API budget runs low, it leaves the rest for the next call. `cairn bench-packages` measures
+  whether an agent names the org's library for a task. With the org's name masked, an agent
+  alone named none for hashicorp; after reading the list, it named the right one for all 26 dev tasks
+  and all 14 held-out grafana tasks.
 - **The org's stack: `org_profile` and `cairn org-profile`.** A few lines that say what the org's
   200 most recently pushed repos build with: languages, datastores, queues, web frameworks,
   auth, test and deploy tools, the most used libraries per ecosystem, and the org's own packages

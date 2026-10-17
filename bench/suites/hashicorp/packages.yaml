@@ -1,0 +1,119 @@
+# Org-packages key for github.com/hashicorp (604 active repos): tasks a developer there might
+# start, and the org's own packages that serve each (any one counts). Each answer was checked
+# against its repo's description, or its README where it has none, on 2026-10-17. Tasks say
+# what is needed, not which library. Each task's best answer ranks between 1st and 77th of the
+# org's 226 packages by how many repos use them.
+host: github.com
+org: hashicorp
+split: dev
+tasks:
+
+  - id: leveled-logging
+    task: Add structured, leveled logging to a new Go service, with a named sub-logger per component.
+    answers: [go:github.com/hashicorp/go-hclog]
+
+  - id: collect-errors
+    task: Validate every field of a config file and return all the problems at once as one error value.
+    answers: [go:github.com/hashicorp/go-multierror]
+
+  - id: version-constraint
+    task: Check that the installed CLI's version satisfies a constraint like ">= 1.5, < 2.0".
+    answers: [go:github.com/hashicorp/go-version]
+
+  - id: daemon-http-client
+    task: Give a long-running daemon its own HTTP client that doesn't share Go's global default transport.
+    answers: [go:github.com/hashicorp/go-cleanhttp]
+
+  - id: read-secret
+    task: Read a database password from the KV secrets engine of the company's secrets manager, in a Go service.
+    answers: [go:github.com/hashicorp/vault/api]
+
+  - id: retry-http
+    task: Make outbound HTTP calls retry automatically, with exponential backoff, on 5xx responses and connection errors.
+    answers: [go:github.com/hashicorp/go-retryablehttp]
+
+  - id: request-ids
+    task: Generate random UUID strings for request IDs.
+    answers: [go:github.com/hashicorp/go-uuid]
+
+  - id: process-plugins
+    task: Load plugins as separate processes that the main binary talks to over gRPC.
+    answers: [go:github.com/hashicorp/go-plugin]
+
+  - id: register-service
+    task: Register a service and its health check with the company's service catalog from Go code.
+    answers: [go:github.com/hashicorp/consul/api]
+
+  - id: lru-cache
+    task: Keep the last 1,000 lookups in memory, evicting the least recently used.
+    answers: [go:github.com/hashicorp/golang-lru/v2]
+
+  - id: in-memory-tables
+    task: Keep an in-memory table of objects with indexes on several fields, transactions, and watches for changes.
+    answers: [go:github.com/hashicorp/go-memdb]
+
+  - id: replicated-state
+    task: Replicate a small state machine across three servers, with leader election and a replicated log.
+    answers: [go:github.com/hashicorp/raft]
+
+  - id: gossip-membership
+    task: Have cluster nodes discover each other and detect failed members with a gossip protocol.
+    answers: [go:github.com/hashicorp/memberlist, go:github.com/hashicorp/serf]
+
+  - id: fetch-any-url
+    task: Download a module from a source string that may be a git repo, an S3 bucket, an HTTP URL or a local path.
+    answers: [go:github.com/hashicorp/go-getter]
+
+  - id: custom-ca
+    task: Load extra CA certificates from a file or a directory named in an environment variable, for TLS connections.
+    answers: [go:github.com/hashicorp/go-rootcerts]
+
+  - id: bind-address
+    task: Pick the node's private IP address to bind to from its network interfaces, configurable with a template.
+    answers: [go:github.com/hashicorp/go-sockaddr]
+
+  - id: cron-schedule
+    task: Parse cron expressions and compute the next run time of a periodic job.
+    answers: [go:github.com/hashicorp/cronexpr]
+
+  - id: list-filter
+    task: Let API users filter list results with boolean expressions like `Meta.env == "prod" and Port > 80`.
+    answers: [go:github.com/hashicorp/go-bexpr]
+
+  - id: stream-multiplexing
+    task: Multiplex many logical streams over a single TCP connection.
+    answers: [go:github.com/hashicorp/yamux]
+
+  - id: new-provider
+    task: Start a new Terraform provider for an internal API.
+    answers:
+    - go:github.com/hashicorp/terraform-plugin-framework
+    - go:github.com/hashicorp/terraform-plugin-sdk/v2
+
+  - id: kms-envelope
+    task: Encrypt data keys with a cloud KMS (AWS KMS, GCP Cloud KMS or Azure Key Vault) behind one interface.
+    answers:
+    - go:github.com/hashicorp/go-kms-wrapping/v2
+    - go:github.com/hashicorp/go-kms-wrapping/wrappers/awskms/v4
+    - go:github.com/hashicorp/go-kms-wrapping/wrappers/gcpckms/v2
+    - go:github.com/hashicorp/go-kms-wrapping/wrappers/azurekeyvault/v2
+
+  - id: run-terraform
+    task: Run terraform init and terraform plan from Go code and read the plan as structured data.
+    answers: [go:github.com/hashicorp/terraform-exec]
+
+  - id: install-binary
+    task: In a test harness, download and verify a specific version of the terraform binary.
+    answers: [go:github.com/hashicorp/hc-install]
+
+  - id: generic-set
+    task: Use a generic set type with union and intersection in Go code.
+    answers: [go:github.com/hashicorp/go-set/v3]
+
+  - id: design-system
+    task: Build a settings page for an Ember web UI with the company's design system components.
+    answers: [npm:@hashicorp/design-system-components]
+
+  - id: jsonapi-payloads
+    task: Serialize and parse API payloads in the JSON:API format.
+    answers: [go:github.com/hashicorp/jsonapi]

@@ -45,19 +45,20 @@ MANIFESTS_PER_REPO = 3  # the shallowest: a repo's own, not its examples' or fix
 MAX_AGE = timedelta(days=7)
 _WORKERS = 16
 _MAX_PAGES = 20  # an org whose recent repos are nearly all archived stops here
+_LIST_BATCH = 10  # listing pages read at once
 _TOP_TECHS = 8
 _TOP_LIBRARIES = 12
 _TOP_OWN = 10
 _TOP_TOPICS = 12
 
-_MANIFEST = re.compile(
+MANIFEST = re.compile(
     r"(?:^|/)(?:package\.json|requirements\.txt|pyproject\.toml|go\.mod|pom\.xml|"
     r"build\.gradle(?:\.kts)?|Cargo\.toml|Gemfile)$"
 )
 _BUILT = re.compile(r"(?:^|/)(?:dist|build|out|target|\.next)/")
 # What a package name can be in any ecosystem: a manifest's keys are free text, and these are
 # shown to an agent, so a "dependency" that is a sentence is dropped, not passed on.
-_PACKAGE = re.compile(r"^[a-z]{2,6}:[A-Za-z0-9@][\w@/.+:~-]{0,99}$", re.ASCII)
+PACKAGE_NAME = re.compile(r"^[a-z]{2,6}:[A-Za-z0-9@][\w@/.+:~-]{0,99}$", re.ASCII)
 # Spaces and tabs only, never `\s`: it crosses lines, and backtracks quadratically on a file of
 # blank lines (manifests are other people's text).
 _GO_INDIRECT = re.compile(r"^[ \t]*(?:require[ \t]+)?(\S+)[ \t]+\S+[ \t]*//[ \t]*indirect", re.M)
@@ -150,12 +151,14 @@ def build_profile(
     return summarize(org, host, stacks, ms=ms, failed=failed, built=now())
 
 
-def active_repos(client: GitHub, org: str, sample: int) -> list[RepoInfo]:
+def active_repos(
+    client: GitHub, org: str, sample: int, *, max_pages: int = _MAX_PAGES
+) -> list[RepoInfo]:
     """The `sample` most recently pushed repos that aren't archived (forks count)."""
-    batch = -(-sample // 100) + 1
+    batch = min(-(-sample // 100) + 1, _LIST_BATCH)
     repos: dict[str, RepoInfo] = {}
     with ThreadPoolExecutor(batch, thread_name_prefix="cairn-list") as pool:
-        for first in range(1, _MAX_PAGES + 1, batch):
+        for first in range(1, max_pages + 1, batch):
             pages = list(
                 pool.map(lambda n: client.list_repos(org, page=n), range(first, first + batch))
             )
@@ -168,14 +171,14 @@ def active_repos(client: GitHub, org: str, sample: int) -> list[RepoInfo]:
     return list(repos.values())[:sample]
 
 
-def manifests(paths: Iterable[str]) -> list[str]:
+def manifests(paths: Iterable[str], limit: int = MANIFESTS_PER_REPO) -> list[str]:
     """The manifests worth reading: a repo's own (shallowest first), not vendored or built."""
     found = [
         path
         for path in paths
-        if _MANIFEST.search(path) and weight(path) > 0 and not _BUILT.search(path)
+        if MANIFEST.search(path) and weight(path) > 0 and not _BUILT.search(path)
     ]
-    return sorted(found, key=lambda path: (path.count("/"), path))[:MANIFESTS_PER_REPO]
+    return sorted(found, key=lambda path: (path.count("/"), path))[:limit]
 
 
 def parse_manifest(path: str, text: str) -> tuple[set[str], set[str]]:
@@ -227,8 +230,8 @@ def repo_stack(
     for path, text in read:
         if text:
             own, used = parse_manifest(path, text)
-            defines |= {name for name in own if _PACKAGE.fullmatch(name)}
-            uses |= {name for name in used if _PACKAGE.fullmatch(name)}
+            defines |= {name for name in own if PACKAGE_NAME.fullmatch(name)}
+            uses |= {name for name in used if PACKAGE_NAME.fullmatch(name)}
     kept = [path for path in paths if weight(path) > 0 and not _BUILT.search(path)]
     techs = repo_techs(uses, repo.topics, kept)
     return RepoStack(repo, frozenset(uses - defines), frozenset(defines), frozenset(techs))
@@ -292,7 +295,7 @@ def own_packages(org: str, host: str, stacks: Sequence[RepoStack]) -> tuple[OwnP
             key = package.lower()
             home = homes.get(key, [])
             # Defined by several repos read, the name is a template's (`cdk-app`), not a library.
-            if (len(home) == 1 and home[0] != stack.repo.name) or _under_org(key, org, host):
+            if (len(home) == 1 and home[0] != stack.repo.name) or under_org(key, org, host):
                 users[key] += 1
                 names.setdefault(key, package)
     ranked = sorted(users, key=lambda key: (-users[key], key))[:_TOP_OWN]
@@ -306,7 +309,7 @@ def own_packages(org: str, host: str, stacks: Sequence[RepoStack]) -> tuple[OwnP
     )
 
 
-def _under_org(package: str, org: str, host: str) -> bool:
+def under_org(package: str, org: str, host: str) -> bool:
     ecosystem, _, name = package.partition(":")
     org = org.lower()
     if ecosystem == "npm":
@@ -382,20 +385,31 @@ def load_profile(path: Path) -> OrgProfile | None:
 
 
 def save_profile(path: Path, profile: OrgProfile) -> None:
+    save_cache(path, profile.model_dump_json(indent=1))
+
+
+def save_cache(path: Path, text: str) -> None:
+    """Write a cache file whole or not at all: a reader never sees half of one."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(f".{os.getpid()}.tmp")
-    temp.write_text(profile.model_dump_json(indent=1), encoding="utf-8", newline="\n")
+    temp.write_text(text, encoding="utf-8", newline="\n")
     os.replace(temp, path)
 
 
 def is_stale(profile: OrgProfile, now: datetime) -> bool:
+    return older_than(profile.built, now, MAX_AGE)
+
+
+def older_than(built: str, now: datetime, age: timedelta) -> bool:
+    """Whether a cache stamped `built` (ISO, UTC) is over `age` old, or isn't a stamp cairn
+    wrote."""
     try:
-        built = datetime.fromisoformat(profile.built)
+        when = datetime.fromisoformat(built)
     except ValueError:
         return True
-    if built.tzinfo is None or built > now:  # not one cairn wrote, or a clock gone wrong
+    if when.tzinfo is None or when > now:  # not one cairn wrote, or a clock gone wrong
         return True
-    return now - built > MAX_AGE
+    return now - when > age
 
 
 def is_degraded(profile: OrgProfile) -> bool:

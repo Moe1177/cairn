@@ -1,0 +1,102 @@
+The own packages of grafana (github.com): the 192 libraries its 533 active repos use from one another, most used first (by how many repos), read 2026-10-17. Pass a name for where one is defined, every repo using it, and code that calls it.
+- @grafana/eslint-config (npm) · 85 repos · in grafana/plugin-tools/packages/eslint-config — Grafana's ESLint config
+- @grafana/data (npm) · 84 repos · in grafana/grafana/packages/grafana-data — Grafana Data Library
+- @grafana/tsconfig (npm) · 83 repos · in grafana/plugin-tools/packages/tsconfig — Grafana's TypeScript config
+- @grafana/ui (npm) · 83 repos · in grafana/grafana/packages/grafana-ui — Grafana Components Library
+- @grafana/runtime (npm) · 79 repos · in grafana/grafana/packages/grafana-runtime — Grafana Runtime Library
+- @grafana/plugin-e2e (npm) · 71 repos · in grafana/plugin-tools/packages/plugin-e2e
+- @grafana/schema (npm) · 66 repos · in grafana/grafana/packages/grafana-schema — Grafana Schema Library
+- github.com/grafana/grafana-plugin-sdk-go (Go) · 59 repos · in grafana/grafana-plugin-sdk-go — A Go SDK for building backend plugins for Grafana
+- @grafana/sign-plugin (npm) · 43 repos · in grafana/plugin-tools/packages/sign-plugin
+- @grafana/i18n (npm) · 40 repos · in grafana/grafana/packages/grafana-i18n — Grafana Internationalization Library
+- @grafana/plugin-ui (npm) · 37 repos · in grafana/plugin-ui — Components and utilities for Grafana plugins
+- go.k6.io/k6/v2 (Go) · 36 repos · in grafana/k6 — A modern load testing tool, using Go and JavaScript
+- @grafana/e2e-selectors (npm) · 33 repos · in grafana/grafana/packages/grafana-e2e-selectors — Grafana End-to-End Test Selectors Library
+- github.com/grafana/dskit (Go) · 22 repos · in grafana/dskit — Distributed systems kit
+- github.com/grafana/sobek (Go) · 22 repos · in grafana/sobek
+- github.com/grafana/dsconfig/schema (Go) · 17 repos · in grafana/dsconfig/schema
+- @grafana/scenes (npm) · 17 repos · in grafana/scenes/packages/scenes — Grafana framework for building dynamic dashboards
+- @grafana/assistant (npm) · 15 repos
+- @grafana/faro-web-sdk (npm) · 15 repos · in grafana/faro-web-sdk/packages/web-sdk — Faro instrumentations, metas, transports for web.
+- github.com/grafana/grafana-openapi-client-go (Go) · 13 repos · in grafana/grafana-openapi-client-go — Grafana OpenAPI Client for Go
+- github.com/grafana/grafana-aws-sdk (Go) · 12 repos · in grafana/grafana-aws-sdk — Common AWS configs for plugins
+- @grafana/aws-sdk (npm) · 11 repos · in grafana/grafana-aws-sdk-react — Common AWS features for grafana
+- @grafana/faro-web-tracing (npm) · 10 repos · in grafana/faro-web-sdk/packages/web-tracing — Faro web tracing implementation.
+- github.com/grafana/otel-profiling-go (Go) · 8 repos · in grafana/otel-profiling-go — Open Telemetry integration for Grafana Pyroscope and tracing solutions such as Grafana Tempo, Honeycomb, or Jaeger
+- github.com/grafana/authlib/types (Go) · 7 repos · in grafana/authlib/types
+- github.com/grafana/loki/pkg/push (Go) · 7 repos · in grafana/loki/pkg/push
+- github.com/grafana/pyroscope-go/godeltaprof (Go) · 7 repos · in grafana/pyroscope-go/godeltaprof
+- github.com/grafana/regexp (Go) · 7 repos · in grafana/regexp — Faster version of the Go regexp package
+- github.com/grafana/sqlds/v5 (Go) · 7 repos · in grafana/sqlds — A package that assists writing SQL-driven datasources
+- github.com/grafana/xk6-sql (Go) · 7 repos · in grafana/xk6-sql — Use SQL databases from k6 tests.
+- github.com/grafana/authlib (Go) · 6 repos · in grafana/authlib — Common utilities for grafana authnz
+- github.com/grafana/gomemcache (Go) · 6 repos · in grafana/gomemcache — Go Memcached client library - forked and improved
+- github.com/grafana/loki/v3 (Go) · 6 repos · in grafana/loki — Like Prometheus, but for logs.
+- github.com/grafana/pyroscope-go (Go) · 6 repos · in grafana/pyroscope-go — This is the golang client integration for Pyroscope
+- @grafana/e2e (npm) · 6 repos
+- @grafana/llm (npm) · 6 repos · in grafana/grafana-llm-app/packages/grafana-llm-frontend — A library for working with LLMs in Grafana plugins
+- github.com/grafana/grafana-prometheus-datasource/pkg/promlib (Go) · 5 repos · in grafana/grafana-prometheus-datasource/pkg/promlib
+- github.com/grafana/pyroscope/api (Go) · 5 repos · in grafana/pyroscope/api
+- @grafana/faro-core (npm) · 5 repos · in grafana/faro-web-sdk/packages/core — Core package of Faro.
+- @grafana/faro-instrumentation-replay (npm) · 5 repos · in grafana/faro-web-sdk/experimental/instrumentation-replay — Faro instrumentation for session replay with rrweb
+- @grafana/prometheus (npm) · 5 repos · in grafana/grafana-prometheus-datasource/packages/grafana-prometheus — Grafana Prometheus Library
+- github.com/grafana/e2e (Go) · 4 repos · in grafana/e2e
+- github.com/grafana/grafana-app-sdk (Go) · 4 repos · in grafana/grafana-app-sdk — An SDK for developing apps for grafana using kubernetes-like storage and operators
+- github.com/grafana/grafana-app-sdk/logging (Go) · 4 repos · in grafana/grafana-app-sdk/logging
+- github.com/grafana/grafana-azure-sdk-go/v2 (Go) · 4 repos · in grafana/grafana-azure-sdk-go — Shared Go code for Azure Grafana data source plugins
+- github.com/grafana/grafana-google-sdk-go (Go) · 4 repos · in grafana/grafana-google-sdk-go — Repo for sharing go code between Google data source plugins for Grafana
+- github.com/grafana/grafana/pkg/apimachinery (Go) · 4 repos · in grafana/grafana/pkg/apimachinery
+- github.com/grafana/k6-cloud-openapi-client-go (Go) · 4 repos · in grafana/k6-cloud-openapi-client-go — Go client for the Grafana Cloud k6 REST API v6.
+- github.com/grafana/synthetic-monitoring-agent (Go) · 4 repos · in grafana/synthetic-monitoring-agent — Synthetic Monitoring agent
+- @grafana/azure-sdk (npm) · 4 repos · in grafana/grafana-azure-sdk-react — Common Azure features for Grafana
+- @grafana/faro-react (npm) · 4 repos · in grafana/faro-web-sdk/packages/react — Faro package that enables easier integration in projects built with React.
+- @grafana/levitate (npm) · 4 repos · in grafana/levitate — A tool for helping to understand APIs exported and consumed by NPM packages (or any TypeScript code).
+- @grafana/lezer-logql (npm) · 4 repos · in grafana/lezer-logql — Grafana Loki logQL lezer grammar
+- @grafana/plugin-meta-extractor (npm) · 4 repos · in grafana/plugin-tools/packages/plugin-meta-extractor — Extract meta information from a Grafana plugin source code.
+- @grafana/sql (npm) · 4 repos · in grafana/grafana/packages/grafana-sql — Shared UI components and utilities used by SQL-based datasource plugins
+- @prometheus-io/lezer-promql (npm) · 4 repos · in grafana/mimir-prometheus/web/ui/module/lezer-promql — lezer-based PromQL grammar
+- @pyroscope/nodejs (npm) · 4 repos · in grafana/pyroscope-nodejs — pyroscope nodejs package
+- github.com/grafana/amixr-api-go-client (Go) · 3 repos · in grafana/amixr-api-go-client
+- github.com/grafana/codejen (Go) · 3 repos · in grafana/codejen — Modular code generation framework
+- github.com/grafana/grafana-foundation-sdk/go (Go) · 3 repos · in grafana/grafana-foundation-sdk/go
+- github.com/grafana/incident-go (Go) · 3 repos · in grafana/incident-go — Clients, scripts and examples for using the Grafana Incident API
+- github.com/grafana/macropro (Go) · 3 repos · in grafana/macropro — A generic, language-agnostic Go library for parsing and expanding Grafana macros
+- github.com/grafana/pyroscope-go/x/k6 (Go) · 3 repos · in grafana/pyroscope-go/x/k6
+- github.com/grafana/synthetic-monitoring-api-go-client (Go) · 3 repos · in grafana/synthetic-monitoring-api-go-client — Go client for Synthetic Monitoring
+- @grafana/eslint-plugin-plugins (npm) · 3 repos · in grafana/plugin-tools/packages/eslint-plugin-plugins — An ESlint plugin with Grafana plugin specific rules
+- @grafana/google-sdk (npm) · 3 repos · in grafana/grafana-google-sdk-react — Common Google features for grafana
+- @grafana/o11y-ds-frontend (npm) · 3 repos · in grafana/grafana/packages/grafana-o11y-ds-frontend — Shared UI components and utilities for observability datasource plugins in Grafana.
+- @grafana/scenes-react (npm) · 3 repos · in grafana/scenes/packages/scenes-react — Grafana framework for building dynamic dashboards
+- github.com/grafana/ckit (Go) · 2 repos · in grafana/ckit — Lightweight library for clustering and workload distribution
+- github.com/grafana/cog (Go) · 2 repos · in grafana/cog — Code Generation with a human touch
+- github.com/grafana/cuetsy (Go) · 2 repos
+- github.com/grafana/dataplane/sdata (Go) · 2 repos · in grafana/dataplane/sdata
+- github.com/grafana/fleet-management-api (Go) · 2 repos · in grafana/fleet-management-api
+- github.com/grafana/grafana-asserts-public-clients/go/gcom (Go) · 2 repos · in grafana/grafana-asserts-public-clients/go/gcom
+- github.com/grafana/grafana-com-public-clients/go/gcom (Go) · 2 repos · in grafana/grafana-com-public-clients/go/gcom
+- github.com/grafana/grafana/apps/dashboard (Go) · 2 repos · in grafana/grafana/apps/dashboard
+- github.com/grafana/grafana/apps/folder (Go) · 2 repos · in grafana/grafana/apps/folder
+- github.com/grafana/grafana/apps/scope (Go) · 2 repos · in grafana/grafana/apps/scope
+- github.com/grafana/gsm-api-go-client (Go) · 2 repos · in grafana/gsm-api-go-client — Grafana Secrets Manager API Go client
+- github.com/grafana/jsonparser (Go) · 2 repos · in grafana/jsonparser — One of the fastest alternative JSON parser for Go that does not require schema
+- github.com/grafana/k6foundry (Go) · 2 repos · in grafana/k6foundry — k6 dynamic build library
+- github.com/grafana/machine-learning-go-client (Go) · 2 repos · in grafana/machine-learning-go-client
+- github.com/grafana/mcp-doc-server (Go) · 2 repos · in grafana/mcp-doc-server — Grafana docs MCP server with integration for mcp-grafana and gcx.
+- github.com/grafana/nanogit (Go) · 2 repos · in grafana/nanogit — Lightweight, HTTPS-only Git client library for Go, built for cloud-native and multitenant services
+- github.com/grafana/slo-openapi-client/go/slo (Go) · 2 repos · in grafana/slo-openapi-client/go/slo
+- github.com/grafana/tempo/v3 (Go) · 2 repos · in grafana/tempo — Grafana Tempo is a high volume, minimal dependency distributed tracing backend.
+- github.com/grafana/terraform-provider-grafana/v4 (Go) · 2 repos · in grafana/terraform-provider-grafana — Terraform Grafana provider
+- @grafana/async-query-data (npm) · 2 repos
+- @grafana/faro-webpack-plugin (npm) · 2 repos · in grafana/faro-javascript-bundler-plugins/packages/faro-webpack — Upload a source map to the Faro source map API from a Webpack build pipeline
+- @grafana/lezer-traceql (npm) · 2 repos · in grafana/lezer-traceql — Grafana Tempo TraceQL lezer grammar
+- @grafana/plugin-compat (npm) · 2 repos
+- @grafana/react-data-grid (npm) · 2 repos · in grafana/react-data-grid — Feature-rich and customizable data grid React component
+- har-to-k6 (npm) · 2 repos · in grafana/har-to-k6 — Convert LI-HAR to k6 script
+- pyroscope-io (Python) · 2 repos · in grafana/pyroscope-python — Pyroscope Python integration
+- pyroscope (Rust) · 1 repos · in grafana/pyroscope-rs — Pyroscope Profiler Agent for continuous profiling of Rust, Python and Ruby applications.
+- github.com/grafana/agento11y/go (Go) · 1 repos · in grafana/agento11y/go
+- github.com/grafana/agento11y/go-providers/anthropic (Go) · 1 repos · in grafana/agento11y/go-providers/anthropic
+- github.com/grafana/alerting (Go) · 1 repos · in grafana/alerting — Set of libraries used to build alerting systems at Grafana - including the Alertmanager.
+- github.com/grafana/alerting/apps/historian (Go) · 1 repos · in grafana/alerting/apps/historian
+- github.com/grafana/alerting/testing/alerting-gen (Go) · 1 repos · in grafana/alerting/testing/alerting-gen
+… 92 more: pass a query (words in the name or purpose).
