@@ -8,7 +8,8 @@ import pytest
 
 from cairn.errors import CairnError
 from cairn.remote.auth import check_host, github_token
-from cairn.remote.github import GitHub, Response, _HttpsTransport, api_base
+from cairn.remote.github import GitHub, Response, api_base
+from cairn.remote.transport import HttpsTransport as _HttpsTransport
 
 
 class FakeTransport:
@@ -234,7 +235,7 @@ class FakeReply:
 @pytest.fixture
 def connections(monkeypatch: pytest.MonkeyPatch) -> list[FakeConnection]:
     FakeConnection.made = []
-    monkeypatch.setattr("cairn.remote.github.http.client.HTTPSConnection", FakeConnection)
+    monkeypatch.setattr("http.client.HTTPSConnection", FakeConnection)
     return FakeConnection.made
 
 
@@ -263,7 +264,7 @@ def test_transport_fails_once_on_a_dead_host(
         def request(self, method: str, path: str, headers: dict) -> None:
             raise OSError("unreachable")
 
-    monkeypatch.setattr("cairn.remote.github.http.client.HTTPSConnection", Dead)
+    monkeypatch.setattr("http.client.HTTPSConnection", Dead)
     with pytest.raises(CairnError, match="couldn't reach api.github.com"):
         _HttpsTransport("api.github.com")("GET", "/a", {})
     assert len(connections) == 1  # one try: a second would only double the timeout

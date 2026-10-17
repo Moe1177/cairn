@@ -400,8 +400,8 @@ def similar(
     ] = "",
     org: Annotated[str, typer.Option("--org", help="Which org, when several are configured.")] = "",
 ) -> None:
-    """Where your org already implemented a feature: searches the org's repos on GitHub (set
-    `orgs:` in .cairn/config.yaml), nothing cloned."""
+    """Where your org already implemented a feature: searches the org's repos on GitHub or
+    GitLab (set `orgs:` in .cairn/config.yaml), nothing cloned."""
     from cairn.integrations.registry import find_workspace
     from cairn.mcp_server.tools import similar_text
 
@@ -422,7 +422,7 @@ def org_profile(
     ] = False,
 ) -> None:
     """Your org's stack: the datastores, frameworks, auth, test and deploy tools and libraries its
-    recently pushed repos use (read over GitHub's API, cached for a week)."""
+    recently pushed repos use (read over the host's API, cached for a week)."""
     from cairn.integrations.registry import find_workspace
     from cairn.mcp_server.tools import profile_text
 
@@ -445,7 +445,7 @@ def org_packages_cmd(
     ] = False,
 ) -> None:
     """Your org's own packages: the libraries its repos use from one another, where each is
-    defined, and who uses it (read over GitHub's API, cached for a day)."""
+    defined, and who uses it (read over the host's API, cached for a day)."""
     from cairn.integrations.registry import find_workspace
     from cairn.mcp_server.tools import packages_text
 

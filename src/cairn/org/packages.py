@@ -34,7 +34,7 @@ from cairn.org.profile import (
     under_org,
 )
 from cairn.org.similar import weight
-from cairn.remote.github import GitHub, RepoInfo
+from cairn.remote.host import CodeHost, RepoInfo, in_org
 from cairn.security.redact import redact
 from cairn.security.text import clean_inline
 
@@ -103,7 +103,7 @@ class OrgPackage:
 
 
 def build_index(
-    client: GitHub,
+    client: CodeHost,
     org: str,
     host: str = "github.com",
     *,
@@ -161,7 +161,7 @@ def _current(record: RepoPackages | None, repo: RepoInfo) -> bool:
     )
 
 
-def _read_repo(client: GitHub, repo: RepoInfo) -> RepoPackages | None:
+def _read_repo(client: CodeHost, repo: RepoInfo) -> RepoPackages | None:
     """A repo's packages, or None when the API budget runs too low to read it now. A rejected
     token stops the whole read (the caller then reads the token again)."""
     if _low(client):
@@ -194,7 +194,7 @@ def package_manifests(paths: Sequence[str]) -> list[str]:
     return manifests(own, MANIFESTS_PER_REPO)
 
 
-def _low(client: GitHub) -> bool:
+def _low(client: CodeHost) -> bool:
     left = client.remaining()
     return left is not None and left < RESERVE
 
@@ -278,13 +278,12 @@ def org_packages(index: PackageIndex) -> tuple[OrgPackage, ...]:
     for key, by_repo in users.items():
         home = _home(homes.get(key, {}), index.org, index.host)
         if home is None:
-            owner = _go_repo(spellings[key].most_common(1)[0][0], index.host)
-            record = repos.get(owner.lower()) if owner else None
-            name, where, path = spellings[key].most_common(1)[0][0], record, ""
+            name = spellings[key].most_common(1)[0][0]
+            where, path = _module_repo(name, index.host, repos), ""
         else:
             name, where, path = home[1].name, home[0], home[1].path
         # The repo's own description fits only a package at its root, not one of its parts.
-        root = "/" not in path if path else _key(name).count("/") == 2  # host/owner/repo
+        root = "/" not in path if path else _module_is(where, name, index.host)
         description = (home[1].description if home else "") or (
             where.description if where and root else ""
         )
@@ -325,18 +324,37 @@ def _home(
 
 
 def _foreign(name: str, org: str, host: str) -> bool:
-    """Whether a Go module path names another owner on the org's host."""
-    owner = _go_repo(name, host).partition("/")[0]
-    return bool(owner) and owner.lower() != org.lower()
+    """Whether a Go module path names another owner on the org's host (on GitLab, another
+    top-level group)."""
+    parts = _go_path(name, host)
+    return bool(parts) and parts[0].lower() != org.partition("/")[0].lower()
 
 
-def _go_repo(name: str, host: str) -> str:
-    """owner/name of the repo a Go module path lives in (`go:github.com/acme/kit/log`)."""
+def _go_path(name: str, host: str) -> list[str]:
+    """A Go module path's parts after the org's host (`go:github.com/acme/kit/log`), or []
+    for another ecosystem or host."""
     ecosystem, _, path = name.partition(":")
     parts = path.split("/")
     if ecosystem != "go" or len(parts) < 3 or parts[0].lower() != host.lower():
-        return ""
-    return f"{parts[1]}/{parts[2]}"
+        return []
+    return parts[1:]
+
+
+def _module_is(record: RepoPackages | None, name: str, host: str) -> bool:
+    """Whether a Go module path is its repo's root module (not a package inside it)."""
+    path = "/".join(_go_path(_key(name), host))
+    return record is not None and path == record.repo.lower()
+
+
+def _module_repo(name: str, host: str, repos: dict[str, RepoPackages]) -> RepoPackages | None:
+    """The org repo a Go module path lives in: the longest repo path it starts with (a GitLab
+    repo can sit in subgroups, so owner/name isn't always the first two parts)."""
+    parts = _go_path(name, host)
+    for end in range(len(parts), 1, -1):
+        record = repos.get("/".join(parts[:end]).lower())
+        if record is not None:
+            return record
+    return None
 
 
 def find_packages(packages: Sequence[OrgPackage], name: str) -> list[OrgPackage]:
@@ -389,14 +407,14 @@ class UsageFile:
     fragment: str
 
 
-def usage_files(client: GitHub, org: str, package: OrgPackage) -> tuple[UsageFile, ...]:
+def usage_files(client: CodeHost, org: str, package: OrgPackage) -> tuple[UsageFile, ...]:
     """Code in the org that imports the package (one code search): manifests, lockfiles,
     vendored copies and the package's own repo left out, tests last."""
     page = client.search_code(f'"{import_name(package.name)}" org:{org}', per_page=30)
     found = [
         hit
         for hit in page.hits
-        if hit.repo.split("/", 1)[0].lower() == org.lower()
+        if in_org(hit.repo, org)
         and hit.repo.lower() != package.home.lower()
         and not MANIFEST.search(hit.path)
         and not _LOCKFILE.search(hit.path)
@@ -458,7 +476,7 @@ def render_package(
     shown = package.users[:_USERS_SHOWN]
     lines.append(
         f"Used by {len(package.users)} active repos (latest push first): "
-        + ", ".join(_user(repo, paths) for repo, paths in shown)
+        + ", ".join(_user(repo, paths, index.org) for repo, paths in shown)
         + (
             f", and {len(package.users) - len(shown)} more"
             if len(package.users) > len(shown)
@@ -476,9 +494,11 @@ def render_package(
     return "\n".join(lines)
 
 
-def _user(repo: str, paths: Sequence[str]) -> str:
-    """A repo using a package, with the folders of a monorepo's projects that do."""
-    name = repo.partition("/")[2] or repo
+def _user(repo: str, paths: Sequence[str], org: str) -> str:
+    """A repo using a package (its path inside the org), with the folders of a monorepo's
+    projects that do."""
+    prefix = f"{org.lower()}/"
+    name = repo[len(prefix) :] if repo.lower().startswith(prefix) else repo
     if all("/" not in path for path in paths):
         return name
     return f"{name} ({', '.join(path.rpartition('/')[0] or '.' for path in paths)})"
@@ -518,7 +538,7 @@ def _gaps(index: PackageIndex) -> list[str]:
     failed = sum(1 for record in index.repos if record.failed)
     if index.unread:
         notes.append(
-            f"({index.unread} repos aren't read yet: GitHub's API budget ran low. A later call "
+            f"({index.unread} repos aren't read yet: the host's API budget ran low. A later call "
             "reads them.)"
         )
     if failed:
