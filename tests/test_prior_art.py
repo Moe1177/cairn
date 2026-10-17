@@ -8,6 +8,8 @@ import pytest
 from typer.testing import CliRunner
 
 from cairn.bench.prior_art import (
+    PROFILE_FILE,
+    PROFILE_TERMS_FILE,
     Found,
     PriorArtQuery,
     PriorArtSet,
@@ -19,6 +21,7 @@ from cairn.bench.prior_art import (
     parse_terms,
     report,
     search_terms,
+    suite_terms,
     write_terms,
 )
 from cairn.cli import app
@@ -282,3 +285,39 @@ def test_cairn_locator_uses_the_agent_terms(tmp_path: Path) -> None:
     limiter = next(o for o in outcomes if o.query_id == "limiter")
     assert limiter.rank == 1 and limiter.searches == 1
     assert "RateLimiter org:acme" in client.queries
+
+
+def test_each_locator_gets_its_own_terms(tmp_path: Path) -> None:
+    pset = key(tmp_path)
+    client = FakeGitHub({"RateLimiter": [("acme/gateway", "src/limiter.py")]})
+    own = {"cairn": {"limiter": ("nothing",)}, "cairn-profile": {"limiter": ("RateLimiter",)}}
+    outcomes = evaluate(client, pset, ["cairn", "cairn-profile"], terms_by_locator=own)  # type: ignore[arg-type]
+    ranks = {o.mode: o.rank for o in outcomes if o.query_id == "limiter"}
+    assert ranks == {"cairn": None, "cairn-profile": 1}
+
+
+def test_suite_terms_reads_each_locators_file_and_makes_profile_terms(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pset = key(tmp_path)
+    write_terms(tmp_path, pset, lambda task: ("plain",))
+    assert suite_terms(tmp_path, pset, ["search-raw", "cairn", "cairn-profile"]) == {
+        "cairn": {"limiter": ("plain",), "stripe": ("plain",)},
+        "cairn-profile": {},
+    }
+    with pytest.raises(CairnError, match="--make-profile"):
+        suite_terms(tmp_path, pset, ["cairn-profile"], make=True)
+    (tmp_path / PROFILE_FILE).write_text("Datastores: DynamoDB 27%\n", encoding="utf-8")
+    prompts: list[str] = []
+
+    def fake_ask(task: str, model: str = "haiku", *, prompt: str = "") -> tuple[str, ...]:
+        prompts.append(prompt.replace("{task}", task))
+        return ("UpdateExpression ADD",)
+
+    monkeypatch.setattr("cairn.bench.prior_art.ask_model_for_terms", fake_ask)
+    made = suite_terms(tmp_path, pset, ["cairn-profile"], make=True, today="2026-10-17")
+    assert made["cairn-profile"]["limiter"] == ("UpdateExpression ADD",)
+    assert "Datastores: DynamoDB 27%" in prompts[0] and "flooding" in prompts[0]
+    text = (tmp_path / PROFILE_TERMS_FILE).read_text(encoding="utf-8")
+    assert f"from the task and {PROFILE_FILE}" in text
+    assert load_terms(tmp_path) == {"limiter": ("plain",), "stripe": ("plain",)}  # untouched

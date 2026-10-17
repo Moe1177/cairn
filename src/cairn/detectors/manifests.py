@@ -18,7 +18,7 @@ _NPM_DEP_SECTIONS = ("dependencies", "devDependencies", "peerDependencies", "opt
 def parse_json(text: str) -> dict[str, Any] | None:
     try:
         data = json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):  # RecursionError: nesting thousands deep
         return None
     return data if isinstance(data, dict) else None
 
@@ -26,7 +26,7 @@ def parse_json(text: str) -> dict[str, Any] | None:
 def parse_toml(text: str) -> dict[str, Any] | None:
     try:
         return tomllib.loads(text)
-    except tomllib.TOMLDecodeError:
+    except (tomllib.TOMLDecodeError, RecursionError):
         return None
 
 

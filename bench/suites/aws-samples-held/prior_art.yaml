@@ -22,6 +22,12 @@ queries:
     - aws-marketplace-serverless-saas-integration/src/register-new-subscriber.js
     - compute-optimizer-automation/src/lambda/send-approval-email.py
     - sample-automated-evaluation-notification-amazon-connect/source/ses/notification.mjs
+    - step-up-auth/source/auth-sdk/lib/dynamodb/TokenClient.ts
+    - serverless-patterns/s3-lambda-ses-terraform/src/emailSender.py
+    - config-daily-report/src/config_reporter.py
+    - omnichannel-fallback-messaging/lib/lambdas/PrimaryHandlerLambda/send_email.py
+    - sample-stockmarket-weekly-digest/src/email_delivery/ses_sender.py
+    - serverless-patterns/s3-lambda-ses-sam/src/app.py
     note: SESv2Client SendEmailCommand, or boto3 sesv2/ses send_email.
     rejected:
     - aws-control-tower-guardduty-enabler/src/guardduty_enabler.py
@@ -38,6 +44,9 @@ queries:
     note: aws-embedded-metrics createMetricsLogger / putMetric.
     rejected:
     - amazon-dynamodb-monitoring/dynamodb_metrics_lambda/dynamodb_cloudwatch.py
+    - amazon-kinesis-video-streams-demos/canary/webrtc-c/scripts/cloudwatch.js
+    - sample-agentic-value-accelerator/applications/reference_implementations/kyc-governance-insights/ui/src/api/metrics-live.ts
+    - connect-contact-flow-comparison-github-action/src/bedrock_utils.py
 
   - id: vector-index
     category: literal
@@ -64,6 +73,9 @@ queries:
     - s3-to-lambda-patterns/transcription/transcribeFunction/app.js
     - serverless-patterns/apigw-lambda-sfn-transcribe-translate-polly-sam/src/transcribeLaunch.js
     - AWS-First-GenAI-Journey/AWS-Meeting-Summarizer-with-Bedrock/app.py
+    - sample-ai-possibilities/experiments/intelligent-video-search-ai-agent/lambdas/ExtractInsightsFunction/src/main.py
+    - serverless-patterns/s3-lambda-transcribe-cdk/assets/file-uploaded-trigger/lambda_function.py
+    - amazon-transcribe-comprehend-podcast/src/podcast_transcribe.py
     note: start_transcription_job on the uploaded object.
 
   - id: google-sign-in
@@ -77,6 +89,12 @@ queries:
     - amazon-chime-media-capture-pipeline-demo/src/cognito.ts
     - aws-saas-factory-eks-reference-architecture/lib/constructs/cognito.ts
     - aws-iot-chat-example/client/src/lib/aws-cognito.js
+    - aws-cdk-examples/go/cognito-httpapi/cognito-httpapi.go
+    - aws-cdk-examples/typescript/opensearch/os_vpc_provision/lib/common-resources.ts
+    - sample-mobile-ai-assistant/react-native/src/websearch/components/GoogleLoginModal.tsx
+    - aws-license-manager-license-consumption-sample/user-subscriptions/src/manage_identity_provider_settings.py
+    - sample-ai-coding-standards-template/template/{{cookiecutter.project_name}}/frontend/src/modules/auth/providers/AuthProvider.tsx
+    - aws-license-manager-license-consumption-sample/user-subscriptions/src/manage_user_subscriptions.py
 
   - id: shared-counter
     category: vocabulary
@@ -87,6 +105,16 @@ queries:
     note: a DynamoDB atomic counter (UpdateExpression ADD).
     rejected:
     - sample-bedrock-insights/bedrock_insights/storage.py
+    - aws-glue-data-catalog-replication-utility/src/main/java/com/amazonaws/gdcreplication/lambda/ExportLargeTable.java
+    - clickstream-producer-for-apache-kafka/src/main/java/com/amazonaws/kafka/samples/Util.java
+    - clickstream-producer-for-apache-kafka/src/main/java/com/amazonaws/kafka/samples/Events.java
+    - delivery-routes-optimization-for-logistics/apps_opt_engine/core/routing/src/main/java/dev/aws/proto/core/routing/distance/DistanceMatrix.java
+    - amazon-textract-comprehend-stepfunctions-example/lambda/src/main/java/com/amazonaws/sample/textract/S3UploadListener.java
+    - amazon-textract-serverless-large-scale-document-processing/src/datastore.py
+    - aws-gamelift-sample/Lambda/MatchEvent.py
+    - aws-gamelift-sample/Lambda/MatchStatus.py
+    - aws-bookstore-demo-app/functions/APIs/updateCart.js
+    - sample-cv-image-verification/packages/api/routers/methods/update_item.py
 
   - id: wait-for-callback
     category: vocabulary
@@ -97,9 +125,14 @@ queries:
     - serverless-patterns/sfn-to-sfn-cdk/lib/sfn-to-sfn-cdk-stack.ts
     - serverless-coffee/backends/5-order-manager/robot/put.js
     - amazon-rekognition-shot-detection-demo-using-segment-api/source/status-updater/lib/sns/index.js
+    - mwaa-disaster-recovery/assets/dags/mwaa_dr/framework/factory/base_dr_factory.py
+    - serverless-patterns/sfn-tasktoken-lambda/main.tf
+    - aws-fault-injection-simulator-workshop/resources/templates/spot/assets/send_metrics.py
+    - aws-fault-injection-simulator-workshop-v2/ec2-spot-experiment/assets/send_metrics.py
     note: a Step Functions task token (waitForTaskToken, send_task_success).
     rejected:
     - sample-aws-genai-db-modernizer/src/atx_orchestrator/orchestrator.py
+    - edge-compute-demo/grpc/src/core/lib/promise/wait_for_callback.h
 
   - id: one-at-a-time
     category: vocabulary
@@ -109,9 +142,17 @@ queries:
     - sample-automated-vpc-cidr-expansion/src/workflow/handler.py
     - sample-ai-agent-factory/Agentic-ai-self-service/backend/src/app/services/gateway_mutation_lock.py
     - sample-supabase-on-aws/app/storage/src/storage/protocols/tus/s3-locker.ts
+    - sample-e2b-on-aws/packages/db/pkg/pool/session.go
+    - sample-awsops/scripts/v2/migrate.mjs
+    - sample-supabase-on-aws/app/supabase-auth/internal/indexworker/indexworker.go
     note: a distributed lock or semaphore held in DynamoDB.
     rejected:
     - microservices-dotnet-aws-cdk/ServicesWorkerDb/src/apps/WorkerDb/Worker.cs
+    - sample-awsops/scripts/v2/migration-errors.mjs
+    - aws-cdk-examples/go/rekognition-lambda-s3-trigger/lambda-handler/main.go
+    - serverless-patterns/lambda-df-slack/src/dedup.py
+    - aws-cdk-examples/typescript/rekognition-lambda-s3-trigger/lambda/rekfunction.ts
+    - aws-dynamodb-examples/workshops/ledger/gen_date.py
 
   - id: remember-results
     category: vocabulary
@@ -121,6 +162,12 @@ queries:
     - sample-pellier-agentic-search-apg/pellier/backend/services/cache.py
     - sample-bedrock-api-proxy/app/core/ttl_cache.py
     - aws-kr-startup-samples/gen-ai/claude-code-proxy/backend/src/proxy/cache.py
+    - genai-quickstart-pocs/industry-specific-pocs/financial-services/bankiq-plus-agentcore/backend/server.js
+    rejected:
+    - sample-AIDevops-Prometheus-MCP/lambda-mcp-wrapper/lambda/anyio/functools.py
+    - service-screener-v2/utils/Tools.py
+    - aws-cdk-examples/python/amazon-verified-permissions-rest-api/stack/apigw/authorizer.py
+    - iam-identity-center-team/deployment/update.sh
     note: a cache with a TTL (Redis / Valkey, in-memory fallback).
 
   - id: records-expire
@@ -128,18 +175,33 @@ queries:
     task: Have old records disappear from a table on their own after a set time.
     answers:
     - serverless-patterns/iot-dynamodbv2-ttl-cdk/iot-ddbv2/lib/dynamodb.ts
+    - postgres-lightweight-locks-simulator/limitless/exec-part.sql
+    - sample-pellier-agentic-search-apg/scripts/migrations/002_workshop_telemetry.sql
+    - sample-bedrock-api-proxy/app/db/dynamodb.py
+    - sample-ai-persona/scripts/create_dynamodb_tables.py
+    - sample-agentic-value-accelerator/applications/reference_implementations/agent-safety/hil-interventions/tables.py
     note: DynamoDB time to live (timeToLiveAttribute).
     rejected:
     - sample-trustops-enterprise-framework/src/data_models/storage.py
+    - sample-agentic-value-accelerator/platform/control_plane/frontend/src/components/govern/operations/ReportsCenter.tsx
+    - aws-cdk-examples/typescript/ec2-instance/lib/constructs/server.ts
+    - sample-agentcore-lowcode-nocode/scripts/preflight-ddb-restore.py
+    - sample-ai-agent-factory/Agentic-ai-self-service/scripts/preflight-ddb-restore.py
 
   - id: email-link-sign-in
     category: vocabulary
     task: Let people sign in by clicking a link emailed to them instead of typing a password.
     answers:
     - amazon-cognito-passwordless-auth/cdk/custom-auth/magic-link.ts
+    - amazon-cognito-passwordless-auth/client/magic-link.ts
+    - amazon-cognito-passwordless-auth/cdk/lib/cognito-passwordless.ts
+    - amazon-cognito-passwordless-auth/cdk/custom-auth/create-auth-challenge.ts
     note: a magic link through Cognito custom auth.
     rejected:
     - sample-supabase-on-aws/app/supabase/apps/studio/data/auth/user-send-magic-link-mutation.ts
+    - sample-supabase-on-aws/app/supabase/apps/studio/components/interfaces/Auth/Users/UserOverview.tsx
+    - sample-supabase-on-aws/app/function-deploy/apps/studio/components/interfaces/Auth/Users/UserOverview.tsx
+    - amazon-cognito-passwordless-auth/cdk/custom-auth/verify-auth-challenge-response.ts
 
   - id: read-aloud
     category: vocabulary
@@ -149,4 +211,12 @@ queries:
     - serverless-patterns/lambda-s3-polly-cdk/pattern/assets/lambda_function.py
     - sample-whatsapp-voice-to-voice-messaging/src/lambda/services/PollyService.ts
     - amazon-sumerian-hosts/packages/amazon-sumerian-hosts-core/src/core/awspack/TextToSpeechFeature.js
+    - amazon-polly-closed-caption-subtitle-generator/polly_vtt/polly.py
+    - sample-agentic-ai-robot/polly-tts/robo-polly.py
+    - serverless-patterns/apigw-lambda-translate-polly-s3/src/index.py
+    - amazon-transcribe-post-call-analytics/pca-utils/calls-creation-polly.py
+    rejected:
+    - sample-genai-sign-language-translator/zoom/src/services/genASLAPI.ts
+    - sample-multi-agent-orchestration-chat-on-agentcore/packages/backend/src/config/data/default-agents.ts
+    - amazon-sumerian-hosts/webpack.config.js
     note: Amazon Polly synthesize_speech.

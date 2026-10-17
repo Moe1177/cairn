@@ -308,3 +308,57 @@ def test_read_file_of_a_folder_or_moved_repo() -> None:
     assert client.read_file("acme/api", "src") is None
     with pytest.raises(CairnError, match="has moved"):
         client.read_file("acme/old", "a.py")
+
+
+REPOS = [
+    {
+        "full_name": "acme/api",
+        "default_branch": "main",
+        "language": "Python",
+        "topics": ["dynamodb", 3],
+        "archived": False,
+        "fork": True,
+        "pushed_at": "2026-10-16T10:00:00Z",
+    },
+    {"full_name": "acme/old", "default_branch": "master", "language": None, "archived": True},
+    {"full_name": "acme/..", "default_branch": "main"},  # malformed: skipped
+    {"name": "no-full-name"},
+]
+
+
+def test_list_repos_parses_a_page_last_pushed_first() -> None:
+    transport = FakeTransport(reply(body=REPOS))
+    repos = GitHub("tok", transport=transport).list_repos("acme", page=2)
+    assert [r.name for r in repos] == ["acme/api", "acme/old"]
+    api, old = repos
+    assert api.topics == ("dynamodb",) and api.fork and api.language == "Python"
+    assert old.archived and old.language == "" and old.default_branch == "master"
+    path = transport.calls[0][1]
+    assert path.startswith("/orgs/acme/repos?type=all&") and "sort=pushed" in path
+    assert "page=2" in path
+
+
+def test_list_repos_falls_back_to_a_users_repos() -> None:
+    transport = FakeTransport(reply(404, {"message": "Not Found"}), reply(body=REPOS[:1]))
+    repos = GitHub("tok", transport=transport).list_repos("someone")
+    assert [r.name for r in repos] == ["acme/api"]
+    assert transport.calls[1][1].startswith("/users/someone/repos?")
+    with pytest.raises(CairnError, match="isn't a GitHub org"):
+        GitHub("tok", transport=FakeTransport()).list_repos("../x")
+
+
+def test_tree_lists_files_only() -> None:
+    body = {
+        "tree": [
+            {"path": "src", "type": "tree"},
+            {"path": "src/app.py", "type": "blob"},
+            {"path": 5, "type": "blob"},
+        ],
+        "truncated": True,
+    }
+    transport = FakeTransport(reply(body=body), reply(409, {}), reply(404, {}))
+    client = GitHub("tok", transport=transport)
+    assert client.tree("acme/api", "feat/x") == (("src/app.py",), True)
+    assert transport.calls[0][1] == "/repos/acme/api/git/trees/feat%2Fx?recursive=1"
+    assert client.tree("acme/empty", "main") == ((), False)
+    assert client.tree("acme/gone", "main") == ((), False)

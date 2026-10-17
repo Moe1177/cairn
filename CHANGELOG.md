@@ -8,6 +8,14 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **The org's stack: `org_profile` and `cairn org-profile`.** A few lines that say what the org's
+  200 most recently pushed repos build with: languages, datastores, queues, web frameworks,
+  auth, test and deploy tools, the most used libraries per ecosystem, and the org's own packages
+  that other repos depend on, each with the share of repos that use it. It reads each repo's
+  file tree and up to three manifests over GitHub's API (about 15 s for 200 repos), then answers
+  from a cache for a week. `cairn bench-prior-art` gains a `cairn-profile` locator,
+  `--make-profile`, and a terms file per locator. Measured honestly: search terms written after
+  reading the profile did not find more prior art (held-out hit@5 0.83 against 0.92 without it).
 - **Prior art across your org, without cloning it.** Name an org in `.cairn/config.yaml`
   (`orgs: [{org: acme}]`, GitHub or GitHub Enterprise) and agents get two tools:
   `find_similar(task, terms)` finds where the org already implemented a feature, and

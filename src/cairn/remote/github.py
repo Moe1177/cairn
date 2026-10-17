@@ -24,6 +24,7 @@ TIMEOUT = 30.0
 MAX_WAIT = 120.0  # seconds one call may wait for a rate limit before giving up
 _RETRIES = 3
 _REPO = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$")
+_OWNER = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
 # Printable ASCII only: a CR or LF would let a token split the Authorization header.
 _TOKEN = re.compile(r"^[\x21-\x7e]{1,512}$")
 # GitHub's secondary limits (too many requests at once) say so in the body, not the headers.
@@ -56,6 +57,17 @@ class SearchPage:
     total: int
     ms: float  # time spent on the request itself
     waited: float = 0.0  # seconds spent waiting out rate limits first
+
+
+@dataclass(frozen=True)
+class RepoInfo:
+    name: str  # owner/name
+    default_branch: str
+    language: str = ""
+    topics: tuple[str, ...] = ()
+    archived: bool = False
+    fork: bool = False
+    pushed: str = ""  # ISO time of the last push
 
 
 class GitHub:
@@ -115,6 +127,45 @@ class GitHub:
         if len(body) > max_bytes or b"\x00" in body[:8192]:
             return None
         return body.decode("utf-8", errors="replace").removeprefix("﻿")
+
+    def list_repos(self, owner: str, *, page: int = 1, per_page: int = 100) -> tuple[RepoInfo, ...]:
+        """One page of an org's repos (a user's when `owner` is no org), last pushed first."""
+        params = urlencode({"per_page": max(1, min(per_page, 100)), "page": page, "sort": "pushed"})
+        owner = _owner(owner)
+        response, _, _ = self._get(f"/orgs/{owner}/repos?type=all&{params}")
+        if response.status == 404:
+            response, _, _ = self._get(f"/users/{owner}/repos?type=all&{params}")
+        try:
+            items = json.loads(_checked(response).body.decode("utf-8", errors="replace"))
+        except json.JSONDecodeError as exc:
+            raise CairnError(
+                f"GitHub sent a repo list cairn can't read ({response.status})"
+            ) from exc
+        return (
+            tuple(_repo_info(item) for item in items if _repo_ok(item))
+            if isinstance(items, list)
+            else ()
+        )
+
+    def tree(self, repo: str, ref: str) -> tuple[tuple[str, ...], bool]:
+        """Every file path on branch `ref`, and whether GitHub cut the list short (a repo over
+        100,000 files). An empty repo has no tree: ((), False)."""
+        url = f"/repos/{_repo(repo)}/git/trees/{quote(ref, safe='')}?recursive=1"
+        response, _, _ = self._get(url)
+        if response.status in (404, 409):  # 409: the repo is empty
+            return (), False
+        if 300 <= response.status < 400:
+            raise CairnError(f"{repo} has moved (renamed or transferred)")
+        data = _json(_checked(response))
+        entries = data.get("tree")
+        paths = tuple(
+            entry["path"]
+            for entry in (entries if isinstance(entries, list) else [])
+            if isinstance(entry, dict)
+            and entry.get("type") == "blob"
+            and isinstance(entry.get("path"), str)
+        )
+        return paths, bool(data.get("truncated"))
 
     def _get(
         self, path: str, *, accept: str = "application/vnd.github+json"
@@ -191,6 +242,38 @@ def _repo(repo: str) -> str:
     if not _REPO.fullmatch(repo):
         raise CairnError(f"{repo!r} isn't a GitHub repo (owner/name)")
     return repo
+
+
+def _owner(owner: str) -> str:
+    if not _OWNER.fullmatch(owner):
+        raise CairnError(f"{owner!r} isn't a GitHub org or user name")
+    return owner
+
+
+def _repo_ok(item: object) -> bool:
+    return (
+        isinstance(item, dict)
+        and isinstance(item.get("full_name"), str)
+        and _REPO.fullmatch(item["full_name"]) is not None
+        and isinstance(item.get("default_branch"), str)
+    )
+
+
+def _repo_info(item: dict) -> RepoInfo:
+    topics = item.get("topics")
+    return RepoInfo(
+        name=item["full_name"],
+        default_branch=item["default_branch"],
+        language=_text(item.get("language")),
+        topics=tuple(t for t in (topics if isinstance(topics, list) else []) if isinstance(t, str)),
+        archived=item.get("archived") is True,
+        fork=item.get("fork") is True,
+        pushed=_text(item.get("pushed_at")),
+    )
+
+
+def _text(value: object) -> str:
+    return value if isinstance(value, str) else ""
 
 
 def _inside(path: str) -> str:
