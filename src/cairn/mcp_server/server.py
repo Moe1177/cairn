@@ -95,6 +95,16 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
         return answer(lambda ws: tools.profile_text(ws, org))
 
     @server.tool()
+    def org_packages(name: str = "", query: str = "", org: str = "") -> str:
+        """The org's own libraries that its repos share (internal SDKs, service clients, logging,
+        HTTP, test helpers): use these before a public package. Empty: the most used, with where
+        each is defined. query: words to filter by (e.g. "retry http"). name: one package's
+        home, every repo using it, and code that calls it. The first call of a day reads the
+        org's manifests over GitHub's API (about 35 s for 600 repos; after that only repos
+        pushed since)."""
+        return answer(lambda ws: tools.packages_text(ws, name, query, org))
+
+    @server.tool()
     def read_org_file(repo: str, path: str, org: str = "") -> str:
         """Read a file from an org repo's default branch (e.g. one find_similar returned), without
         cloning. repo: its name in the org (or owner/name); path: inside the repo."""

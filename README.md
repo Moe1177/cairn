@@ -215,6 +215,7 @@ and you can commit them so your team shares them.
 | `find_similar` | Where the org already implemented a feature (its repos on GitHub, nothing cloned); needs `orgs:` in the config |
 | `read_org_file` | A file from an org repo, without cloning it |
 | `org_profile` | The org's stack: the datastores, frameworks, auth, test and deploy tools and libraries its active repos use, and its own shared packages |
+| `org_packages` | The org's own libraries its repos share, where each is defined and who uses it; with a name, one package's users and code that calls it |
 | `refresh` | Update the map now |
 
 ### What cairn detects
@@ -377,6 +378,36 @@ art for 10 of 12 held-out tasks against 11 of 12 for terms written from the task
 ([results](bench/published/2026-10-17-org-profile.md)), so cairn doesn't tell agents to search
 with it.
 
+### The org's own packages
+
+An agent adding logging, retries or a service client should reach for the org's own library,
+not a public one, and call it the way sibling repos do. `org_packages` (or `cairn org-packages`)
+lists the libraries the org's repos use from one another, most shared first, with where each
+is defined:
+
+```text
+The own packages of hashicorp (github.com): the 226 libraries its 604 active repos use from one another, most used first (by how many repos), read 2026-10-17. ...
+- github.com/hashicorp/go-hclog (Go) · 89 repos · in hashicorp/go-hclog — A common logging package for HashiCorp tools
+- github.com/hashicorp/vault/api (Go) · 43 repos · in hashicorp/vault/api
+- github.com/hashicorp/go-retryablehttp (Go) · 16 repos · in hashicorp/go-retryablehttp — Retryable HTTP client in Go
+```
+
+`query` narrows the list ("retry http"); a `name` shows one package: its manifest, every repo
+that uses it (and which of a monorepo's projects), and up to five files that import it, found
+with one code search. A package counts as the org's when one active repo defines it and another
+uses it, or its name is under the org (`@acme/...`, `github.com/acme/...`); a fork is its home
+only under the org's name, and a name several repos define is a template's, not a library.
+
+It reads every active repo's file tree and manifests (hashicorp's 604 repos: 35 s, about 1,300
+API requests), then answers from a cache. After a day it reads again, but only the repos pushed
+since (2.3 s when none were). When the hour's API budget runs low, it stops with 500 requests to
+spare and the next call reads the rest, most recently pushed first.
+
+Told what to build, an agent that read the list named the right library for every hashicorp
+task, and for all 14 held-out grafana tasks. With the org's name masked (a private org's
+packages, which no model has read about), the agent alone named none
+([results](bench/published/2026-10-17-org-packages.md)).
+
 ## Benchmarks
 
 cairn ships a benchmark harness (`cairn bench`). It runs real tasks through headless Claude Code
@@ -490,6 +521,18 @@ them from the task alone (`--make-terms`), and nobody edits them.
 cairn bench-prior-art bench/suites/aws-samples bench/suites/aws-samples-held
 ```
 
+The packages benchmark asks whether an agent reaches for the org's own library. Each suite's
+`packages.yaml` lists tasks with the org's packages that serve them. A model names the
+libraries it would use, best first, from the task alone and after reading the list
+`org_packages` returned (kept beside the key as `org_packages.md`, made with `--make-list`). It
+does each twice, once with the org renamed, since a public org's libraries are in its training
+data and a private org's aren't. The answers are kept in `agent_picks.yaml` (`--make-picks`),
+so a run is repeatable and free.
+
+```bash
+cairn bench-packages bench/suites/hashicorp bench/suites/grafana
+```
+
 The link benchmark is offline and free too. Each suite's `links.yaml` lists the pairs of repos
 that really link, written from the code and never from cairn's output; `cairn bench-links` scans
 the suite and scores the links cairn shows (and, separately, its unconfirmed suggestions) as
@@ -557,14 +600,15 @@ It also:
 
 cairn **collects no telemetry**, and mapping your folder makes **no network calls**. It talks
 to a server only when you ask it to:
-- with `orgs:` in the config, `find_similar`, `read_org_file`, `org_profile`, `cairn similar` and
-  `cairn org-profile` call your code host's API (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
+- with `orgs:` in the config, `find_similar`, `read_org_file`, `org_profile`, `org_packages`,
+  `cairn similar`, `cairn org-profile` and `cairn org-packages` call your code host's API (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
   host, else `gh auth token`). They send the search terms (the task's own words when no terms are
   given) and the org's name, and read back matching files; nothing from your local repos is sent.
   They only ever reach the orgs in your config: a call naming another org, or another owner's
   repo, is refused, and a search hit from outside the org is dropped;
 - `cairn bench-prior-art` calls the same API, and with `--make-terms` runs the `claude` CLI
-  (with `--make-profile`, it also reads the org's profile);
+  (with `--make-profile`, it also reads the org's profile); `cairn bench-packages` reads the
+  org's packages with `--make-list` and runs the `claude` CLI with `--make-picks`;
 - `cairn deep enable` runs your package installer (uv, pipx or pip) to add graphify;
 - `cairn bench`, `cairn bench-locate` and `cairn bench-links` fetch their pinned benchmark repos
   with git, and `cairn bench` runs the `claude` CLI.
@@ -594,10 +638,12 @@ how to report a vulnerability.
 | `cairn context` | What a Claude Code session should know about its folder: the index, or an offer to build a map (the plugin's session hook runs it) |
 | `cairn similar TASK --terms A,B` | Where your org already implemented a feature, over GitHub's API |
 | `cairn org-profile [--refresh]` | Your org's stack, read from its recently pushed repos over GitHub's API (cached for a week) |
+| `cairn org-packages [NAME] [--query WORDS] [--refresh]` | Your org's own packages: where each is defined and which repos use it (cached for a day) |
 | `cairn bench SUITE` | Run the benchmark harness |
 | `cairn bench-locate SUITE...` | Score grep, graph and hybrid locate offline |
 | `cairn bench-links SUITE...` | Score cairn's links against each suite's real ones, offline |
 | `cairn bench-prior-art SUITE...` | Score finding an org's existing implementation of a feature, over the host's API (no clone) |
+| `cairn bench-packages SUITE...` | Score whether an agent names the org's own library for a task, from memory and from `org_packages` |
 | `cairn bench-regrade SUITE LOG` | Grade a finished run's log again with today's grading |
 | `cairn bench-reach SUITE...` | Which tasks a search for the prompt's own words answers, offline; fails on a hard task that one does |
 | `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
@@ -670,8 +716,8 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 10. ✅ The org's stack: `org_profile` lists what the org's active repos build with, in about
     15 s and from a cache after. Writing search terms from it didn't find more prior art, and
     the benchmark says so.
-11. The org's internal packages across repos nobody cloned: where each is defined, who depends
-    on it, and how it is used.
+11. ✅ The org's own packages across repos nobody cloned: `org_packages` says where each is
+    defined, which repos use it and which files call it, measured by `cairn bench-packages`.
 12. Benchmark sessions that start with only their own repo in view, the way a session opened in
     one repo does.
 

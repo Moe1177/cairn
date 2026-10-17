@@ -1,0 +1,248 @@
+# The org libraries an agent named for each task in packages.yaml, best first: written
+# by a model (cairn bench-packages --make-picks), never edited by hand.
+model: haiku
+generated: '2026-10-17'
+picks:
+  alone:
+    leveled-logging:
+    - github.com/hashicorp/go-hclog
+    collect-errors:
+    - github.com/hashicorp/go-multierror
+    - github.com/hashicorp/hcl/v2
+    version-constraint:
+    - github.com/hashicorp/go-version
+    daemon-http-client:
+    - github.com/hashicorp/go-cleanhttp
+    - github.com/hashicorp/go-retryablehttp
+    - github.com/hashicorp/go-rootcerts
+    read-secret:
+    - github.com/hashicorp/vault/api
+    - github.com/hashicorp/vault-client-go
+    retry-http:
+    - github.com/hashicorp/go-retryablehttp
+    request-ids:
+    - github.com/hashicorp/go-uuid
+    process-plugins:
+    - github.com/hashicorp/go-plugin
+    - github.com/hashicorp/go-hclog
+    register-service:
+    - github.com/hashicorp/consul/api
+    lru-cache:
+    - github.com/hashicorp/golang-lru/v2
+    - github.com/hashicorp/golang-lru/v2/simplelru
+    - github.com/hashicorp/golang-lru
+    in-memory-tables:
+    - github.com/hashicorp/go-memdb
+    - github.com/hashicorp/go-immutable-radix
+    replicated-state:
+    - github.com/hashicorp/raft
+    - github.com/hashicorp/raft-boltdb/v2
+    - github.com/hashicorp/memberlist
+    gossip-membership:
+    - github.com/hashicorp/memberlist
+    - github.com/hashicorp/serf/serf
+    fetch-any-url:
+    - github.com/hashicorp/go-getter
+    custom-ca:
+    - github.com/hashicorp/go-rootcerts
+    - github.com/hashicorp/vault/api
+    bind-address:
+    - github.com/hashicorp/go-sockaddr
+    cron-schedule:
+    - github.com/hashicorp/cronexpr
+    list-filter:
+    - github.com/hashicorp/go-bexpr
+    stream-multiplexing:
+    - github.com/hashicorp/yamux
+    new-provider:
+    - github.com/hashicorp/terraform-plugin-framework
+    - github.com/hashicorp/terraform-plugin-testing
+    - github.com/hashicorp/terraform-plugin-go
+    kms-envelope:
+    - github.com/hashicorp/go-kms-wrapping/v2
+    - github.com/hashicorp/go-kms-wrapping/wrappers/awskms/v2
+    - github.com/hashicorp/go-kms-wrapping/wrappers/gcpckms/v2
+    run-terraform:
+    - github.com/hashicorp/terraform-exec/tfexec
+    - github.com/hashicorp/terraform-json
+    - github.com/hashicorp/hc-install
+    install-binary:
+    - github.com/hashicorp/hc-install
+    - github.com/hashicorp/go-getter
+    generic-set:
+    - github.com/hashicorp/go-set/v3
+    design-system:
+    - '@hashicorp/design-system-components'
+    - '@hashicorp/ember-flight-icons'
+    - '@hashicorp/design-system-tokens'
+    jsonapi-payloads: []
+  alone-masked:
+    leveled-logging: []
+    collect-errors: []
+    version-constraint: []
+    daemon-http-client: []
+    read-secret: []
+    retry-http: []
+    request-ids: []
+    process-plugins: []
+    register-service: []
+    lru-cache: []
+    in-memory-tables: []
+    replicated-state: []
+    gossip-membership: []
+    fetch-any-url: []
+    custom-ca: []
+    bind-address: []
+    cron-schedule: []
+    list-filter: []
+    stream-multiplexing: []
+    new-provider: []
+    kms-envelope: []
+    run-terraform: []
+    install-binary: []
+    generic-set: []
+    design-system: []
+    jsonapi-payloads: []
+  org-packages:
+    leveled-logging:
+    - github.com/hashicorp/go-hclog
+    collect-errors:
+    - github.com/hashicorp/go-multierror
+    - github.com/hashicorp/hcl/v2
+    version-constraint:
+    - github.com/hashicorp/go-version
+    daemon-http-client:
+    - github.com/hashicorp/go-cleanhttp
+    - github.com/hashicorp/go-retryablehttp
+    read-secret:
+    - github.com/hashicorp/vault/api
+    retry-http:
+    - github.com/hashicorp/go-retryablehttp
+    request-ids:
+    - github.com/hashicorp/go-uuid
+    process-plugins:
+    - github.com/hashicorp/go-plugin
+    register-service:
+    - github.com/hashicorp/consul/api
+    - github.com/hashicorp/consul-server-connection-manager
+    lru-cache:
+    - github.com/hashicorp/golang-lru/v2
+    in-memory-tables:
+    - github.com/hashicorp/go-memdb
+    - github.com/hashicorp/go-immutable-radix/v2
+    replicated-state:
+    - github.com/hashicorp/raft
+    - github.com/hashicorp/raft-boltdb
+    - github.com/hashicorp/raft-autopilot
+    gossip-membership:
+    - github.com/hashicorp/memberlist
+    - github.com/hashicorp/serf
+    - github.com/hashicorp/go-discover
+    fetch-any-url:
+    - github.com/hashicorp/go-getter
+    custom-ca:
+    - github.com/hashicorp/go-rootcerts
+    bind-address:
+    - github.com/hashicorp/go-sockaddr
+    cron-schedule:
+    - github.com/hashicorp/cronexpr
+    list-filter:
+    - github.com/hashicorp/go-bexpr
+    stream-multiplexing:
+    - github.com/hashicorp/yamux
+    new-provider:
+    - github.com/hashicorp/terraform-plugin-framework
+    - github.com/hashicorp/terraform-plugin-testing
+    - github.com/hashicorp/terraform-plugin-framework-validators
+    kms-envelope:
+    - github.com/hashicorp/go-kms-wrapping/v2
+    - github.com/hashicorp/go-kms-wrapping/wrappers/awskms/v4
+    - github.com/hashicorp/go-kms-wrapping/wrappers/gcpckms/v2
+    run-terraform:
+    - github.com/hashicorp/terraform-exec
+    - github.com/hashicorp/terraform-json
+    - github.com/hashicorp/hc-install
+    install-binary:
+    - github.com/hashicorp/hc-install
+    - github.com/hashicorp/go-getter
+    - github.com/hashicorp/go-version
+    generic-set:
+    - github.com/hashicorp/go-set/v3
+    design-system:
+    - '@hashicorp/design-system-components'
+    - '@hashicorp/design-system-tokens'
+    - '@hashicorp/flight-icons'
+    jsonapi-payloads:
+    - github.com/hashicorp/jsonapi
+  org-packages-masked:
+    leveled-logging:
+    - github.com/veltrix/go-hclog
+    - github.com/veltrix/logutils
+    collect-errors:
+    - github.com/veltrix/go-multierror
+    - github.com/veltrix/errwrap
+    version-constraint:
+    - github.com/veltrix/go-version
+    - github.com/veltrix/hc-install
+    daemon-http-client:
+    - github.com/veltrix/go-cleanhttp
+    - github.com/veltrix/go-retryablehttp
+    read-secret:
+    - github.com/veltrix/vault/api
+    retry-http:
+    - github.com/veltrix/go-retryablehttp
+    request-ids:
+    - github.com/veltrix/go-uuid
+    process-plugins:
+    - github.com/veltrix/go-plugin
+    register-service:
+    - github.com/veltrix/consul/api
+    - github.com/veltrix/consul-server-connection-manager
+    lru-cache:
+    - github.com/veltrix/golang-lru/v2
+    in-memory-tables:
+    - github.com/veltrix/go-memdb
+    - github.com/veltrix/go-immutable-radix/v2
+    replicated-state:
+    - github.com/veltrix/raft
+    - github.com/veltrix/raft-boltdb
+    gossip-membership:
+    - github.com/veltrix/memberlist
+    - github.com/veltrix/serf
+    - github.com/veltrix/go-discover
+    fetch-any-url:
+    - github.com/veltrix/go-getter
+    custom-ca:
+    - github.com/veltrix/go-rootcerts
+    bind-address:
+    - github.com/veltrix/go-sockaddr
+    cron-schedule:
+    - github.com/veltrix/cronexpr
+    list-filter:
+    - github.com/veltrix/go-bexpr
+    stream-multiplexing:
+    - github.com/veltrix/yamux
+    new-provider:
+    - github.com/veltrix/terraform-plugin-framework
+    - github.com/veltrix/terraform-plugin-testing
+    - github.com/veltrix/terraform-plugin-log
+    kms-envelope:
+    - github.com/veltrix/go-kms-wrapping/v2
+    - github.com/veltrix/go-kms-wrapping/wrappers/awskms/v4
+    - github.com/veltrix/go-kms-wrapping/wrappers/gcpckms/v2
+    run-terraform:
+    - github.com/veltrix/terraform-exec
+    - github.com/veltrix/terraform-json
+    - github.com/veltrix/hc-install
+    install-binary:
+    - github.com/veltrix/hc-install
+    - github.com/veltrix/go-getter
+    - github.com/veltrix/go-version
+    generic-set:
+    - github.com/veltrix/go-set/v3
+    design-system:
+    - '@veltrix/design-system-components'
+    - '@veltrix/design-system-tokens'
+    - '@veltrix/flight-icons'
+    jsonapi-payloads:
+    - github.com/veltrix/jsonapi

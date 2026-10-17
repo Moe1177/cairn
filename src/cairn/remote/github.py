@@ -68,6 +68,7 @@ class RepoInfo:
     archived: bool = False
     fork: bool = False
     pushed: str = ""  # ISO time of the last push
+    description: str = ""
 
 
 class GitHub:
@@ -89,6 +90,7 @@ class GitHub:
         self._sleep = sleep
         self._clock = clock
         self._max_wait = max_wait
+        self._remaining: dict[str, int] = {}  # rate limit resource (core, search) -> requests left
 
     def search_code(self, query: str, *, per_page: int = 10) -> SearchPage:
         """GitHub's code search, best match first, with the matched fragments."""
@@ -167,6 +169,10 @@ class GitHub:
         )
         return paths, bool(data.get("truncated"))
 
+    def remaining(self, resource: str = "core") -> int | None:
+        """Requests left in the rate limit `resource`, as GitHub last said (None: not yet)."""
+        return self._remaining.get(resource)
+
     def _get(
         self, path: str, *, accept: str = "application/vnd.github+json"
     ) -> tuple[Response, float, float]:
@@ -184,6 +190,7 @@ class GitHub:
             started = time.perf_counter()
             response = self._transport("GET", self._prefix + path, headers)
             ms = (time.perf_counter() - started + slow) * 1000
+            self._note_remaining(response.headers)
             limit = self._rate_limit_wait(response)
             if attempt == _RETRIES or (limit is None and response.status not in _SERVER_ERRORS):
                 return response, ms, waited
@@ -199,6 +206,11 @@ class GitHub:
             self._sleep(limit)
             waited += limit
         raise AssertionError("unreachable")
+
+    def _note_remaining(self, headers: Mapping[str, str]) -> None:
+        left = headers.get("x-ratelimit-remaining", "")
+        if left.isdigit():
+            self._remaining[headers.get("x-ratelimit-resource", "core")] = int(left)
 
     def _rate_limit_wait(self, response: Response) -> float | None:
         """Seconds a rate-limited response asks for, or None when it isn't one."""
@@ -269,6 +281,7 @@ def _repo_info(item: dict) -> RepoInfo:
         archived=item.get("archived") is True,
         fork=item.get("fork") is True,
         pushed=_text(item.get("pushed_at")),
+        description=_text(item.get("description")),
     )
 
 

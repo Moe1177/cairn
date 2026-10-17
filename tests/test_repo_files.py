@@ -91,8 +91,10 @@ def test_readme_documents_every_command() -> None:
     for command in (
         "find_similar",
         "org_profile",
+        "org_packages",
         "cairn similar",
         "cairn org-profile",
+        "cairn org-packages",
         "cairn bench-prior-art",
         "cairn deep enable",
     ):

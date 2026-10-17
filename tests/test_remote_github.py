@@ -319,6 +319,7 @@ REPOS = [
         "archived": False,
         "fork": True,
         "pushed_at": "2026-10-16T10:00:00Z",
+        "description": "The API",
     },
     {"full_name": "acme/old", "default_branch": "master", "language": None, "archived": True},
     {"full_name": "acme/..", "default_branch": "main"},  # malformed: skipped
@@ -332,10 +333,23 @@ def test_list_repos_parses_a_page_last_pushed_first() -> None:
     assert [r.name for r in repos] == ["acme/api", "acme/old"]
     api, old = repos
     assert api.topics == ("dynamodb",) and api.fork and api.language == "Python"
+    assert api.description == "The API" and old.description == ""
     assert old.archived and old.language == "" and old.default_branch == "master"
     path = transport.calls[0][1]
     assert path.startswith("/orgs/acme/repos?type=all&") and "sort=pushed" in path
     assert "page=2" in path
+
+
+def test_the_client_remembers_what_each_rate_limit_has_left() -> None:
+    transport = FakeTransport(
+        reply(body=REPOS[:1], x_ratelimit_remaining="4321", x_ratelimit_resource="core"),
+        reply(body=SEARCH, x_ratelimit_remaining="9", x_ratelimit_resource="search"),
+    )
+    client = GitHub("tok", transport=transport)
+    assert client.remaining() is None
+    client.list_repos("acme")
+    client.search_code("x")
+    assert client.remaining() == 4321 and client.remaining("search") == 9
 
 
 def test_list_repos_falls_back_to_a_users_repos() -> None:

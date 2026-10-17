@@ -17,6 +17,18 @@ from cairn.load import load_authored, load_config
 from cairn.mcp_server.query import answer as query_answer
 from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.org.access import client_for, forget_client, org_repo, pick_org
+from cairn.org.packages import (
+    build_index,
+    find_packages,
+    load_index,
+    needs_build,
+    org_packages,
+    render_choices,
+    render_package,
+    render_packages,
+    save_index,
+    usage_files,
+)
 from cairn.org.profile import (
     build_profile,
     is_degraded,
@@ -26,7 +38,7 @@ from cairn.org.profile import (
     save_profile,
 )
 from cairn.org.similar import find_similar, render_similar
-from cairn.paths import cards_dir, org_profile_file
+from cairn.paths import cards_dir, org_packages_file, org_profile_file
 from cairn.remote.github import GitHub
 from cairn.render.card import relate_line
 from cairn.render.links import Neighbor, hidden_count, neighbors, render_links, repo_at
@@ -339,6 +351,39 @@ def profile_text(ws_root: Path, org: str = "", *, refresh: bool = False) -> str:
                 if not is_degraded(profile):
                     save_profile(path, profile)
     return render_profile(profile)
+
+
+_PACKAGES_LOCK = threading.Lock()
+
+
+def packages_text(
+    ws_root: Path, name: str = "", query: str = "", org: str = "", *, refresh: bool = False
+) -> str:
+    """The org's own packages, or one of them with its users and code that calls it. Read over
+    the API when the cache is a day old (only repos pushed since are read again)."""
+    source = pick_org(load_config(ws_root).orgs, org)
+    path = org_packages_file(ws_root, source.host, source.org)
+    with _PACKAGES_LOCK:
+        index = load_index(path)
+        if index is None or refresh or needs_build(index, datetime.now(UTC)):
+            previous = index
+            index = _with_client(
+                source,
+                lambda client: build_index(client, source.org, source.host, previous=previous),
+            )
+            with contextlib.suppress(OSError):  # a read-only workspace still gets the answer
+                save_index(path, index)
+    packages = org_packages(index)
+    if not name.strip():
+        return render_packages(index, packages, query=query)
+    found = find_packages(packages, name)
+    if len(found) != 1:
+        return render_choices(found, name)
+    try:
+        files = _with_client(source, lambda client: usage_files(client, source.org, found[0]))
+    except CairnError as exc:  # the package is still worth showing without its usages
+        return render_package(index, found[0], str(exc))
+    return render_package(index, found[0], files)
 
 
 def org_file_text(ws_root: Path, repo: str, path: str, org: str = "") -> str:
