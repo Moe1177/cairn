@@ -1,0 +1,46 @@
+# The GitHub repository search an agent would type for each phrase in repos.yaml:
+# written by a model (cairn bench-repos --make-queries), never edited by hand.
+model: haiku
+generated: '2026-10-17'
+prompt: 'In the {org} GitHub org, a developer is looking for the repo they describe as: "{query}". Write
+  the GitHub repository search query you would type to find it: 1 to 3 words, no qualifiers. Only the
+  query, nothing else.'
+queries:
+  github-search:
+    secrets-operator: vault secrets operator
+    mesh-on-k8s: consul-k8s
+    aws-provider: terraform-provider-aws
+    terraform-language-server: terraform-ls
+    vscode-extension: vscode terraform
+    machine-images: images" multi-cloud identical
+    scheduler: nomad
+    config-rendering: consul-template
+    tfc-go-client: go-tfe
+    setup-action: setup terraform
+    lambda-secrets: vault lambda extension
+    dataplane: consul dataplane
+    autoscaler: nomad autoscaler
+    ami-plugin: packer-plugin-amazon
+    copyright-headers: copywrite
+    cloud-control-provider: terraform-provider-awscc
+    azure-provider: terraform-provider-azurerm
+    k8s-provider: terraform provider kubernetes
+  github-search-masked:
+    secrets-operator: kubernetes secrets operator
+    mesh-on-k8s: service mesh helm
+    aws-provider: terraform-provider-aws
+    terraform-language-server: terraform language server
+    vscode-extension: terraform vscode extension
+    machine-images: multi-cloud image builder
+    scheduler: workload scheduler orchestrator
+    config-rendering: config renderer
+    tfc-go-client: terraform go client
+    setup-action: setup terraform
+    lambda-secrets: lambda secrets extension
+    dataplane: sidecarless mesh
+    autoscaler: autoscaler scheduler
+    ami-plugin: packer ami
+    copyright-headers: license headers
+    cloud-control-provider: awscc terraform
+    azure-provider: terraform provider azure
+    k8s-provider: terraform kubernetes provider

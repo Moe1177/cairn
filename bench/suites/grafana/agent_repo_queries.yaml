@@ -1,0 +1,42 @@
+# The GitHub repository search an agent would type for each phrase in repos.yaml:
+# written by a model (cairn bench-repos --make-queries), never edited by hand.
+model: haiku
+generated: '2026-10-17'
+prompt: 'In the {org} GitHub org, a developer is looking for the repo they describe as: "{query}". Write
+  the GitHub repository search query you would type to find it: 1 to 3 words, no qualifiers. Only the
+  query, nothing else.'
+queries:
+  github-search:
+    logs-backend: loki
+    tracing-backend: tempo
+    metrics-storage: Prometheus long-term storage
+    load-testing: load testing javascript
+    profiling-db: continuous profiling
+    collector: programmable pipelines
+    ebpf: ebpf auto-instrumentation
+    operator: grafana operator
+    terraform: terraform provider grafana
+    mcp: mcp-grafana
+    plugin-cli: plugin tools
+    charts: observability helm charts
+    rum: real user monitoring
+    synthetic: synthetic monitoring agent
+    k8s-monitoring: k8s monitoring helm
+    plugin-backend-sdk: plugin sdk go
+  github-search-masked:
+    logs-backend: loki
+    tracing-backend: tracing object storage
+    metrics-storage: prometheus long-term storage
+    load-testing: load testing javascript
+    profiling-db: continuous profiling
+    collector: opentelemetry programmable pipelines
+    ebpf: ebpf auto-instrumentation
+    operator: kubernetes operator dashboards
+    terraform: terraform provider dashboards
+    mcp: mcp dashboards datasources
+    plugin-cli: plugin cli
+    charts: helm observability
+    rum: real user monitoring
+    synthetic: synthetic checks agent
+    k8s-monitoring: kubernetes monitoring helm
+    plugin-backend-sdk: Go plugin SDK

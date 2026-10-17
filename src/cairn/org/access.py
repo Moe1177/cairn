@@ -7,7 +7,8 @@ the token can see, or send an Enterprise org's words to github.com.
 """
 
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import TypeVar
 
 from cairn.config import OrgSource
 from cairn.errors import CairnError
@@ -15,6 +16,7 @@ from cairn.remote.auth import github_token
 from cairn.remote.github import GitHub
 
 _CLIENTS: dict[str, GitHub] = {}
+T = TypeVar("T")
 _LOCK = threading.Lock()
 
 NO_ORGS = (
@@ -53,6 +55,16 @@ def client_for(source: OrgSource) -> GitHub:
             client = GitHub(github_token(source.host), host=source.host)
             _CLIENTS[source.host] = client
         return client
+
+
+def with_client(source: OrgSource, call: Callable[[GitHub], T]) -> T:
+    """`call` with the host's client; a rejected token is dropped, so a new login works."""
+    try:
+        return call(client_for(source))
+    except CairnError as exc:
+        if "rejected the token" in str(exc):
+            forget_client(source)
+        raise
 
 
 def forget_client(source: OrgSource) -> None:
