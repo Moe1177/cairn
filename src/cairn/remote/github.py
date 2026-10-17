@@ -102,6 +102,15 @@ class GitHub:
         hits = tuple(_hit(item) for item in data.get("items", []) if _hit_ok(item))
         return SearchPage(hits, int(data.get("total_count") or 0), ms, waited)
 
+    def search_repos(self, query: str, *, per_page: int = 10) -> tuple[tuple[str, ...], float]:
+        """GitHub's repository search, best match first: (owner/name of each, ms)."""
+        params = urlencode({"q": query, "per_page": max(1, min(per_page, 100))})
+        response, ms, _ = self._get(f"/search/repositories?{params}")
+        if response.status == 422:
+            return (), ms
+        items = _json(_checked(response)).get("items", [])
+        return tuple(i["full_name"] for i in items if _repo_ok(i)), ms
+
     def file_exists(self, repo: str, path: str) -> bool:
         """Whether `path` is a file on `repo`'s default branch (what code search indexes)."""
         response, _, _ = self._get(
