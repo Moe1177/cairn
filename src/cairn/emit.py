@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from cairn import providers
+from cairn.org.view import org_index_lines
 from cairn.paths import cards_dir, index_file, logs_dir
 from cairn.providers.meta import read_deep_meta
 from cairn.render.card import render_card
@@ -44,7 +45,12 @@ def write_outputs(ws_root: Path, result: ScanResult) -> tuple[Path, ...]:
     index_path = index_file(ws_root)
     atomic_write_text(
         index_path,
-        render_index(workspace, result.authored, threshold=result.config.index_threshold),
+        render_index(
+            workspace,
+            result.authored,
+            threshold=result.config.index_threshold,
+            org_lines=org_index_lines(ws_root, workspace, result.config),
+        ),
     )
     written.append(index_path)
     log_path = logs_dir(ws_root) / "last-scan.log"

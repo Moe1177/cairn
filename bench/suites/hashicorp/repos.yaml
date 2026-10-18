@@ -1,0 +1,80 @@
+# Org-repos key for github.com/hashicorp: phrases an agent might use for a repo it can't see
+# ("the terraform provider for AWS"), and the active repos they mean. Written from what each
+# product does, without reading the org's repo list or descriptions, then checked to exist
+# (2026-10-17). Two first drafts named archived repos and were dropped.
+host: github.com
+org: hashicorp
+split: dev
+queries:
+- id: secrets-operator
+  query: the kubernetes operator that syncs secrets into kubernetes secrets
+  answers:
+  - vault-secrets-operator
+- id: mesh-on-k8s
+  query: the helm chart and controller that run the service mesh on kubernetes
+  answers:
+  - consul-k8s
+- id: aws-provider
+  query: the terraform provider for AWS
+  answers:
+  - terraform-provider-aws
+- id: terraform-language-server
+  query: language server for terraform configuration files
+  answers:
+  - terraform-ls
+- id: vscode-extension
+  query: the VS Code extension for terraform
+  answers:
+  - vscode-terraform
+- id: machine-images
+  query: tool that builds identical machine images for several clouds from one config
+  answers:
+  - packer
+- id: scheduler
+  query: the workload scheduler and orchestrator for containers and binaries
+  answers:
+  - nomad
+- id: config-rendering
+  query: daemon that renders config files from the service catalog and key value store
+  answers:
+  - consul-template
+- id: tfc-go-client
+  query: go client for the terraform cloud and enterprise API
+  answers:
+  - go-tfe
+- id: setup-action
+  query: github action that installs the terraform CLI in a workflow
+  answers:
+  - setup-terraform
+- id: lambda-secrets
+  query: lambda extension that fetches secrets before the function runs
+  answers:
+  - vault-lambda-extension
+- id: dataplane
+  query: the mesh data plane that runs without client agents
+  answers:
+  - consul-dataplane
+- id: autoscaler
+  query: autoscaler for scheduler jobs and cluster nodes
+  answers:
+  - nomad-autoscaler
+- id: ami-plugin
+  query: packer plugin that builds Amazon AMIs
+  answers:
+  - packer-plugin-amazon
+- id: copyright-headers
+  query: tool that adds copyright headers and license files to repos
+  answers:
+  - copywrite
+- id: cloud-control-provider
+  query: terraform provider generated from the AWS Cloud Control API
+  answers:
+  - terraform-provider-awscc
+- id: azure-provider
+  query: terraform provider for Microsoft Azure resource manager
+  answers:
+  - terraform-provider-azurerm
+- id: k8s-provider
+  query: terraform provider that manages kubernetes resources
+  answers:
+  - terraform-provider-kubernetes

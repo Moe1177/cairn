@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 from cairn.errors import CairnError
 from cairn.locate.terms import concept_terms, literal_terms
-from cairn.remote.github import CodeHit, GitHub, SearchPage
+from cairn.remote.host import CodeHit, CodeHost, SearchPage
 from cairn.security.redact import redact
 
 MAX_TERMS = 4  # each is a search, and code search allows 10 a minute
@@ -96,7 +96,7 @@ def clean_terms(terms: Sequence[str], task: str) -> tuple[str, ...]:
 
 
 def find_similar(
-    client: GitHub,
+    client: CodeHost,
     org: str,
     task: str,
     terms: Sequence[str] = (),
@@ -170,7 +170,11 @@ def render_similar(result: SimilarResult) -> str:
     head = (
         f"Prior art in {result.org} for {searched}: {len(result.hits)} files "
         f"({result.searches} searches, {result.ms / 1000:.1f}s"
-        + (f", {result.waited:.0f}s of it waiting for GitHub's rate limit" if result.waited else "")
+        + (
+            f", {result.waited:.0f}s of it waiting for the host's rate limit"
+            if result.waited
+            else ""
+        )
         + ")."
     )
     notes = [f"(a search failed: {why})" for why in result.failed]
@@ -185,7 +189,7 @@ def render_similar(result: SimilarResult) -> str:
         )
     lines = [head, *notes]
     for hit in result.hits:
-        name = hit.repo.split("/", 1)[1]  # always the org's: _rank keeps no other owner's
+        name = hit.repo[len(result.org) + 1 :]  # always the org's: _rank keeps no other
         lines.append(f"- {name}/{hit.path}  (matched {', '.join(hit.matched)})")
         lines.extend(f"    {fragment}" for fragment in hit.fragments[:1])
     lines.append(

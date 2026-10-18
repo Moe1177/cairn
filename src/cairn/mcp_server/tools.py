@@ -17,6 +17,7 @@ from cairn.load import load_authored, load_config
 from cairn.mcp_server.query import answer as query_answer
 from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.org.access import client_for, forget_client, org_repo, pick_org
+from cairn.org.links import cloned_as
 from cairn.org.packages import (
     build_index,
     find_packages,
@@ -38,8 +39,9 @@ from cairn.org.profile import (
     save_profile,
 )
 from cairn.org.similar import find_similar, render_similar
+from cairn.org.view import org_card, org_matches
 from cairn.paths import cards_dir, org_packages_file, org_profile_file
-from cairn.remote.github import GitHub
+from cairn.remote.host import CodeHost
 from cairn.render.card import relate_line
 from cairn.render.links import Neighbor, hidden_count, neighbors, render_links, repo_at
 from cairn.resolve import resolve_repo
@@ -209,34 +211,57 @@ def _names_a_repo(workspace: Workspace, lowered: str) -> bool:
     )
 
 
-@locked
 def resolve_text(ws_root: Path, query: str) -> str:
+    """Workspace repos a phrase means (read under the workspace lock), then uncloned org repos
+    (after it: reading the org's listing must never hold up a rescan)."""
+    (workspace, local, exact), note = _under_lock(ws_root, lambda: _resolve_local(ws_root, query))
+    if exact:
+        return "\n".join(local) + note
+    org, problems = org_matches(ws_root, workspace, query)
+    if not local and not org:
+        known = ", ".join(r.id for r in workspace.repos[:MAX_LINES])
+        return "\n".join([f"No repo matches '{query}'. Repos: {known}", *problems]) + note
+    return "\n".join([*local, *org, *problems]) + note
+
+
+def _resolve_local(ws_root: Path, query: str) -> tuple[Workspace, list[str], bool]:
+    """(the map, its lines for the phrase, whether they settle it: a repo or package by that
+    very name)."""
     workspace = _workspace(ws_root)
     lowered = query.strip().lower()
     # A repo's own name always wins; then every repo holding a package by that name.
     owners = [] if _names_a_repo(workspace, lowered) else _package_owners(workspace, lowered)
     if owners:
-        return "\n".join(
+        lines = [
             clean_inline(
                 f"- {repo.id}: package {package.name} at `{package.path}` "
                 f"→ .cairn/cards/{repo.id}.md",
                 400,
             )
             for repo, package in owners[:MAX_LINES]
-        )
+        ]
+        return workspace, lines, True
     matches = resolve_repo(workspace, load_authored(ws_root), query, limit=5)
-    if not matches:
-        known = ", ".join(r.id for r in workspace.repos[:MAX_LINES])
-        return f"No repo matches '{query}'. Repos: {known}"
-    return "\n".join(
+    lines = [
         f"- {m.repo_id} ({m.score:.2f}): {m.one_liner} · `{m.path}` → .cairn/cards/{m.repo_id}.md"
         for m in matches
-    )
+    ]
+    return workspace, lines, bool(matches) and matches[0].score == 1.0
+
+
+def card_text(ws_root: Path, repo: str) -> str:
+    """A workspace repo's card, else an uncloned org repo's (from the org's listing)."""
+    workspace, found, message = _find(ws_root, repo)
+    found = found or cloned_as(workspace, repo)  # owner/name of a repo cloned here
+    if found is None:
+        org = org_card(ws_root, workspace, repo)
+        return org if org is not None else message
+    return _local_card(ws_root, found.id)
 
 
 @locked
-def card_text(ws_root: Path, repo: str) -> str:
-    _, found, message = _find(ws_root, repo)
+def _local_card(ws_root: Path, repo_id: str) -> str:
+    _, found, message = _find(ws_root, repo_id)
     if found is None:
         return message
     _fresh(ws_root, found)
@@ -407,7 +432,7 @@ def org_file_text(ws_root: Path, repo: str, path: str, org: str = "") -> str:
     return f"{full}/{inside} ({len(lines)} lines)\n{body}{more}"
 
 
-def _with_client(source: OrgSource, call: Callable[[GitHub], T]) -> T:
+def _with_client(source: OrgSource, call: Callable[[CodeHost], T]) -> T:
     try:
         return call(client_for(source))
     except CairnError as exc:

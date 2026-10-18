@@ -2,7 +2,7 @@
 
 import re
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from cairn.model.graph import Confidence, EdgeType, Repo, Workspace
 from cairn.model.overrides import Authored
@@ -90,6 +90,7 @@ def render_index(
     *,
     threshold: int = 50,
     with_cards: bool = True,
+    org_lines: Sequence[str] = (),
 ) -> str:
     if with_cards:
         lines = [
@@ -115,6 +116,7 @@ def render_index(
         ]
     else:
         lines += _group_lines(workspace)
+    lines += org_lines
     return "\n".join(lines) + "\n"
 
 

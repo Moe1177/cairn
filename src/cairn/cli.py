@@ -400,8 +400,8 @@ def similar(
     ] = "",
     org: Annotated[str, typer.Option("--org", help="Which org, when several are configured.")] = "",
 ) -> None:
-    """Where your org already implemented a feature: searches the org's repos on GitHub (set
-    `orgs:` in .cairn/config.yaml), nothing cloned."""
+    """Where your org already implemented a feature: searches the org's repos on GitHub or
+    GitLab (set `orgs:` in .cairn/config.yaml), nothing cloned."""
     from cairn.integrations.registry import find_workspace
     from cairn.mcp_server.tools import similar_text
 
@@ -422,7 +422,7 @@ def org_profile(
     ] = False,
 ) -> None:
     """Your org's stack: the datastores, frameworks, auth, test and deploy tools and libraries its
-    recently pushed repos use (read over GitHub's API, cached for a week)."""
+    recently pushed repos use (read over the host's API, cached for a week)."""
     from cairn.integrations.registry import find_workspace
     from cairn.mcp_server.tools import profile_text
 
@@ -445,7 +445,7 @@ def org_packages_cmd(
     ] = False,
 ) -> None:
     """Your org's own packages: the libraries its repos use from one another, where each is
-    defined, and who uses it (read over GitHub's API, cached for a day)."""
+    defined, and who uses it (read over the host's API, cached for a day)."""
     from cairn.integrations.registry import find_workspace
     from cairn.mcp_server.tools import packages_text
 
@@ -1000,6 +1000,79 @@ def bench_packages(
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     (out / f"packages-{stamp}.md").write_text(text, encoding="utf-8")
     (out / f"packages-{stamp}.json").write_text(outcomes_json(outcomes), encoding="utf-8")
+    typer.echo(text)
+
+
+@app.command("bench-repos")
+def bench_repos(
+    suites: Annotated[
+        list[Path], typer.Argument(help="Suite folders, each with a repos.yaml key.")
+    ],
+    locators: Annotated[
+        str,
+        typer.Option("--locators", help="Comma list of cairn,github-search,github-search-masked."),
+    ] = "cairn,github-search,github-search-masked",
+    make_catalog: Annotated[
+        bool,
+        typer.Option(
+            "--make-catalog", help="Read the org's repo listing now and keep it beside the key."
+        ),
+    ] = False,
+    make_queries: Annotated[
+        bool,
+        typer.Option(
+            "--make-queries",
+            help="Ask claude (haiku) for the repo search an agent would type, where missing.",
+        ),
+    ] = False,
+    out: Annotated[Path, typer.Option("--out", help="Folder for the reports.")] = Path(
+        "bench/results"
+    ),
+) -> None:
+    """Offline and over the API: from a phrase, does cairn's org catalog or GitHub's repo search
+    find the org repo it means, and how fast?"""
+    from cairn.bench.org_repos import (
+        LOCATORS,
+        RepoOutcome,
+        evaluate,
+        load_queries,
+        load_repo_set,
+        outcomes_json,
+        read_catalog,
+        report,
+        write_catalog,
+        write_queries,
+    )
+    from cairn.remote.auth import github_token
+    from cairn.remote.github import GitHub
+
+    chosen = _comma_list(locators)
+    if not chosen or any(name not in LOCATORS for name in chosen):
+        _fail(f"unknown locator in {locators!r} (choose from {', '.join(LOCATORS)}).")
+    outcomes: list[RepoOutcome] = []
+    try:
+        for suite_dir in suites:
+            rset = load_repo_set(suite_dir)
+            needs_api = make_catalog or any(n.startswith("github-search") for n in chosen)
+            client = GitHub(github_token(rset.host), host=rset.host) if needs_api else None
+            if make_catalog and client is not None:
+                write_catalog(suite_dir, client, rset)
+            today = datetime.now().strftime("%Y-%m-%d")
+            queries = (
+                write_queries(suite_dir, rset, today=today)
+                if make_queries
+                else load_queries(suite_dir)
+            )
+            outcomes += evaluate(
+                rset, read_catalog(suite_dir), queries, client=client, locators=chosen
+            )
+    except (CairnError, OSError) as exc:
+        _fail(str(exc))
+    text = report(outcomes)
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    (out / f"repos-{stamp}.md").write_text(text, encoding="utf-8")
+    (out / f"repos-{stamp}.json").write_text(outcomes_json(outcomes), encoding="utf-8")
     typer.echo(text)
 
 

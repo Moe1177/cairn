@@ -8,6 +8,24 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **GitLab orgs.** Every org feature (`find_similar`, `read_org_file`, `org_profile`,
+  `org_packages`, and the catalog behind `resolve_repo` and `repo_card`) now reads GitLab too:
+  gitlab.com or self-managed, and a group with its subgroups (`org: acme/platform`), with your
+  `glab` login or `GITLAB_TOKEN`. A GitLab tree comes 100 entries a page, every folder before
+  any file, so cairn reads the pages side by side (gimp-help's 6,959 files: 2.8 s). On
+  gitlab.gnome.org, GNOME's 316-repo catalog took 10 requests (1.2 s), and the package index of
+  World/Rust (33 repos, nested three groups deep) 182 requests (4.4 s). Code search across a
+  group needs GitLab's advanced search; without it, `find_similar` says so.
+- **Org repos nobody cloned, where agents already look.** With `orgs:` in the config,
+  `resolve_repo` also answers from the org's repo catalog ("the terraform provider for AWS" ->
+  `hashicorp/terraform-provider-aws`), and `repo_card` describes an uncloned org repo: its
+  listing facts, the packages it defines, the org libraries it uses, and the workspace repos
+  that depend on it. INDEX gains a short section (`org_index_repos`, 15 by default) of the org
+  repos the workspace depends on, then the most used ones, written from the caches only and
+  without any repo-written text. The catalog is the org's listing (604 repos: 2.5 s), cached for
+  a day; a search takes about 1.4 ms. `cairn bench-repos` compares it with GitHub's repository
+  search: held out on grafana, first-place hits 10 of 16 against 8 of 16 for GitHub given the
+  query an agent types for an org it doesn't know.
 - **The org's own packages: `org_packages` and `cairn org-packages`.** The libraries an org's
   repos use from one another, most shared first. Each comes with where it is defined (the repo
   and manifest, a monorepo's subfolder included) and which repos use it. Pass a name to see

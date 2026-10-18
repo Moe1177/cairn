@@ -8,7 +8,8 @@ import pytest
 
 from cairn.errors import CairnError
 from cairn.remote.auth import check_host, github_token
-from cairn.remote.github import GitHub, Response, _HttpsTransport, api_base
+from cairn.remote.github import GitHub, Response, api_base
+from cairn.remote.transport import HttpsTransport as _HttpsTransport
 
 
 class FakeTransport:
@@ -234,7 +235,7 @@ class FakeReply:
 @pytest.fixture
 def connections(monkeypatch: pytest.MonkeyPatch) -> list[FakeConnection]:
     FakeConnection.made = []
-    monkeypatch.setattr("cairn.remote.github.http.client.HTTPSConnection", FakeConnection)
+    monkeypatch.setattr("http.client.HTTPSConnection", FakeConnection)
     return FakeConnection.made
 
 
@@ -263,7 +264,7 @@ def test_transport_fails_once_on_a_dead_host(
         def request(self, method: str, path: str, headers: dict) -> None:
             raise OSError("unreachable")
 
-    monkeypatch.setattr("cairn.remote.github.http.client.HTTPSConnection", Dead)
+    monkeypatch.setattr("http.client.HTTPSConnection", Dead)
     with pytest.raises(CairnError, match="couldn't reach api.github.com"):
         _HttpsTransport("api.github.com")("GET", "/a", {})
     assert len(connections) == 1  # one try: a second would only double the timeout
@@ -350,6 +351,16 @@ def test_the_client_remembers_what_each_rate_limit_has_left() -> None:
     client.list_repos("acme")
     client.search_code("x")
     assert client.remaining() == 4321 and client.remaining("search") == 9
+
+
+def test_search_repos_returns_names_best_first() -> None:
+    body = {"items": [{"full_name": "acme/api", "default_branch": "main"}, {"full_name": 5}]}
+    transport = FakeTransport(reply(body=body), reply(422, {"message": "bad"}))
+    client = GitHub("tok", transport=transport)
+    names, _ = client.search_repos("terraform provider org:acme", per_page=5)
+    assert names == ("acme/api",)
+    assert transport.calls[0][1].startswith("/search/repositories?q=terraform+provider+org%3Aacme")
+    assert client.search_repos("x")[0] == ()
 
 
 def test_list_repos_falls_back_to_a_users_repos() -> None:
