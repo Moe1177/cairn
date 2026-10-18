@@ -206,8 +206,8 @@ and you can commit them so your team shares them.
 
 | Tool | What it answers |
 |---|---|
-| `resolve_repo` | "Which repo is 'the payments service'?" |
-| `repo_card` | The card for a repo (re-scanned first if its HEAD moved) |
+| `resolve_repo` | "Which repo is 'the payments service'?" With `orgs:`, the org's uncloned repos too |
+| `repo_card` | The card for a repo (re-scanned first if its HEAD moved), or for an org repo nobody cloned |
 | `links` | Which repos a repo is linked to, one line each with its direction (→ one way, ← one way, ↔ both ways); empty means the repo the session is in |
 | `related` | Everything connected to a repo, with evidence |
 | `find_across` | Which repos expose or use a table, package, or path |
@@ -408,6 +408,37 @@ task, and for all 14 held-out grafana tasks. With the org's name masked (a priva
 packages, which no model has read about), the agent alone named none
 ([results](bench/published/2026-10-17-org-packages.md)).
 
+### Org repos nobody cloned
+
+A session sees the repos on disk. With `orgs:` in the config, it sees the org's other repos too:
+
+- `resolve_repo` also answers from the org's catalog: "the terraform provider for AWS" →
+  `hashicorp/terraform-provider-aws (org hashicorp, not cloned)`. A repo here by that exact
+  name wins, and a cloned org repo is listed once, as the local one.
+- `repo_card hashicorp/go-hclog` describes an org repo nobody cloned: its description,
+  language, topics and last push, the packages it defines and how many org repos use them, the
+  org's libraries it uses, and which workspace repos depend on it.
+- INDEX gains a short section: the uncloned org repos whose packages the workspace depends on,
+  then those whose packages most org repos use (`org_index_repos`, 15 by default):
+
+```text
+## Org repos, not cloned (repo_card <owner/name> describes one; read_org_file reads it)
+- hashicorp/go-hclog · Go · used here by my-svc · its packages: 89 org repos use them
+- hashicorp/vault · Go · used here by my-svc · its packages: 43 org repos use them
+- hashicorp/hcl · Go · its packages: 63 org repos use them
+```
+
+The catalog is the org's repo listing (hashicorp's 604 repos: 2.5 s), cached for a day. A phrase
+is matched against each repo's name, description and topics, rarer words counting more, in
+about a millisecond. INDEX is written from the caches only, so mapping a folder still makes no
+network calls, and it holds names, languages and counts, never an org repo's description.
+
+On phrases written without reading the org's repo list, the catalog found the repo first for
+15 of 18 hashicorp phrases and 10 of 16 held-out grafana ones (13 in its top five). GitHub's
+repository search, given the query an agent types for an org it doesn't know, found 12 of 18
+and 8 of 16, in about 370 ms a search against cairn's 1.4 ms
+([results](bench/published/2026-10-17-org-catalog.md)).
+
 ## Benchmarks
 
 cairn ships a benchmark harness (`cairn bench`). It runs real tasks through headless Claude Code
@@ -533,6 +564,16 @@ so a run is repeatable and free.
 cairn bench-packages bench/suites/hashicorp bench/suites/grafana
 ```
 
+The repos benchmark asks how fast and how often a phrase finds the org repo it means. Each
+suite's `repos.yaml` lists phrases with the repos they mean. cairn's catalog answers from the
+listing kept beside the key (`org_catalog.json`, `--make-catalog`); GitHub's repository search
+answers live, with the query a model types for each phrase (`agent_repo_queries.yaml`,
+`--make-queries`), once knowing the org and once with its name masked.
+
+```bash
+cairn bench-repos bench/suites/hashicorp bench/suites/grafana
+```
+
 The link benchmark is offline and free too. Each suite's `links.yaml` lists the pairs of repos
 that really link, written from the code and never from cairn's output; `cairn bench-links` scans
 the suite and scores the links cairn shows (and, separately, its unconfirmed suggestions) as
@@ -601,14 +642,17 @@ It also:
 cairn **collects no telemetry**, and mapping your folder makes **no network calls**. It talks
 to a server only when you ask it to:
 - with `orgs:` in the config, `find_similar`, `read_org_file`, `org_profile`, `org_packages`,
-  `cairn similar`, `cairn org-profile` and `cairn org-packages` call your code host's API (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
+  `cairn similar`, `cairn org-profile` and `cairn org-packages` call your code host's API, and
+  so do `resolve_repo` and `repo_card` once a day, to read the org's repo listing (GitHub, with your own login: `GH_TOKEN`, or `GH_ENTERPRISE_TOKEN` for an Enterprise
   host, else `gh auth token`). They send the search terms (the task's own words when no terms are
   given) and the org's name, and read back matching files; nothing from your local repos is sent.
   They only ever reach the orgs in your config: a call naming another org, or another owner's
   repo, is refused, and a search hit from outside the org is dropped;
 - `cairn bench-prior-art` calls the same API, and with `--make-terms` runs the `claude` CLI
   (with `--make-profile`, it also reads the org's profile); `cairn bench-packages` reads the
-  org's packages with `--make-list` and runs the `claude` CLI with `--make-picks`;
+  org's packages with `--make-list` and runs the `claude` CLI with `--make-picks`; `cairn
+  bench-repos` reads the org's listing with `--make-catalog`, searches GitHub's repositories,
+  and runs the `claude` CLI with `--make-queries`;
 - `cairn deep enable` runs your package installer (uv, pipx or pip) to add graphify;
 - `cairn bench`, `cairn bench-locate` and `cairn bench-links` fetch their pinned benchmark repos
   with git, and `cairn bench` runs the `claude` CLI.
@@ -644,6 +688,7 @@ how to report a vulnerability.
 | `cairn bench-links SUITE...` | Score cairn's links against each suite's real ones, offline |
 | `cairn bench-prior-art SUITE...` | Score finding an org's existing implementation of a feature, over the host's API (no clone) |
 | `cairn bench-packages SUITE...` | Score whether an agent names the org's own library for a task, from memory and from `org_packages` |
+| `cairn bench-repos SUITE...` | Score finding an uncloned org repo from a phrase: cairn's catalog against GitHub's repository search |
 | `cairn bench-regrade SUITE LOG` | Grade a finished run's log again with today's grading |
 | `cairn bench-reach SUITE...` | Which tasks a search for the prompt's own words answers, offline; fails on a hard task that one does |
 | `cairn doctor` | Check git, Python, the map, write access, harnesses and graphify; exits 1 on a failure |
@@ -718,7 +763,9 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
     the benchmark says so.
 11. ✅ The org's own packages across repos nobody cloned: `org_packages` says where each is
     defined, which repos use it and which files call it, measured by `cairn bench-packages`.
-12. Benchmark sessions that start with only their own repo in view, the way a session opened in
+12. ✅ Org repos nobody cloned: `resolve_repo` and `repo_card` reach them from the org's
+    catalog, and INDEX lists those the workspace depends on, measured by `cairn bench-repos`.
+13. Benchmark sessions that start with only their own repo in view, the way a session opened in
     one repo does.
 
 ## Contributing

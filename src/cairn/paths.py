@@ -45,6 +45,10 @@ def org_profile_file(ws_root: Path, host: str, org: str) -> Path:
     return cairn_dir(ws_root) / "cache" / "orgs" / host / f"{org.lower()}.json"
 
 
+def org_catalog_file(ws_root: Path, host: str, org: str) -> Path:
+    return cairn_dir(ws_root) / "cache" / "orgs" / host / f"{org.lower()}.catalog.json"
+
+
 def org_packages_file(ws_root: Path, host: str, org: str) -> Path:
     return cairn_dir(ws_root) / "cache" / "orgs" / host / f"{org.lower()}.packages.json"
 

@@ -1,0 +1,55 @@
+# Org-repos key for github.com/grafana: phrases an agent might use for a repo it can't see, and
+# the active repos they mean. Written from what each product does, without reading the org's
+# repo list or descriptions, then checked to exist (2026-10-17). Held out: run once.
+host: github.com
+org: grafana
+split: held
+queries:
+- id: logs-backend
+  query: the log aggregation system that indexes labels, not log lines
+  answers: [loki]
+- id: tracing-backend
+  query: the distributed tracing backend that stores traces in object storage
+  answers: [tempo]
+- id: metrics-storage
+  query: horizontally scalable long-term storage for Prometheus metrics
+  answers: [mimir]
+- id: load-testing
+  query: load testing tool where tests are scripts in JavaScript
+  answers: [k6]
+- id: profiling-db
+  query: continuous profiling database for CPU and memory profiles
+  answers: [pyroscope]
+- id: collector
+  query: OpenTelemetry collector distribution with programmable pipelines
+  answers: [alloy]
+- id: ebpf
+  query: eBPF auto-instrumentation for HTTP and gRPC services without code changes
+  answers: [beyla]
+- id: operator
+  query: kubernetes operator that deploys instances and manages dashboards as custom resources
+  answers: [grafana-operator]
+- id: terraform
+  query: terraform provider to manage dashboards, folders and alert rules
+  answers: [terraform-provider-grafana]
+- id: mcp
+  query: MCP server that lets AI assistants search dashboards and query datasources
+  answers: [mcp-grafana]
+- id: plugin-cli
+  query: CLI to scaffold, build, sign and end-to-end test plugins
+  answers: [plugin-tools]
+- id: charts
+  query: the helm charts for the whole observability stack
+  answers: [helm-charts]
+- id: rum
+  query: real user monitoring SDK for the browser
+  answers: [faro-web-sdk]
+- id: synthetic
+  query: agent that runs synthetic checks like ping, DNS and HTTP probes
+  answers: [synthetic-monitoring-agent]
+- id: k8s-monitoring
+  query: helm chart that sets up monitoring of a kubernetes cluster
+  answers: [k8s-monitoring-helm]
+- id: plugin-backend-sdk
+  query: Go SDK for writing backend plugins
+  answers: [grafana-plugin-sdk-go]

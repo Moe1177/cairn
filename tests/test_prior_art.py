@@ -185,11 +185,12 @@ def test_ms_leaves_out_rate_limit_waits(tmp_path: Path) -> None:
     def slow(
         client: object, pset: PriorArtSet, query: PriorArtQuery, limit: int, terms: tuple
     ) -> Found:
-        time.sleep(0.06)  # 60 ms, of which a 50 ms rate-limit wait
-        return Found(("gateway/src/limiter.py",), "", searches=1, waited=0.05)
+        time.sleep(0.3)  # 300 ms, of which a 250 ms rate-limit wait
+        return Found(("gateway/src/limiter.py",), "", searches=1, waited=0.25)
 
     outcome = evaluate(FakeGitHub({}), pset, ["slow"], registry={"slow": slow})[0]  # type: ignore[arg-type]
-    assert 5 <= outcome.ms < 50 and outcome.waited == 0.05
+    # About 50 ms; counting the wait would make it 300 or more. Wide: CI runners oversleep.
+    assert 40 <= outcome.ms < 250 and outcome.waited == 0.25
 
 
 @pytest.mark.parametrize("org", ["acme repo:evil/x", "-acme", "a" * 40, ""])

@@ -41,3 +41,5 @@ class CairnConfig(Frozen):
     stop_aliases: tuple[str, ...] = ()
     stale_file_threshold: int = Field(default=50, ge=1)
     orgs: tuple[OrgSource, ...] = ()
+    # Uncloned org repos INDEX lists (those the workspace depends on first), from the caches.
+    org_index_repos: int = Field(default=15, ge=0, le=100)
