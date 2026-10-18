@@ -8,6 +8,14 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Orgs on any git host.** An org in the config can list its repos by URL (`repos:`, https or
+  ssh), and cairn reads them through git itself with git's own login: Gitea, Forgejo,
+  Bitbucket, sourcehut or a bare server. It keeps one clone per repo holding only its latest
+  list of files (`--filter=blob:none --depth=1`), and fetches the files it reads in one request
+  per repo; `git ls-remote` tells which repos changed. On gitlab.gnome.org, GNOME's 317 repos
+  took 37 s to index cold and 9 s warm, in a 15 MB cache; World/Rust gave the same shared
+  packages as the GitLab API. `read_org_file`, `org_profile`, `org_packages`, `resolve_repo` and
+  `repo_card` work there; `find_similar` says plain git has no code search.
 - **GitLab orgs.** Every org feature (`find_similar`, `read_org_file`, `org_profile`,
   `org_packages`, and the catalog behind `resolve_repo` and `repo_card`) now reads GitLab too:
   gitlab.com or self-managed, and a group with its subgroups (`org: acme/platform`), with your

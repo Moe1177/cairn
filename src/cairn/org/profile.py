@@ -134,6 +134,8 @@ def build_profile(
         wanted = [
             (index, path) for index, paths in enumerate(trees) if paths for path in manifests(paths)
         ]
+        ready = [(repos[i], manifests(paths)) for i, paths in enumerate(trees) if paths]
+        list(pool.map(lambda item: client.prefetch(item[0].name, item[1]), ready))
         texts = list(pool.map(lambda item: _read(client, repos[item[0]], item[1]), wanted))
     found: dict[int, list[tuple[str, str | None]]] = {}
     for (index, path), text in zip(wanted, texts, strict=True):
