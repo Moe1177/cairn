@@ -1,8 +1,8 @@
 """The offline prior-art benchmark: an org's existing implementation of a feature, over the API."""
 
 import json
-import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from typer.testing import CliRunner
@@ -179,17 +179,19 @@ def test_query_paths_are_checked() -> None:
         PriorArtQuery(id="x", category="literal", task="t", answers=("nofolder",))
 
 
-def test_ms_leaves_out_rate_limit_waits(tmp_path: Path) -> None:
+def test_ms_leaves_out_rate_limit_waits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pset = key(tmp_path)
+    now = [100.0]  # a fake clock: a real sleep oversleeps on CI runners
+    monkeypatch.setattr("cairn.bench.prior_art.time", SimpleNamespace(perf_counter=lambda: now[0]))
 
     def slow(
         client: object, pset: PriorArtSet, query: PriorArtQuery, limit: int, terms: tuple
     ) -> Found:
-        time.sleep(0.06)  # 60 ms, of which a 50 ms rate-limit wait
+        now[0] += 0.06  # 60 ms, of which a 50 ms rate-limit wait
         return Found(("gateway/src/limiter.py",), "", searches=1, waited=0.05)
 
     outcome = evaluate(FakeGitHub({}), pset, ["slow"], registry={"slow": slow})[0]  # type: ignore[arg-type]
-    assert 5 <= outcome.ms < 50 and outcome.waited == 0.05
+    assert outcome.ms == pytest.approx(10, abs=0.01) and outcome.waited == 0.05
 
 
 @pytest.mark.parametrize("org", ["acme repo:evil/x", "-acme", "a" * 40, ""])
