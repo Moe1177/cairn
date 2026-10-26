@@ -21,7 +21,7 @@ from pydantic import ValidationError
 from cairn.errors import CairnError
 from cairn.model.graph import Frozen
 from cairn.org.profile import active_repos, older_than, save_cache
-from cairn.remote.github import GitHub
+from cairn.remote.host import CodeHost
 from cairn.security.text import clean_inline
 
 MAX_AGE = timedelta(days=1)
@@ -98,7 +98,7 @@ class RepoMatch:
 
 
 def build_catalog(
-    client: GitHub,
+    client: CodeHost,
     org: str,
     host: str = "github.com",
     *,
@@ -181,20 +181,26 @@ def find_repos(index: CatalogIndex, query: str, *, limit: int = 5) -> list[RepoM
     return scored[:limit]
 
 
-def _short(name: str) -> str:
-    return name.partition("/")[2] or name
-
-
 def _about(repo: CatalogRepo) -> str:
     return f"{repo.description} {' '.join(repo.topics)}"
 
 
+def _short(name: str) -> str:
+    """A repo's path inside its org (on GitLab, with any subgroups)."""
+    return name.partition("/")[2] or name
+
+
 def find_repo(catalog: OrgCatalog, name: str) -> CatalogRepo | None:
-    """A repo of the catalog by its name or owner/name (any case)."""
-    wanted = name.strip().lower()
-    return next(
-        (r for r in catalog.repos if wanted in (r.name.lower(), _short(r.name).lower())), None
-    )
+    """A repo of the catalog by its full path, its path inside the org, or (when only one
+    repo's path ends with it, as in a GitLab group's subgroups) the end of its path. Any
+    case."""
+    wanted = name.strip().strip("/").lower()
+    inside = f"{catalog.org.lower()}/{wanted}"
+    exact = [r for r in catalog.repos if r.name.lower() in (wanted, inside)]
+    if exact:
+        return exact[0]
+    ends = [r for r in catalog.repos if r.name.lower().endswith(f"/{wanted}")]
+    return ends[0] if len(ends) == 1 else None
 
 
 def render_matches(catalog: OrgCatalog, matches: Sequence[RepoMatch]) -> list[str]:
@@ -227,7 +233,7 @@ def render_org_card(repo: CatalogRepo, extra: Iterable[str] = ()) -> str:
     lines += list(extra)
     lines += [
         "",
-        f"Read its files with read_org_file (repo {_short(repo.name)}, path README.md first); "
+        f"Read its files with read_org_file (repo {repo.name}, path README.md first); "
         "find_similar searches its code with the rest of the org.",
     ]
     return "\n".join(lines)

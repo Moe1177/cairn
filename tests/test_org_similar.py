@@ -121,7 +121,7 @@ def test_render_lists_hits_with_why_and_masks_secrets() -> None:
     assert "other/fork" not in text  # another owner's code never comes back
     assert "read_org_file" in text
     secret = SimilarResult("acme", ("x",), (), 10.0, 61.0, 1)
-    assert "61s of it waiting for GitHub's rate limit" in render_similar(secret)
+    assert "61s of it waiting for the host's rate limit" in render_similar(secret)
     assert "Nothing found" in render_similar(secret)
 
 

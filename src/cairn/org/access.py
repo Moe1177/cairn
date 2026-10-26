@@ -3,7 +3,8 @@ keep-alive connections are what make a session's later calls fast).
 
 The configured orgs are a boundary: an agent's call names one of them or none, never another
 org or another owner's repo, so text it read somewhere can't steer cairn to other private code
-the token can see, or send an Enterprise org's words to github.com.
+the token can see, or send an Enterprise org's words to github.com. On GitLab a group's
+subgroups are inside it: `platform/api` there is the org's `acme/platform/api`.
 """
 
 import threading
@@ -12,16 +13,19 @@ from typing import TypeVar
 
 from cairn.config import OrgSource
 from cairn.errors import CairnError
-from cairn.remote.auth import github_token
+from cairn.remote.auth import github_token, gitlab_token
 from cairn.remote.github import GitHub
+from cairn.remote.gitlab import GitLab
+from cairn.remote.host import CodeHost
 
-_CLIENTS: dict[str, GitHub] = {}
+_CLIENTS: dict[tuple[str, str], CodeHost] = {}  # (kind, host) -> its client
 T = TypeVar("T")
 _LOCK = threading.Lock()
 
 NO_ORGS = (
     "no org configured: add it to .cairn/config.yaml, e.g.\n"
-    "orgs:\n  - org: acme            # host: github.com by default (Enterprise: host: git.acme.com)"
+    "orgs:\n  - org: acme            # host: github.com by default (Enterprise: host: git.acme.com)\n"
+    "  - org: acme/platform   # a GitLab group: host: gitlab.com (self-managed: add kind: gitlab)"
 )
 
 
@@ -41,23 +45,32 @@ def pick_org(orgs: Sequence[OrgSource], name: str = "") -> OrgSource:
 
 
 def org_repo(source: OrgSource, repo: str) -> str:
-    """owner/name for a repo of `source`: its name, or owner/name with the org as the owner."""
-    owner, _, name = repo.strip().rpartition("/")
-    if owner and owner.lower() != source.org.lower():
+    """The full path of a repo of `source`: its name, or its path with the org in front. On
+    GitLab a path without the org is one inside it (a subgroup's repo)."""
+    name = repo.strip().strip("/")
+    prefix = f"{source.org.lower()}/"
+    if name.lower().startswith(prefix):
+        name = name[len(prefix) :]
+    elif "/" in name and source.kind == "github":
         raise CairnError(f"{repo.strip()!r} isn't in {source.org}: read only the org's own repos")
     return f"{source.org}/{name}"
 
 
-def client_for(source: OrgSource) -> GitHub:
+def client_for(source: OrgSource) -> CodeHost:
+    key = (source.kind, source.host)
     with _LOCK:
-        client = _CLIENTS.get(source.host)
+        client = _CLIENTS.get(key)
         if client is None:
-            client = GitHub(github_token(source.host), host=source.host)
-            _CLIENTS[source.host] = client
+            client = (
+                GitLab(gitlab_token(source.host), host=source.host)
+                if source.kind == "gitlab"
+                else GitHub(github_token(source.host), host=source.host)
+            )
+            _CLIENTS[key] = client
         return client
 
 
-def with_client(source: OrgSource, call: Callable[[GitHub], T]) -> T:
+def with_client(source: OrgSource, call: Callable[[CodeHost], T]) -> T:
     """`call` with the host's client; a rejected token is dropped, so a new login works."""
     try:
         return call(client_for(source))
@@ -68,7 +81,7 @@ def with_client(source: OrgSource, call: Callable[[GitHub], T]) -> T:
 
 
 def forget_client(source: OrgSource) -> None:
-    """Drop the host's client (after GitHub rejected its token): the next call reads the token
-    again, so a fresh `gh auth login` works without restarting the MCP server."""
+    """Drop the host's client (after the host rejected its token): the next call reads the
+    token again, so a fresh `gh auth login` or `glab auth login` works without a restart."""
     with _LOCK:
-        _CLIENTS.pop(source.host, None)
+        _CLIENTS.pop((source.kind, source.host), None)

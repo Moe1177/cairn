@@ -106,23 +106,38 @@ def org_matches(ws_root: Path, workspace: Workspace, query: str) -> tuple[list[s
 
 
 def org_card(ws_root: Path, workspace: Workspace, name: str) -> str | None:
-    """The card of an uncloned org repo called `name`, owner/name or host/owner/name, or None.
-    Only configured orgs are read."""
-    parts = name.strip().strip("/").split("/")
-    host = parts[0].lower() if len(parts) == 3 else ""
-    owner = parts[-2].lower() if len(parts) >= 2 else ""
+    """The card of an uncloned org repo called `name` (its name, owner/name, or with the host
+    in front), or None. Only configured orgs are read."""
     for source in load_config(ws_root).orgs:
-        if (owner and owner != source.org.lower()) or (host and host != source.host):
+        inside = _inside_org(source, name)
+        if inside is None:
             continue
         try:
             index = catalog_index(ws_root, source)
         except CairnError:
             continue
-        repo = find_repo(index.catalog, parts[-1])
+        repo = find_repo(index.catalog, inside)
         if repo is not None:
             packages = load_index(org_packages_file(ws_root, source.host, source.org))
             return render_org_card(repo, card_extras(workspace, packages, repo.name))
     return None
+
+
+def _inside_org(source: OrgSource, name: str) -> str | None:
+    """`name`'s path inside the org, or None when it names another host or owner. On GitLab a
+    path without the org is one inside it (a subgroup's repo)."""
+    wanted = name.strip().strip("/").lower().removesuffix(".git")
+    first = wanted.partition("/")[0]
+    if first == source.host:  # host/owner/name
+        wanted = wanted.partition("/")[2]
+    elif "." in first and source.kind == "github":
+        return None  # another host (a GitHub owner has no dot; a GitLab group may)
+    prefix = f"{source.org.lower()}/"
+    if wanted.startswith(prefix):
+        return wanted[len(prefix) :]
+    if "/" in wanted and source.kind == "github":
+        return None  # another owner's
+    return wanted
 
 
 def org_index_lines(ws_root: Path, workspace: Workspace, config: CairnConfig) -> list[str]:
