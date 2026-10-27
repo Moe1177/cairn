@@ -1,6 +1,7 @@
 name: onelogin
 workspace: fetched
 related_repos_doc: related_repos.md
+org: {org: govuk-one-login}  # --scope repo reads the repos a session doesn't have through it
 # GOV.UK One Login identity proving (github.com/govuk-one-login), MIT: the shared credential-issuer
 # infrastructure and Lambdas, four credential-issuer APIs, a front end, and the IPV core with its
 # stubs. All CloudFormation/SAM, linked through SQS queues, DynamoDB tables, SSM parameters,

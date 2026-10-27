@@ -3,25 +3,33 @@
 import json
 import re
 import tempfile
-from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
 import cairn
-from cairn.bench.conditions import make_workspace, set_up
+from cairn.bench.conditions import Prepared, make_workspace, set_up
 from cairn.bench.grading import Grade, grade
 from cairn.bench.report import load_records, render_markdown
 from cairn.bench.runner import Runner, RunResult
+from cairn.bench.solo import drift_note, prepare_org, solo_workspace
 from cairn.bench.sources import fetch_sources
-from cairn.bench.suite import load_suite
+from cairn.bench.suite import Suite, Task, load_suite
+from cairn.config import OrgSource
 from cairn.errors import CairnError
 from cairn.store.atomic import atomic_write_text
 
 __all__ = ["BenchStopped", "RunRecord", "regrade_log", "render_markdown", "run_bench"]
 
-# The run's own workspace (a temp dir, gone once the run ends) as an answer spells it.
-_RUN_WS = re.compile(r"(?:[A-Za-z]:)?[\\/][^\s`'\"()|]*?cairn-bench-[^\\/\s]+[\\/]ws(?=[\\/])")
+# The run's own workspace (a temp dir, gone once the run ends) as an answer spells it: the
+# shared one, or (--scope repo) the one a task's repo had to itself.
+_RUN_WS = re.compile(
+    r"(?:[A-Za-z]:)?[\\/][^\s`'\"()|]*?cairn-bench-[^\\/\s]+"
+    r"(?:[\\/]solo[\\/][^\\/\s]+)?[\\/]ws(?=[\\/])"
+)
+# Warms an org's caches in a folder and returns each task's answer files the org lost.
+OrgSetup = Callable[[Path, OrgSource, Sequence[Task]], Mapping[str, Sequence[str]]]
 
 
 @dataclass(frozen=True)
@@ -44,18 +52,30 @@ def run_bench(
     now: str,
     meta: Mapping[str, object] | None = None,
     resume: Path | None = None,
+    scope: str = "workspace",
+    org_setup: OrgSetup = prepare_org,
 ) -> tuple[RunRecord, ...]:
     """Each finished run is appended to `<now>.jsonl` at once, so an interrupted (paid)
     benchmark keeps what it already measured; `<now>.json` and `.md` are written at the end.
 
     A usage limit stops the run (BenchStopped) without recording the failed attempt. `resume`
     continues an earlier log: cells with a good run are kept, missing or failed ones run again.
+
+    `scope` "repo": each session starts with only its task's repo on disk, and reaches the
+    others through the suite's org, as a session opened in one repo does (bench/solo.py).
     """
     suite = load_suite(suite_dir)
+    if scope == "repo" and suite.org is None:
+        raise CairnError(
+            f"suite {suite.name} names no org (org: in suite.yaml), and --scope repo reaches "
+            "the other repos through it"
+        )
+    org = suite.org if scope == "repo" else None
     tasks = [t for t in suite.tasks if not task_ids or t.id in task_ids]
-    header = {
+    header: dict[str, object] = {
         "cairn_version": cairn.__version__,
         "suite": suite.name,
+        "scope": scope,
         "conditions": list(conditions),
         "runs": runs,
         "tasks": [t.id for t in tasks],
@@ -68,6 +88,7 @@ def run_bench(
     stem = log.with_suffix("")
     settings = {
         "suite": suite.name,
+        "scope": scope,
         "model": header.get("model"),
         "harness": header.get("harness", "claude"),
         "runs": runs,
@@ -75,9 +96,6 @@ def run_bench(
     }
     if resume is not None:
         _check_same_settings(resume, settings)
-    # Every invocation leaves a header line, so a log says which settings and tools made it.
-    with log.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"_header": header}) + "\n")
     done = {
         (r.condition, r.task_id, r.run): r
         for r in (load_records(resume) if resume else [])
@@ -93,22 +111,32 @@ def run_bench(
     with tempfile.TemporaryDirectory(prefix="cairn-bench-", ignore_cleanup_errors=True) as tmp:
         ws = make_workspace(suite, suite_dir, Path(tmp), source) if todo else Path(tmp)
         repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
+        if org is not None and todo:
+            note = drift_note(org_setup(Path(tmp) / _ORG_CACHE, org, tasks))
+            if note:
+                header["org_drift"] = note
+        # Every invocation leaves a header line, so a log says which settings and tools made it.
+        with log.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"_header": header}) + "\n")
+        sessions = _Sessions(suite, suite_dir, ws, Path(tmp), org)
         for condition in conditions:
             if condition not in todo:
                 records += [done[(condition, task.id, index)] for task, index in cells]
                 continue
-            prepared = set_up(condition, suite, suite_dir, ws, Path(tmp))
+            sessions.start(condition)
             for task, index in cells:
                 if (condition, task.id, index) in done:
                     records.append(done[(condition, task.id, index)])
                     continue
-                result = runner.run(task.prompt, ws / task.repo, ws, prepared.mcp_config)
+                cwd, prepared = sessions.session(task)
+                result = runner.run(task.prompt, cwd, prepared.ws, prepared.mcp_config)
                 if usage_limit(result):
                     raise BenchStopped(
                         f"stopped: {result.result_text.strip()[:200]}. Measured runs are in "
                         f"{log}; continue later with `--resume {log}`."
                     )
-                graded = grade(task, result.result_text, ws, repo_ids)
+                text = _RUN_WS.sub(lambda _: ws.as_posix(), result.result_text)
+                graded = grade(task, text, ws, repo_ids, org)
                 record = RunRecord(condition, task.id, index, graded, result)
                 records.append(record)
                 with log.open("a", encoding="utf-8") as handle:
@@ -120,12 +148,57 @@ def run_bench(
     return out
 
 
+_ORG_CACHE = "org"  # where the org's caches are read once, before any session
+
+
+@dataclass
+class _Sessions:
+    """Where each task's session runs under one condition: the shared workspace, or (with an
+    org) a workspace of the task's repo alone, each set up for the condition when first used."""
+
+    suite: Suite
+    suite_dir: Path
+    ws: Path
+    tmp: Path
+    org: OrgSource | None
+    condition: str = ""
+    _solo: dict[str, tuple[Path, Path]] = field(default_factory=dict)
+    _ready: dict[str, Prepared] = field(default_factory=dict)
+
+    def start(self, condition: str) -> None:
+        self.condition = condition
+        self._ready = {}
+
+    def session(self, task: Task) -> tuple[Path, Prepared]:
+        """The session's working directory, and the workspace prepared around it."""
+        key = task.repo if self.org is not None else ""
+        if key not in self._ready:
+            ws, run_dir = self._workspace(task.repo)
+            self._ready[key] = set_up(self.condition, self.suite, self.suite_dir, ws, run_dir)
+        prepared = self._ready[key]
+        return prepared.ws / task.repo, prepared
+
+    def _workspace(self, repo: str) -> tuple[Path, Path]:
+        if self.org is None:
+            return self.ws, self.tmp
+        if repo not in self._solo:
+            cache = self.tmp / _ORG_CACHE
+            self._solo[repo] = solo_workspace(self.ws, repo, self.tmp, self.org, cache)
+        return self._solo[repo]
+
+
 def regrade_log(log: Path, suite_dir: Path, ws: Path) -> tuple[RunRecord, ...]:
     """Grade a run's log again with today's grading, against `ws` (the suite's repos, made
     again: the run's own copy is gone). Writes `<stem>.json` and `.md`; the log is untouched."""
     suite = load_suite(suite_dir)
     tasks = {t.id: t for t in suite.tasks}
     repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
+    headers = [
+        json.loads(line)["_header"]
+        for line in log.read_text(encoding="utf-8").splitlines()
+        if line.startswith('{"_header"')
+    ]
+    org = suite.org if headers and headers[0].get("scope") == "repo" else None
     records = []
     for record in load_records(log):
         task = tasks.get(record.task_id)
@@ -137,15 +210,10 @@ def regrade_log(log: Path, suite_dir: Path, ws: Path) -> tuple[RunRecord, ...]:
                 record.condition,
                 record.task_id,
                 record.run,
-                grade(task, text, ws, repo_ids),
+                grade(task, text, ws, repo_ids, org),
                 record.result,
             )
         )
-    headers = [
-        json.loads(line)["_header"]
-        for line in log.read_text(encoding="utf-8").splitlines()
-        if line.startswith('{"_header"')
-    ]
     meta = {**(headers[0] if headers else {}), "regraded_with": cairn.__version__}
     out = tuple(records)
     stem = log.with_suffix("")
@@ -156,16 +224,16 @@ def regrade_log(log: Path, suite_dir: Path, ws: Path) -> tuple[RunRecord, ...]:
 
 
 def _check_same_settings(log: Path, settings: Mapping[str, object]) -> None:
-    """Refuse to resume a log made with another model, suite, run count or conditions."""
+    """Refuse to resume a log made with another model, suite, scope, run count or conditions."""
     for line in log.read_text(encoding="utf-8").splitlines():
         if not line.startswith('{"_header"'):
             continue
-        earlier = json.loads(line)["_header"]
+        earlier = {"scope": "workspace", **json.loads(line)["_header"]}  # logs from before scopes
         for key, value in settings.items():
             if key in earlier and earlier[key] != value:
                 raise CairnError(
                     f"{log} was made with {key} {earlier[key]!r}, not {value!r}: resume it with "
-                    f"the same --model, --runs and --conditions, or start a new run."
+                    f"the same --scope, --model, --runs and --conditions, or start a new run."
                 )
 
 

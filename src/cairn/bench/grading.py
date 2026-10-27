@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from cairn.bench.suite import Task
+from cairn.config import OrgSource
 
 _SEGMENT = r"[\w@.\-\[\]]+"
 # Windows absolute, POSIX absolute, then relative `a/b/c` paths (either slash).
@@ -151,7 +152,22 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
     return found
 
 
-def grade(task: Task, text: str, ws_root: Path, repo_ids: set[str]) -> Grade:
+def org_paths(text: str, org: OrgSource, repo_ids: set[str]) -> str:
+    """An org repo's file as the org tools print it (`openfaas/faas/x.go`), or a link to it
+    (`https://github.com/openfaas/faas/blob/main/x.go`), as the workspace path `faas/x.go`."""
+    host, owner = re.escape(org.host), re.escape(org.org)
+    link = re.compile(rf"(?i)(?:https?://)?{host}/{owner}/([\w.-]+)/(?:-/)?(?:blob|tree)/[^/\s]+/")
+    text = link.sub(lambda m: f"{m.group(1)}/", text)
+    plain = re.compile(rf"(?i)(?<![\w./-])(?:{host}/)?{owner}/([\w.-]+)/")
+    return plain.sub(lambda m: f"{m.group(1)}/" if m.group(1) in repo_ids else m.group(0), text)
+
+
+def grade(
+    task: Task, text: str, ws_root: Path, repo_ids: set[str], org: OrgSource | None = None
+) -> Grade:
+    """`org`: the suite's org, when the agent read the other repos through it (--scope repo)."""
+    if org is not None:
+        text = org_paths(text, org, repo_ids)
     keywords_ok = all(k.lower() in text.lower() for k in task.expect_keywords)
     if not task.expect_files:
         return Grade(success=keywords_ok, recall=1.0 if keywords_ok else 0.0, precision=1.0)
