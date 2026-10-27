@@ -3,6 +3,7 @@
 import contextlib
 import functools
 import threading
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,6 +18,7 @@ from cairn.load import load_authored, load_config
 from cairn.mcp_server.query import answer as query_answer
 from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
 from cairn.org.access import client_for, forget_client, org_repo, pick_org
+from cairn.org.files import folder_entries, render_folder, render_missing
 from cairn.org.links import cloned_as
 from cairn.org.packages import (
     build_index,
@@ -413,13 +415,21 @@ def packages_text(
 
 def org_file_text(ws_root: Path, repo: str, path: str, org: str = "") -> str:
     """A file from an org repo's default branch, numbered like a code view, with secrets masked
-    as in every snippet cairn shows."""
+    as in every snippet cairn shows. A folder ("" for the root) lists what it holds, and a path
+    that isn't there names the files it most likely meant: one more request, the repo's file
+    list, kept for a few minutes."""
     source = pick_org(load_config(ws_root).orgs, org)
     full = org_repo(source, repo)
-    inside = path.strip().lstrip("/")
-    text = _with_client(source, lambda client: client.read_file(full, inside))
+    inside = path.strip().strip("/")
+    text = _with_client(source, lambda client: client.read_file(full, inside)) if inside else None
     if text is None:
-        return f"No readable text file {inside} in {full} (missing, binary, or over 200 KB)."
+        paths, cut = _repo_files(ws_root, source, full)
+        if inside in paths:
+            return f"{full}/{inside} is binary or over 200 KB: not shown."
+        entries = folder_entries(paths, inside)
+        if entries:
+            return render_folder(full, inside, entries, cut=cut)
+        return render_missing(full, inside, paths, cut=cut)
     lines = text.splitlines()
     shown, size = [], 0
     for line in lines[:MAX_FILE_LINES]:
@@ -430,6 +440,33 @@ def org_file_text(ws_root: Path, repo: str, path: str, org: str = "") -> str:
     body = "\n".join(f"{n:>5}  {line}" for n, line in enumerate(shown, start=1))
     more = f"\n… {len(lines) - len(shown)} more lines" if len(lines) > len(shown) else ""
     return f"{full}/{inside} ({len(lines)} lines)\n{body}{more}"
+
+
+_FILES_TTL = 300.0  # seconds: an agent browsing a repo lists several folders in a row
+_FILES_HELD = 32
+_FILES: dict[tuple[str, str], tuple[float, tuple[str, ...], bool]] = {}
+_FILES_LOCK = threading.Lock()
+
+
+def _repo_files(ws_root: Path, source: OrgSource, full: str) -> tuple[tuple[str, ...], bool]:
+    """Every file on `full`'s default branch, and whether the list was cut short. The branch
+    comes from the org's package index when it was read, else HEAD names it."""
+    key = (source.host, full.lower())
+    with _FILES_LOCK:
+        held = _FILES.get(key)
+    if held is not None and time.monotonic() - held[0] < _FILES_TTL:
+        return held[1], held[2]
+    index = load_index(org_packages_file(ws_root, source.host, source.org))
+    branch = next(
+        (r.branch for r in (index.repos if index else ()) if r.repo.lower() == full.lower()),
+        "",
+    )
+    paths, cut = _with_client(source, lambda client: client.tree(full, branch or "HEAD"))
+    with _FILES_LOCK:
+        if len(_FILES) >= _FILES_HELD:
+            _FILES.pop(next(iter(_FILES)))  # the oldest
+        _FILES[key] = (time.monotonic(), paths, cut)
+    return paths, cut
 
 
 def _with_client(source: OrgSource, call: Callable[[CodeHost], T]) -> T:

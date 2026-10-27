@@ -22,6 +22,14 @@ def _isolated_homes(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytes
     monkeypatch.setenv("CAIRN_HOME", str(home / ".cairn-home"))
 
 
+@pytest.fixture(autouse=True)
+def _no_held_repo_files() -> None:
+    """read_org_file keeps an org repo's file list for minutes: no test sees another's."""
+    from cairn.mcp_server import tools
+
+    tools._FILES.clear()
+
+
 @pytest.fixture
 def materialize(tmp_path: Path) -> Callable[..., Path]:
     def _make(name: str, remotes: dict[str, str] | None = None) -> Path:

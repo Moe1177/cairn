@@ -107,7 +107,8 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
     @server.tool()
     def read_org_file(repo: str, path: str, org: str = "") -> str:
         """Read a file from an org repo's default branch (e.g. one find_similar returned), without
-        cloning. repo: its name in the org (or owner/name); path: inside the repo."""
+        cloning. repo: its name in the org (or owner/name); path: inside the repo. A folder
+        (or "" for the root) lists what it holds; a path that isn't there names the likely ones."""
         return answer(lambda ws: tools.org_file_text(ws, repo, path, org))
 
     @server.tool()

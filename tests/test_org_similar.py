@@ -44,6 +44,10 @@ class FakeGitHub:
     def read_file(self, repo: str, path: str, *, max_bytes: int = 200_000) -> str | None:
         return self.files.get(f"{repo}/{path}")
 
+    def tree(self, repo: str, ref: str) -> tuple[tuple[str, ...], bool]:
+        prefix = f"{repo}/"
+        return tuple(k[len(prefix) :] for k in self.files if k.startswith(prefix)), False
+
 
 @pytest.mark.parametrize(
     ("path", "expected"),
@@ -200,7 +204,8 @@ def test_org_file_tool_numbers_lines_and_caps_them(
     text = tools.org_file_text(ws, "gateway", "/src/limiter.py")
     assert text.startswith("acme/gateway/src/limiter.py (500 lines)")
     assert "    1  line 0" in text and "… 100 more lines" in text
-    assert "No readable text file" in tools.org_file_text(ws, "gateway", "gone.py")
+    missing = tools.org_file_text(ws, "gateway", "gone.py")
+    assert missing.startswith("No file gone.py in acme/gateway.") and "- src/" in missing
 
 
 def test_cli_similar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
