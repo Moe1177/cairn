@@ -4,7 +4,8 @@ keep-alive connections are what make a session's later calls fast).
 The configured orgs are a boundary: an agent's call names one of them or none, never another
 org or another owner's repo, so text it read somewhere can't steer cairn to other private code
 the token can see, or send an Enterprise org's words to github.com. On GitLab a group's
-subgroups are inside it: `platform/api` there is the org's `acme/platform/api`.
+subgroups are inside it: `platform/api` there is the org's `acme/platform/api`. A plain git
+org is only the repos it lists: no other name is ever cloned.
 """
 
 import threading
@@ -16,16 +17,19 @@ from cairn.errors import CairnError
 from cairn.remote.auth import github_token, gitlab_token
 from cairn.remote.github import GitHub
 from cairn.remote.gitlab import GitLab
+from cairn.remote.gitrepos import GitRepos
 from cairn.remote.host import CodeHost
 
-_CLIENTS: dict[tuple[str, str], CodeHost] = {}  # (kind, host) -> its client
+_CLIENTS: dict[tuple[str, str, str, tuple[str, ...]], CodeHost] = {}  # see _key
 T = TypeVar("T")
 _LOCK = threading.Lock()
 
 NO_ORGS = (
     "no org configured: add it to .cairn/config.yaml, e.g.\n"
     "orgs:\n  - org: acme            # host: github.com by default (Enterprise: host: git.acme.com)\n"
-    "  - org: acme/platform   # a GitLab group: host: gitlab.com (self-managed: add kind: gitlab)"
+    "  - org: acme/platform   # a GitLab group: host: gitlab.com (self-managed: add kind: gitlab)\n"
+    "  - org: acme            # any other git host: list its repos\n"
+    "    repos: [https://git.acme.io/acme/api.git, git@git.acme.io:acme/web.git]"
 )
 
 
@@ -46,7 +50,7 @@ def pick_org(orgs: Sequence[OrgSource], name: str = "") -> OrgSource:
 
 def org_repo(source: OrgSource, repo: str) -> str:
     """The full path of a repo of `source`: its name, or its path with the org in front. On
-    GitLab a path without the org is one inside it (a subgroup's repo)."""
+    GitLab and plain git a path without the org is one inside it (a subgroup's repo)."""
     name = repo.strip().strip("/")
     prefix = f"{source.org.lower()}/"
     if name.lower().startswith(prefix):
@@ -57,17 +61,29 @@ def org_repo(source: OrgSource, repo: str) -> str:
 
 
 def client_for(source: OrgSource) -> CodeHost:
-    key = (source.kind, source.host)
+    key = _key(source)
     with _LOCK:
         client = _CLIENTS.get(key)
         if client is None:
-            client = (
-                GitLab(gitlab_token(source.host), host=source.host)
-                if source.kind == "gitlab"
-                else GitHub(github_token(source.host), host=source.host)
-            )
+            client = _new_client(source)
             _CLIENTS[key] = client
         return client
+
+
+def _new_client(source: OrgSource) -> CodeHost:
+    if source.kind == "git":
+        return GitRepos(source.org, source.host, source.repo_urls())
+    if source.kind == "gitlab":
+        return GitLab(gitlab_token(source.host), host=source.host)
+    return GitHub(github_token(source.host), host=source.host)
+
+
+def _key(source: OrgSource) -> tuple[str, str, str, tuple[str, ...]]:
+    # An API client serves its whole host. A plain git org's client holds its own list of repos:
+    # edit the list, and the next call gets a client for the new one.
+    if source.kind == "git":
+        return source.kind, source.host, source.org.lower(), source.repos
+    return source.kind, source.host, "", ()
 
 
 def with_client(source: OrgSource, call: Callable[[CodeHost], T]) -> T:
@@ -84,4 +100,4 @@ def forget_client(source: OrgSource) -> None:
     """Drop the host's client (after the host rejected its token): the next call reads the
     token again, so a fresh `gh auth login` or `glab auth login` works without a restart."""
     with _LOCK:
-        _CLIENTS.pop((source.kind, source.host), None)
+        _CLIENTS.pop(_key(source), None)

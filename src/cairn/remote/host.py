@@ -1,10 +1,12 @@
-"""What cairn asks of a code host's API, and the shapes the answers come in. GitHub and GitLab
-answer the same questions, so the org features work over either.
+"""What cairn asks of a code host, and the shapes the answers come in. GitHub's and GitLab's APIs
+answer the same questions, and so does git itself for a list of repos on any other host (all
+but code search), so the org features work over each.
 
 A repo's name is its full path on the host: owner/name on GitHub, and on GitLab the group and any
 subgroups too (`acme/platform/api`).
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -32,7 +34,9 @@ class RepoInfo:
     topics: tuple[str, ...] = ()
     archived: bool = False
     fork: bool = False
-    pushed: str = ""  # ISO time of the last push (GitLab: of the last activity)
+    # ISO time of the last push (GitLab: of the last activity; plain git: the tip commit's id,
+    # only ever compared for a change)
+    pushed: str = ""
     description: str = ""
 
 
@@ -53,6 +57,9 @@ class CodeHost(Protocol):
     ) -> tuple[RepoInfo, ...]: ...
 
     def tree(self, repo: str, ref: str) -> tuple[tuple[str, ...], bool]: ...
+
+    def prefetch(self, repo: str, paths: Sequence[str]) -> None:
+        """Get ready to read these files of `repo` (plain git fetches them in one request)."""
 
     def remaining(self, resource: str = "core") -> int | None: ...
 

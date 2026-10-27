@@ -173,7 +173,9 @@ def _read_repo(client: CodeHost, repo: RepoInfo) -> RepoPackages | None:
         return repo_packages(repo, [], failed=True)
     texts: list[tuple[str, str]] = []
     failed = False
-    for path in package_manifests(paths):
+    wanted = package_manifests(paths)
+    client.prefetch(repo.name, wanted)
+    for path in wanted:
         if _low(client):  # checked before every request: 16 workers read at once
             return None
         try:

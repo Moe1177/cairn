@@ -119,7 +119,8 @@ def org_card(ws_root: Path, workspace: Workspace, name: str) -> str | None:
         repo = find_repo(index.catalog, inside)
         if repo is not None:
             packages = load_index(org_packages_file(ws_root, source.host, source.org))
-            return render_org_card(repo, card_extras(workspace, packages, repo.name))
+            extras = card_extras(workspace, packages, repo.name)
+            return render_org_card(repo, extras, searchable=source.kind != "git")
     return None
 
 

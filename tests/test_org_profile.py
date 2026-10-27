@@ -1,5 +1,6 @@
 """The org profile: what an org's active repos are built with (no network: a fake client)."""
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -54,6 +55,9 @@ class FakeGitHub:
         if repo in self.broken:
             raise CairnError("GitHub answered 500")
         return self.trees.get(repo, ()), False
+
+    def prefetch(self, repo: str, paths: Sequence[str]) -> None:
+        pass
 
     def read_file(self, repo: str, path: str, *, max_bytes: int = 200_000) -> str | None:
         return self.files.get(f"{repo}/{path}")

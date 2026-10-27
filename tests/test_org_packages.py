@@ -1,5 +1,6 @@
 """The org's own packages: who defines each, who uses it, and where (no network: a fake client)."""
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -53,6 +54,7 @@ class FakeGitHub:
         self.left = left
         self.hits = hits
         self.read: list[str] = []
+        self.prefetched: list[tuple[str, tuple[str, ...]]] = []
         self.queries: list[str] = []
         self.error = "GitHub answered 500"
 
@@ -65,6 +67,9 @@ class FakeGitHub:
         if repo in self.broken and not self.trees.get(repo):
             raise CairnError(self.error)
         return self.trees.get(repo, ()), False
+
+    def prefetch(self, repo: str, paths: Sequence[str]) -> None:
+        self.prefetched.append((repo, tuple(paths)))
 
     def read_file(self, repo: str, path: str, *, max_bytes: int = 200_000) -> str | None:
         self._spend()
@@ -291,6 +296,8 @@ def test_build_index_rereads_only_what_changed() -> None:
     assert [r.repo for r in first.repos] == ["acme/lib", "acme/svc", "acme/down"]
     assert first.reread == 3 and first.unread == 0 and first.repos[2].failed
     assert [p.name for p in org_packages(first)] == ["go:github.com/acme/lib"]
+    # Each repo's manifests are asked for together first (plain git fetches them at once).
+    assert ("acme/svc", ("go.mod",)) in client.prefetched
 
     client.read.clear()
     client.repos = [info("lib"), info("svc", pushed="2026-10-02T00:00:00Z"), info("down")]

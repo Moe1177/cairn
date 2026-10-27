@@ -11,7 +11,7 @@ import json
 import re
 import threading
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote, urlencode
 
@@ -217,6 +217,9 @@ class GitLab:
             and isinstance(entry.get("path"), str)
         )
         return tuple(paths), cut
+
+    def prefetch(self, repo: str, paths: Sequence[str]) -> None:
+        """Nothing to do: the API reads each file on its own."""
 
     def remaining(self, resource: str = "core") -> int | None:
         """Requests left before the rate limit, as GitLab last said. None when it hasn't said

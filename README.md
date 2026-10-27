@@ -317,7 +317,8 @@ forces a deep rebuild check even before any index exists.
 Before an agent builds a feature, it should know whether the org already built it somewhere: the
 team's rate limiter, its way of verifying webhooks, the retry helper everyone uses. In an org of
 thousands of repos nobody has them all cloned, so cairn asks the code host instead. Nothing is
-cloned or downloaded beyond the files an agent chooses to read.
+cloned or downloaded beyond the files an agent chooses to read (on a host with no API, beyond
+each repo's list of files: see below).
 
 Name the org in `.cairn/config.yaml`:
 
@@ -326,13 +327,28 @@ orgs:
   - org: acme              # github.com; for GitHub Enterprise add `host: git.acme.com`
   - org: acme/platform     # a GitLab group (its subgroups too)
     host: gitlab.com       # self-managed: your host, plus `kind: gitlab` unless it starts with gitlab.
+  - org: acme              # any other git host (Gitea, Forgejo, Bitbucket, sourcehut, your own):
+    repos:                 # list the repos, by https or ssh URL
+      - https://git.acme.io/acme/api.git
+      - git@git.acme.io:acme/web.git
 ```
 
 cairn uses your own login, so it sees exactly the repos you can: on GitHub `gh auth login` (or
 `GH_TOKEN`), on GitLab `glab auth login` (or `GITLAB_TOKEN`, a token with `read_api`). Every org
 feature works on both. On GitLab a repo's name is its full path (`acme/platform/api`), and
 `find_similar` needs the group's code search, which is GitLab's advanced search (a paid tier on
-gitlab.com, Elasticsearch or Zoekt when self-managed); without it, it says so. Then an agent calls `find_similar` with the feature and a few words its code would contain,
+gitlab.com, Elasticsearch or Zoekt when self-managed); without it, it says so.
+
+A host with no API cairn speaks is read through git itself, with whatever login git already has
+(its credential helper, or your ssh key; cairn never prompts). cairn keeps one clone per listed
+repo with only its latest list of files, no contents (`--filter=blob:none --depth=1`: 15 MB for
+GNOME's 317 repos), in your user cache (`CAIRN_CACHE_DIR` moves it; deleting it is safe), and
+fetches the few files it reads in one request per repo. `git ls-remote` tells which repos
+changed. `read_org_file`, `org_profile`, `org_packages`, `resolve_repo` and `repo_card` work
+there; `find_similar` doesn't, since plain git has no code search, and repo cards have no
+description, since plain git has none.
+
+Then an agent calls `find_similar` with the feature and a few words its code would contain,
 and `read_org_file` to read what it finds:
 
 ```text
@@ -651,7 +667,9 @@ to a server only when you ask it to:
   so do `resolve_repo` and `repo_card` once a day, to read the org's repo listing (with your own login: on GitHub `GH_TOKEN`, or
   `GH_ENTERPRISE_TOKEN` for an Enterprise host, else `gh auth token`; on GitLab `GITLAB_TOKEN`
   or `GITLAB_ACCESS_TOKEN`, else `glab config get token`). The token goes only to the host its
-  org is configured on. They send the search terms (the task's own words when no terms are
+  org is configured on. For an org that lists its repos, they run git instead (`ls-remote`, and
+  a clone or fetch of each repo's list of files and of the files read), over https or ssh only,
+  with git's own login, and only for the listed URLs. They send the search terms (the task's own words when no terms are
   given) and the org's name, and read back matching files; nothing from your local repos is sent.
   They only ever reach the orgs in your config: a call naming another org, or another owner's
   repo, is refused, and a search hit from outside the org is dropped;
@@ -773,9 +791,11 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 12. ✅ Org repos nobody cloned: `resolve_repo` and `repo_card` reach them from the org's
     catalog, and INDEX lists those the workspace depends on, measured by `cairn bench-repos`.
 13. ✅ GitLab (gitlab.com and self-managed, groups with subgroups) for every org feature.
-14. Orgs on any git host, from a list of repo URLs.
+14. ✅ Orgs on any git host, from a list of repo URLs, read through git itself.
 15. Benchmark sessions that start with only their own repo in view, the way a session opened in
     one repo does.
+16. Descriptions for plain git repos, from their READMEs, so their cards and catalog search have
+    more than a name.
 
 ## Contributing
 

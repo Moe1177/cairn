@@ -8,7 +8,7 @@ search allows only 10 requests a minute, and an agent's work should slow down, n
 import json
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from urllib.parse import quote, urlencode
 
 from cairn.errors import CairnError
@@ -146,6 +146,9 @@ class GitHub:
             and isinstance(entry.get("path"), str)
         )
         return paths, bool(data.get("truncated"))
+
+    def prefetch(self, repo: str, paths: Sequence[str]) -> None:
+        """Nothing to do: the API reads each file on its own."""
 
     def remaining(self, resource: str = "core") -> int | None:
         """Requests left in the rate limit `resource`, as GitHub last said (None: not yet)."""
