@@ -4,6 +4,7 @@ import json
 import re
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,11 +24,12 @@ from cairn.store.atomic import atomic_write_text
 __all__ = ["BenchStopped", "RunRecord", "regrade_log", "render_markdown", "run_bench"]
 
 # The run's own workspace (a temp dir, gone once the run ends) as an answer spells it: the
-# shared one, or (--scope repo) the one a task's repo had to itself.
+# shared one, or (--scope repo) the one a task's repo had to itself. It starts a word, so a
+# path written just before it (`a/x.go,C:\...`) isn't swallowed with it.
 _RUN_WS = re.compile(
-    r"(?:[A-Za-z]:)?[\\/][^\s`'\"()|]*?cairn-bench-[^\\/\s]+"
-    r"(?:[\\/]solo[\\/][^\\/\s]+)?[\\/]ws(?=[\\/])"
+    r"(?<![\w.:\\/-])(?:[A-Za-z]:)?[\\/][^\s`'\"()|,]*?cairn-bench-[^\\/\s]+[\\/]ws(?=[\\/])"
 )
+_SOLO_PREFIX = "cairn-bench-solo-"
 # Warms an org's caches in a folder and returns each task's answer files the org lost.
 OrgSetup = Callable[[Path, OrgSource, Sequence[Task]], Mapping[str, Sequence[str]]]
 
@@ -76,6 +78,7 @@ def run_bench(
         "cairn_version": cairn.__version__,
         "suite": suite.name,
         "scope": scope,
+        **({"org": org.model_dump(mode="json")} if org is not None else {}),
         "conditions": list(conditions),
         "runs": runs,
         "tasks": [t.id for t in tasks],
@@ -108,7 +111,10 @@ def run_bench(
     # has read tools, so no run changes what the next one sees, and a large suite (minutes to
     # copy into git repos) is copied once. The MCP server of condition E may still hold files
     # for a moment on Windows.
-    with tempfile.TemporaryDirectory(prefix="cairn-bench-", ignore_cleanup_errors=True) as tmp:
+    with (
+        tempfile.TemporaryDirectory(prefix="cairn-bench-", ignore_cleanup_errors=True) as tmp,
+        ExitStack() as solo_dirs,
+    ):
         ws = make_workspace(suite, suite_dir, Path(tmp), source) if todo else Path(tmp)
         repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
         if org is not None and todo:
@@ -118,7 +124,7 @@ def run_bench(
         # Every invocation leaves a header line, so a log says which settings and tools made it.
         with log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps({"_header": header}) + "\n")
-        sessions = _Sessions(suite, suite_dir, ws, Path(tmp), org)
+        sessions = _Sessions(suite, suite_dir, ws, Path(tmp), org, solo_dirs)
         for condition in conditions:
             if condition not in todo:
                 records += [done[(condition, task.id, index)] for task, index in cells]
@@ -128,8 +134,8 @@ def run_bench(
                 if (condition, task.id, index) in done:
                     records.append(done[(condition, task.id, index)])
                     continue
-                cwd, prepared = sessions.session(task)
-                result = runner.run(task.prompt, cwd, prepared.ws, prepared.mcp_config)
+                cwd, prepared, hidden = sessions.session(task)
+                result = runner.run(task.prompt, cwd, prepared.ws, prepared.mcp_config, hidden)
                 if usage_limit(result):
                     raise BenchStopped(
                         f"stopped: {result.result_text.strip()[:200]}. Measured runs are in "
@@ -154,13 +160,18 @@ _ORG_CACHE = "org"  # where the org's caches are read once, before any session
 @dataclass
 class _Sessions:
     """Where each task's session runs under one condition: the shared workspace, or (with an
-    org) a workspace of the task's repo alone, each set up for the condition when first used."""
+    org) a workspace of the task's repo alone, each set up for the condition when first used.
+
+    A repo's own workspace sits in a temp folder of its own, so the session can be denied the
+    run's folder (every repo, and the org's caches) and the other repos' folders whole; every
+    session is denied the suite, which holds its answers (and a fetched suite's repos)."""
 
     suite: Suite
     suite_dir: Path
     ws: Path
     tmp: Path
     org: OrgSource | None
+    solo_dirs: ExitStack
     condition: str = ""
     _solo: dict[str, tuple[Path, Path]] = field(default_factory=dict)
     _ready: dict[str, Prepared] = field(default_factory=dict)
@@ -169,21 +180,30 @@ class _Sessions:
         self.condition = condition
         self._ready = {}
 
-    def session(self, task: Task) -> tuple[Path, Prepared]:
-        """The session's working directory, and the workspace prepared around it."""
+    def session(self, task: Task) -> tuple[Path, Prepared, tuple[Path, ...]]:
+        """The session's working directory, the workspace prepared around it, and the folders
+        it must not read."""
         key = task.repo if self.org is not None else ""
         if key not in self._ready:
             ws, run_dir = self._workspace(task.repo)
             self._ready[key] = set_up(self.condition, self.suite, self.suite_dir, ws, run_dir)
         prepared = self._ready[key]
-        return prepared.ws / task.repo, prepared
+        if self.org is None:
+            return prepared.ws / task.repo, prepared, (self.suite_dir,)
+        others = tuple(root for repo, (_, root) in self._solo.items() if repo != task.repo)
+        return prepared.ws / task.repo, prepared, (self.suite_dir, self.tmp, *others)
 
     def _workspace(self, repo: str) -> tuple[Path, Path]:
         if self.org is None:
             return self.ws, self.tmp
         if repo not in self._solo:
+            root = Path(
+                self.solo_dirs.enter_context(
+                    tempfile.TemporaryDirectory(prefix=_SOLO_PREFIX, ignore_cleanup_errors=True)
+                )
+            )
             cache = self.tmp / _ORG_CACHE
-            self._solo[repo] = solo_workspace(self.ws, repo, self.tmp, self.org, cache)
+            self._solo[repo] = solo_workspace(self.ws, repo, root, self.org, cache)
         return self._solo[repo]
 
 
@@ -198,7 +218,10 @@ def regrade_log(log: Path, suite_dir: Path, ws: Path) -> tuple[RunRecord, ...]:
         for line in log.read_text(encoding="utf-8").splitlines()
         if line.startswith('{"_header"')
     ]
-    org = suite.org if headers and headers[0].get("scope") == "repo" else None
+    first = headers[0] if headers else {}
+    org = None
+    if first.get("scope") == "repo":  # read through the org the run used, not today's suite's
+        org = OrgSource.model_validate(first["org"]) if "org" in first else suite.org
     records = []
     for record in load_records(log):
         task = tasks.get(record.task_id)

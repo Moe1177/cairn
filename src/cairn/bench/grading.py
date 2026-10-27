@@ -152,14 +152,37 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
     return found
 
 
-def org_paths(text: str, org: OrgSource, repo_ids: set[str]) -> str:
+_REST = r"([^\s`'\"()|<>,;]+)"
+
+
+def org_paths(text: str, org: OrgSource, ws_root: Path, repo_ids: set[str]) -> str:
     """An org repo's file as the org tools print it (`openfaas/faas/x.go`), or a link to it
-    (`https://github.com/openfaas/faas/blob/main/x.go`), as the workspace path `faas/x.go`."""
+    (`https://github.com/openfaas/faas/blob/main/x.go`, a raw.githubusercontent.com one), as
+    the workspace path `faas/x.go`. Only when the workspace has that file: a folder that merely
+    shares the org's name (`chart/openfaas/templates/x.yaml`) keeps its own path."""
+    canonical = {repo.lower(): repo for repo in repo_ids}
     host, owner = re.escape(org.host), re.escape(org.org)
-    link = re.compile(rf"(?i)(?:https?://)?{host}/{owner}/([\w.-]+)/(?:-/)?(?:blob|tree)/[^/\s]+/")
-    text = link.sub(lambda m: f"{m.group(1)}/", text)
-    plain = re.compile(rf"(?i)(?<![\w./-])(?:{host}/)?{owner}/([\w.-]+)/")
-    return plain.sub(lambda m: f"{m.group(1)}/" if m.group(1) in repo_ids else m.group(0), text)
+
+    def in_workspace(repo: str, rest: str) -> str | None:
+        name = canonical.get(repo.lower())
+        path = _LINE.sub("", rest.rstrip(_TRAILING)).rstrip(_TRAILING)
+        return f"{name}/{rest}" if name and (ws_root / name / path).is_file() else None
+
+    def link(match: re.Match[str]) -> str:
+        repo, parts = match.group(1) or match.group(2), match.group(3).split("/")
+        for cut in range(1, len(parts)):  # a branch name may hold slashes: try each split
+            found = in_workspace(repo, "/".join(parts[cut:]))
+            if found:
+                return found
+        return match.group(0)
+
+    links = re.compile(
+        rf"(?i)(?:https?://)?(?:{host}/{owner}/([\w.-]+)/(?:-/)?(?:blob|tree|raw)/"
+        rf"|raw\.githubusercontent\.com/{owner}/([\w.-]+)/){_REST}"
+    )
+    text = links.sub(link, text)
+    plain = re.compile(rf"(?i)(?<![\w./-])(?:{host}/)?{owner}/([\w.-]+)/{_REST}")
+    return plain.sub(lambda m: in_workspace(m.group(1), m.group(2)) or m.group(0), text)
 
 
 def grade(
@@ -167,7 +190,7 @@ def grade(
 ) -> Grade:
     """`org`: the suite's org, when the agent read the other repos through it (--scope repo)."""
     if org is not None:
-        text = org_paths(text, org, repo_ids)
+        text = org_paths(text, org, ws_root, repo_ids)
     keywords_ok = all(k.lower() in text.lower() for k in task.expect_keywords)
     if not task.expect_files:
         return Grade(success=keywords_ok, recall=1.0 if keywords_ok else 0.0, precision=1.0)

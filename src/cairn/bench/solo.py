@@ -1,9 +1,14 @@
 """Sessions that start with only their own repo in view (`cairn bench --scope repo`).
 
 A session opened in one repo of an org sees that repo, and reaches the org's other repos only
-through cairn's org tools: they aren't on disk. Each task's repo gets a workspace of its own,
-with the suite's org configured and the org's caches warm, as a user who has used cairn with
-the org before would have them. Answers are still graded against the whole pinned workspace.
+through cairn's org tools: they aren't on disk. Each task's repo gets a workspace of its own, in
+a temp folder of its own, with the suite's org configured and the org's caches warm, as a user
+who has used cairn with the org before would have them. The session is denied every other
+folder of the run (bench/runner.py). Answers are still graded against the whole pinned
+workspace.
+
+Only condition E has the org tools; A to D can name the org's repos (C and D from INDEX) but
+not read them, so a task whose answer lies in another repo is out of their reach by design.
 """
 
 import shutil
@@ -14,10 +19,11 @@ import yaml
 
 from cairn.bench.suite import Task
 from cairn.config import OrgSource
-from cairn.mcp_server.tools import packages_text
+from cairn.errors import CairnError
+from cairn.mcp_server.tools import packages_text, profile_text
 from cairn.org.access import org_repo, with_client
 from cairn.org.view import catalog_index
-from cairn.paths import cairn_dir, config_file
+from cairn.paths import authored_dir, cairn_dir, config_file
 from cairn.store.atomic import atomic_write_text
 
 SCOPES = ("workspace", "repo")
@@ -30,12 +36,15 @@ def write_org_config(ws: Path, org: OrgSource) -> None:
 
 
 def prepare_org(cache_ws: Path, org: OrgSource, tasks: Sequence[Task]) -> dict[str, list[str]]:
-    """Read the org's catalog and packages into `cache_ws`'s caches (what INDEX's org section
-    and the org tools start from), and return each task's answer files that the org's default
-    branch no longer has: the suite pins older commits, and the org tools read the latest."""
+    """Read the org's catalog, packages and profile into `cache_ws`'s caches (what INDEX's org
+    section and the org tools start from: no session pays for the first read, so timings don't
+    depend on task order), and return each task's answer files that the org's default branch
+    doesn't have, or that couldn't be checked: the suite pins older commits, and the org tools
+    read the latest."""
     write_org_config(cache_ws, org)
     catalog_index(cache_ws, org)
     packages_text(cache_ws, org=org.org)
+    profile_text(cache_ws, org.org)
     drift: dict[str, list[str]] = {}
     for task in tasks:
         for path in task.expect_files:
@@ -43,25 +52,33 @@ def prepare_org(cache_ws: Path, org: OrgSource, tasks: Sequence[Task]) -> dict[s
             if repo == task.repo:
                 continue  # on disk, at the pinned commit
             full = org_repo(org, repo)
-            found = with_client(org, lambda client, f=full, i=inside: client.read_file(f, i))
-            if found is None:
+            try:
+                there = with_client(org, lambda c, f=full, i=inside: c.file_exists(f, i))
+            except CairnError as exc:
+                drift.setdefault(task.id, []).append(f"{path} (unchecked: {exc})")
+                continue
+            if not there:
                 drift.setdefault(task.id, []).append(path)
     return drift
 
 
 def solo_workspace(
-    ws: Path, repo: str, run_dir: Path, org: OrgSource, cache_ws: Path
+    ws: Path, repo: str, root: Path, org: OrgSource, cache_ws: Path
 ) -> tuple[Path, Path]:
-    """A workspace holding only `repo` (copied from `ws`), and its own run folder, where
-    set_up keeps the pristine .cairn (the org config and caches) apart from other repos'."""
-    home = run_dir / "solo" / repo
-    solo = home / "ws"
+    """A workspace under `root` holding only `repo` (copied from `ws`, with the suite's own
+    note on it, never those on repos it doesn't have), and `root` itself: the run folder where
+    set_up keeps the pristine .cairn (the org config and caches)."""
+    solo = root / "ws"
     shutil.copytree(ws / repo, solo / repo, symlinks=True)
+    note = authored_dir(ws) / f"{repo}.yaml"
+    if note.is_file():  # a summary the suite ships; set_up keeps it in the pristine copy
+        authored_dir(solo).mkdir(parents=True)
+        shutil.copy2(note, authored_dir(solo) / note.name)
     caches = cairn_dir(cache_ws) / "cache" / "orgs"
     if caches.is_dir():
         shutil.copytree(caches, cairn_dir(solo) / "cache" / "orgs")
     write_org_config(solo, org)
-    return solo, home
+    return solo, root
 
 
 def drift_note(drift: Mapping[str, Sequence[str]]) -> str:
@@ -69,6 +86,6 @@ def drift_note(drift: Mapping[str, Sequence[str]]) -> str:
         return ""
     files = "; ".join(f"{task}: {', '.join(paths)}" for task, paths in sorted(drift.items()))
     return (
-        "These answer files are gone from the org's default branch, so an agent reading the "
-        f"org can't find them: {files}."
+        "These answer files aren't on the org's default branch, so an agent reading the org "
+        f"can't find them: {files}."
     )

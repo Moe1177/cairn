@@ -3,7 +3,8 @@
 ClaudeRunner drives `claude -p` in an isolated, read-only session: user settings and
 memory are not loaded (`--setting-sources project,local`), only the MCP servers in the
 condition's config are visible (`--strict-mcp-config`), and only read tools are allowed
-(no shell: even `find` can delete or run programs through `-delete`/`-exec`).
+(no shell: even `find` can delete or run programs through `-delete`/`-exec`), only inside the
+workspace: Read, Grep and Glob need no rule there, and anywhere else `dontAsk` refuses them.
 """
 
 import json
@@ -11,12 +12,14 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-READ_ONLY_TOOLS = ("Read", "Grep", "Glob", "mcp__cairn")
+# Read, Grep and Glob are left out on purpose: allowed by name they would read any path on the
+# disk (other copies of the suite's repos, its answers), not just the workspace.
+ALLOWED_TOOLS = ("mcp__cairn",)
 
 
 @dataclass(frozen=True)
@@ -124,8 +127,24 @@ def forget_project(home: Path, cwd: Path) -> None:
         shutil.rmtree(target, ignore_errors=True)
 
 
+def deny_rule(folder: Path) -> str:
+    """A permission rule keeping Read (and with it Grep and Glob) out of `folder`: an absolute
+    path is written //path, a Windows drive as //c/path."""
+    path = folder.resolve().as_posix().rstrip("/")
+    drive = re.fullmatch(r"([A-Za-z]):/(.*)", path)
+    path = f"//{drive.group(1).lower()}/{drive.group(2)}" if drive else f"/{path}"
+    return f"Read({path}/**)"
+
+
 class Runner(Protocol):
-    def run(self, prompt: str, cwd: Path, ws: Path, mcp_config: Path | None) -> RunResult: ...
+    def run(
+        self,
+        prompt: str,
+        cwd: Path,
+        ws: Path,
+        mcp_config: Path | None,
+        hidden: Sequence[Path] = (),
+    ) -> RunResult: ...
 
 
 @dataclass(frozen=True)
@@ -134,21 +153,30 @@ class ClaudeRunner:
     timeout: float = 900.0
     home: Path | None = None  # Claude Code's config folder; default claude_home()
 
-    def isolation_settings(self, ws: Path) -> dict[str, object]:
-        """Keep the benchmarking user's own instructions out of every run.
+    def isolation_settings(self, ws: Path, hidden: Sequence[Path] = ()) -> dict[str, object]:
+        """Keep the benchmarking user's own instructions out of every run, and `hidden` out of
+        the agent's reach.
 
         `--setting-sources project,local` doesn't cover memory files: ~/.claude/CLAUDE.md
         and ~/.claude/rules still load, as would a CLAUDE.md in any folder above the
         temporary workspace. Only the condition's workspace CLAUDE.md may load.
+
+        A deny rule for each hidden folder (the suite with its answers, the run's other
+        workspaces) backs up the confinement to the workspace, should a rule ever allow more.
         """
         home = (self.home or claude_home()).as_posix().rstrip("/")
         above = [p.as_posix().rstrip("/") for p in ws.parents]
         excludes = [f"{home}/**"]
         excludes += [f"{d}/{name}" for d in above for name in ("CLAUDE.md", "CLAUDE.local.md")]
         excludes += [f"{d}/.claude/**" for d in above]
-        return {"claudeMdExcludes": excludes, "autoMemoryEnabled": False}
+        settings: dict[str, object] = {"claudeMdExcludes": excludes, "autoMemoryEnabled": False}
+        if hidden:
+            settings["permissions"] = {"deny": [deny_rule(folder) for folder in hidden]}
+        return settings
 
-    def command(self, prompt: str, ws: Path, mcp_config: Path | None) -> list[str]:
+    def command(
+        self, prompt: str, ws: Path, mcp_config: Path | None, hidden: Sequence[Path] = ()
+    ) -> list[str]:
         # The resolved path, so npm's `claude.cmd` shim launches on Windows too.
         cmd = [
             shutil.which("claude") or "claude",
@@ -162,12 +190,12 @@ class ClaudeRunner:
             "--setting-sources",
             "project,local",
             "--settings",
-            json.dumps(self.isolation_settings(ws)),
+            json.dumps(self.isolation_settings(ws, hidden)),
             "--no-session-persistence",
             "--permission-mode",
             "dontAsk",
             "--allowedTools",
-            *READ_ONLY_TOOLS,
+            *ALLOWED_TOOLS,
             "--add-dir",
             str(ws),
             "--strict-mcp-config",
@@ -176,10 +204,17 @@ class ClaudeRunner:
             cmd += ["--mcp-config", str(mcp_config)]
         return cmd
 
-    def run(self, prompt: str, cwd: Path, ws: Path, mcp_config: Path | None) -> RunResult:
+    def run(
+        self,
+        prompt: str,
+        cwd: Path,
+        ws: Path,
+        mcp_config: Path | None,
+        hidden: Sequence[Path] = (),
+    ) -> RunResult:
         try:
             proc = subprocess.run(
-                self.command(prompt, ws, mcp_config),
+                self.command(prompt, ws, mcp_config, hidden),
                 cwd=cwd,
                 capture_output=True,
                 text=True,
@@ -218,5 +253,12 @@ class FakeRunner:
 
     reply: Callable[[str, Path], str]
 
-    def run(self, prompt: str, cwd: Path, ws: Path, mcp_config: Path | None) -> RunResult:
+    def run(
+        self,
+        prompt: str,
+        cwd: Path,
+        ws: Path,
+        mcp_config: Path | None,
+        hidden: Sequence[Path] = (),
+    ) -> RunResult:
         return parse_result(self.reply(prompt, cwd))

@@ -607,6 +607,9 @@ def bench(
         _fail(f"unknown harness {harness} (choose claude or codex).")
     if scope not in SCOPES:
         _fail(f"unknown scope {scope} (choose {' or '.join(SCOPES)}).")
+    if scope == "repo" and harness == "codex":
+        # Its read-only sandbox reads the whole disk through a shell: the other repos too.
+        _fail("--scope repo needs claude: Codex can't be kept out of the other repos' folders.")
 
     chosen = _comma_list(conditions)
     unknown = [c for c in chosen if c not in CONDITIONS]
