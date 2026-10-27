@@ -8,6 +8,22 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Orgs on any git host.** An org in the config can list its repos by URL (`repos:`, https or
+  ssh), and cairn reads them through git itself with git's own login: Gitea, Forgejo,
+  Bitbucket, sourcehut or a bare server. It keeps one clone per repo holding only its latest
+  list of files (`--filter=blob:none --depth=1`), and fetches the files it reads in one request
+  per repo; `git ls-remote` tells which repos changed. On gitlab.gnome.org, GNOME's 317 repos
+  took 37 s to index cold and 9 s warm, in a 15 MB cache; World/Rust gave the same shared
+  packages as the GitLab API. `read_org_file`, `org_profile`, `org_packages`, `resolve_repo` and
+  `repo_card` work there; `find_similar` says plain git has no code search.
+- **GitLab orgs.** Every org feature (`find_similar`, `read_org_file`, `org_profile`,
+  `org_packages`, and the catalog behind `resolve_repo` and `repo_card`) now reads GitLab too:
+  gitlab.com or self-managed, and a group with its subgroups (`org: acme/platform`), with your
+  `glab` login or `GITLAB_TOKEN`. A GitLab tree comes 100 entries a page, every folder before
+  any file, so cairn reads the pages side by side (gimp-help's 6,959 files: 2.8 s). On
+  gitlab.gnome.org, GNOME's 316-repo catalog took 10 requests (1.2 s), and the package index of
+  World/Rust (33 repos, nested three groups deep) 182 requests (4.4 s). Code search across a
+  group needs GitLab's advanced search; without it, `find_similar` says so.
 - **Org repos nobody cloned, where agents already look.** With `orgs:` in the config,
   `resolve_repo` also answers from the org's repo catalog ("the terraform provider for AWS" ->
   `hashicorp/terraform-provider-aws`), and `repo_card` describes an uncloned org repo: its

@@ -5,22 +5,31 @@ for TLS once. Rate limits are waited out (up to a cap) instead of failing the ca
 search allows only 10 requests a minute, and an agent's work should slow down, not break.
 """
 
-import http.client
 import json
 import re
-import threading
 import time
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
 from urllib.parse import quote, urlencode
 
 from cairn.errors import CairnError
 from cairn.remote.auth import check_host
+from cairn.remote.host import CodeHit, RepoInfo, SearchPage
+from cairn.remote.transport import (
+    SERVER_ERRORS,
+    HttpsTransport,
+    Response,
+    Transport,
+    inside,
+    is_binary,
+    number,
+    text_of,
+)
 from cairn.security.redact import redact
+
+__all__ = ["CodeHit", "GitHub", "RepoInfo", "Response", "SearchPage", "api_base"]
 
 API_VERSION = "2022-11-28"
 USER_AGENT = "cairn"
-TIMEOUT = 30.0
 MAX_WAIT = 120.0  # seconds one call may wait for a rate limit before giving up
 _RETRIES = 3
 _REPO = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$")
@@ -31,44 +40,6 @@ _TOKEN = re.compile(r"^[\x21-\x7e]{1,512}$")
 _SECONDARY = re.compile(rb"secondary rate limit|abuse", re.IGNORECASE)
 SECONDARY_WAIT = 60.0  # GitHub asks for at least a minute when it doesn't say how long
 _TEXT_MATCH = "application/vnd.github.text-match+json"
-
-
-@dataclass(frozen=True)
-class Response:
-    status: int
-    headers: Mapping[str, str]  # lower-case names
-    body: bytes
-
-
-# (method, path with query, headers) -> Response. Tests pass a fake; the default talks HTTPS.
-Transport = Callable[[str, str, Mapping[str, str]], Response]
-
-
-@dataclass(frozen=True)
-class CodeHit:
-    repo: str  # owner/name
-    path: str
-    fragments: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class SearchPage:
-    hits: tuple[CodeHit, ...]
-    total: int
-    ms: float  # time spent on the request itself
-    waited: float = 0.0  # seconds spent waiting out rate limits first
-
-
-@dataclass(frozen=True)
-class RepoInfo:
-    name: str  # owner/name
-    default_branch: str
-    language: str = ""
-    topics: tuple[str, ...] = ()
-    archived: bool = False
-    fork: bool = False
-    pushed: str = ""  # ISO time of the last push
-    description: str = ""
 
 
 class GitHub:
@@ -86,7 +57,7 @@ class GitHub:
             raise CairnError("the GitHub token has spaces or control characters in it")
         self._api_host, self._prefix = api_base(check_host(host))
         self._token = token
-        self._transport = transport or _HttpsTransport(self._api_host)
+        self._transport = transport or HttpsTransport(self._api_host)
         self._sleep = sleep
         self._clock = clock
         self._max_wait = max_wait
@@ -113,9 +84,7 @@ class GitHub:
 
     def file_exists(self, repo: str, path: str) -> bool:
         """Whether `path` is a file on `repo`'s default branch (what code search indexes)."""
-        response, _, _ = self._get(
-            f"/repos/{_repo(repo)}/contents/{quote(_inside(path), safe='/')}"
-        )
+        response, _, _ = self._get(f"/repos/{_repo(repo)}/contents/{quote(inside(path), safe='/')}")
         if response.status == 404:
             return False
         if 300 <= response.status < 400:
@@ -126,7 +95,7 @@ class GitHub:
     def read_file(self, repo: str, path: str, *, max_bytes: int = 200_000) -> str | None:
         """A file's text on `repo`'s default branch: None when it isn't there, is binary, or
         is longer than `max_bytes` (an agent reads prior art, not datasets)."""
-        url = f"/repos/{_repo(repo)}/contents/{quote(_inside(path), safe='/')}"
+        url = f"/repos/{_repo(repo)}/contents/{quote(inside(path), safe='/')}"
         response, _, _ = self._get(url, accept="application/vnd.github.raw+json")
         if response.status == 404:
             return None
@@ -135,9 +104,9 @@ class GitHub:
         body = _checked(response).body
         if response.headers.get("content-type", "").startswith("application/json"):
             return None  # a folder: GitHub lists its entries instead of sending a file
-        if len(body) > max_bytes or b"\x00" in body[:8192]:
+        if len(body) > max_bytes or is_binary(body):
             return None
-        return body.decode("utf-8", errors="replace").removeprefix("﻿")
+        return text_of(body)
 
     def list_repos(self, owner: str, *, page: int = 1, per_page: int = 100) -> tuple[RepoInfo, ...]:
         """One page of an org's repos (a user's when `owner` is no org), last pushed first."""
@@ -178,6 +147,9 @@ class GitHub:
         )
         return paths, bool(data.get("truncated"))
 
+    def prefetch(self, repo: str, paths: Sequence[str]) -> None:
+        """Nothing to do: the API reads each file on its own."""
+
     def remaining(self, resource: str = "core") -> int | None:
         """Requests left in the rate limit `resource`, as GitHub last said (None: not yet)."""
         return self._remaining.get(resource)
@@ -201,7 +173,7 @@ class GitHub:
             ms = (time.perf_counter() - started + slow) * 1000
             self._note_remaining(response.headers)
             limit = self._rate_limit_wait(response)
-            if attempt == _RETRIES or (limit is None and response.status not in _SERVER_ERRORS):
+            if attempt == _RETRIES or (limit is None and response.status not in SERVER_ERRORS):
                 return response, ms, waited
             if limit is None:  # GitHub times out heavy requests now and then
                 self._sleep(2.0**attempt)
@@ -227,15 +199,12 @@ class GitHub:
         if status not in (403, 429):
             return None
         if "retry-after" in headers:
-            return max(1.0, _number(headers["retry-after"]))
+            return max(1.0, number(headers["retry-after"]))
         if _exhausted(headers):
-            return max(1.0, _number(headers.get("x-ratelimit-reset", "0")) - self._clock() + 1)
+            return max(1.0, number(headers.get("x-ratelimit-reset", "0")) - self._clock() + 1)
         if _SECONDARY.search(response.body):
             return SECONDARY_WAIT
         return None
-
-
-_SERVER_ERRORS = frozenset({500, 502, 503, 504})
 
 
 def api_base(host: str) -> tuple[str, str]:
@@ -250,13 +219,6 @@ def api_base(host: str) -> tuple[str, str]:
 
 def _exhausted(headers: Mapping[str, str]) -> bool:
     return headers.get("x-ratelimit-remaining") == "0"
-
-
-def _number(value: str) -> float:
-    try:
-        return float(value)
-    except ValueError:
-        return 0.0
 
 
 def _repo(repo: str) -> str:
@@ -298,14 +260,6 @@ def _text(value: object) -> str:
     return value if isinstance(value, str) else ""
 
 
-def _inside(path: str) -> str:
-    """A path inside a repo: no `..` or empty segments, no leading slash."""
-    parts = path.split("/")
-    if not path or any(part in ("", ".", "..") for part in parts):
-        raise CairnError(f"{path!r} isn't a path inside a repo")
-    return path
-
-
 def _checked(response: Response) -> Response:
     if response.status == 401:
         raise CairnError("GitHub rejected the token: log in again with `gh auth login`")
@@ -341,47 +295,3 @@ def _hit(item: dict) -> CodeHit:
         if isinstance(m, dict) and isinstance(m.get("fragment"), str)
     )
     return CodeHit(repo=item["repository"]["full_name"], path=item["path"], fragments=fragments)
-
-
-class _HttpsTransport:
-    """One keep-alive HTTPS connection per thread, reopened when the server drops it."""
-
-    def __init__(self, host: str) -> None:
-        self._host = host
-        self._local = threading.local()
-
-    def __call__(self, method: str, path: str, headers: Mapping[str, str]) -> Response:
-        kept = getattr(self._local, "connection", None)
-        try:
-            return self._send(kept or self._connect(), method, path, headers)
-        except (http.client.HTTPException, OSError) as exc:
-            if kept is None:  # a new connection failed: the host is down or unreachable
-                raise CairnError(f"couldn't reach {self._host}: {exc}") from exc
-        # A kept-alive connection the server closed while idle: one more try on a new one.
-        try:
-            return self._send(self._connect(), method, path, headers)
-        except (http.client.HTTPException, OSError) as exc:
-            raise CairnError(f"couldn't reach {self._host}: {exc}") from exc
-
-    def _send(
-        self,
-        connection: http.client.HTTPSConnection,
-        method: str,
-        path: str,
-        headers: Mapping[str, str],
-    ) -> Response:
-        try:
-            connection.request(method, path, headers=dict(headers))
-            reply = connection.getresponse()
-            body = reply.read()
-        except (http.client.HTTPException, OSError):
-            connection.close()
-            self._local.connection = None
-            raise
-        names = {name.lower(): value for name, value in reply.getheaders()}
-        return Response(reply.status, names, body)
-
-    def _connect(self) -> http.client.HTTPSConnection:
-        connection = http.client.HTTPSConnection(self._host, timeout=TIMEOUT)
-        self._local.connection = connection
-        return connection
