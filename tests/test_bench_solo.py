@@ -1,5 +1,6 @@
 import json
 import shutil
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -137,7 +138,8 @@ def test_repo_scope_gives_condition_e_a_server_on_the_solo_workspace(tmp_path: P
 def test_sessions_are_denied_their_hidden_folders() -> None:
     from cairn.bench.runner import ClaudeRunner, deny_rule
 
-    assert deny_rule(Path("C:/Temp/cairn-bench-x")) == "Read(//c/Temp/cairn-bench-x/**)"
+    if sys.platform == "win32":  # elsewhere `C:/Temp` is a relative path
+        assert deny_rule(Path("C:/Temp/cairn-bench-x")) == "Read(//c/Temp/cairn-bench-x/**)"
     assert deny_rule(Path("/tmp/cairn-bench-x")).endswith("/tmp/cairn-bench-x/**)")
     assert deny_rule(Path("/tmp/cairn-bench-x")).startswith("Read(//")
     settings = ClaudeRunner().isolation_settings(Path("/tmp/ws"), (Path("/tmp/run"),))
