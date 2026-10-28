@@ -8,6 +8,9 @@ link to?", the same in the terminal (`cairn links`) and in every agent (the `lin
 Direction is from the asked-about repo: → one way (it uses the other repo), ← one way (the other
 repo uses it), ↔ both ways (each uses the other, or they share something, like a database).
 Phrases name the other repo "it" and the asked-about repo "this repo".
+
+With `orgs:` in the config, a second list follows: the org's repos nobody cloned that are linked
+to this one by packages (from the org's package cache, so the answer stays offline).
 """
 
 from collections.abc import Callable
@@ -16,6 +19,7 @@ from pathlib import Path
 
 from cairn.detectors.aws_names import EVENT_SOURCE, KIND_LABELS
 from cairn.model.graph import SYMMETRIC_TYPES, Confidence, Edge, EdgeType, Repo, Workspace
+from cairn.org.links import OrgLink, OrgUse
 from cairn.render.card import relate_line
 from cairn.security.text import clean_inline
 
@@ -24,6 +28,9 @@ ONE_WAY_IN = "← one way"
 BOTH_WAYS = "↔ both ways"
 _LIST_PREVIEW = 3
 _LINE_MAX = 400
+_ORG_SHOWN = 10  # org repo lines before "+N more": a shared library can have hundreds of users
+_ORG_EVIDENCE = 3
+_ORG_HEADER = "not cloned (repo_card <owner/name> describes one; read_org_file reads it)"
 
 
 @dataclass(frozen=True)
@@ -62,6 +69,7 @@ def render_links(
     evidence: bool = False,
     hidden: int = 0,
     show_all: str = "--all",
+    org: tuple[OrgLink, ...] = (),
 ) -> str:
     name = clean_inline(repo_id, 80)
     if not found:
@@ -84,10 +92,71 @@ def render_links(
         lines.append(
             f"({hidden} more {noun} linked only by unconfirmed links; include them with {show_all}.)"
         )
-    return "\n".join(lines)
+    return "\n".join(lines + _org_lines(found, org, evidence=evidence))
 
 
-def links_json(repo_id: str, found: tuple[Neighbor, ...]) -> dict:
+def _org_lines(
+    found: tuple[Neighbor, ...], org: tuple[OrgLink, ...], *, evidence: bool
+) -> list[str]:
+    if not org:
+        return []
+    noun = "repo" if len(org) == 1 else "repos"
+    lead = "Also linked to" if found else "Linked to"
+    lines = [f"{lead} {len(org)} org {noun}, {_ORG_HEADER}:"]
+    shown = org[:_ORG_SHOWN]
+    # Org repo and package names come from the code host and manifests: cleaned like the rest.
+    names = [clean_inline(link.repo, 120) for link in shown]
+    width = max(len(n) for n in names)
+    for link, other in zip(shown, names, strict=True):
+        summary = clean_inline(", ".join(org_phrases(link)), _LINE_MAX)
+        direction = org_direction(link).ljust(len(BOTH_WAYS))
+        lines.append(f"  {other.ljust(width)}  {direction}  {summary}")
+        if evidence:
+            uses = [u for u in (*link.uses_its, *link.uses_ours) if u.where]
+            lines += [f"      {clean_inline(u.where, 200)}" for u in uses[:_ORG_EVIDENCE]]
+    if len(org) > _ORG_SHOWN:
+        lines.append(
+            f"  +{len(org) - _ORG_SHOWN} more org repos (org_packages <package> lists who uses one)"
+        )
+    return lines
+
+
+def org_direction(link: OrgLink) -> str:
+    if link.uses_its and link.uses_ours:
+        return BOTH_WAYS
+    return ONE_WAY_OUT if link.uses_its else ONE_WAY_IN
+
+
+def org_phrases(link: OrgLink) -> list[str]:
+    phrases = []
+    if link.uses_its:
+        phrases.append(f"uses its {_packages(link.uses_its)}")
+    if link.uses_ours:
+        phrases.append(f"uses this repo's {_packages(link.uses_ours)}")
+    return phrases
+
+
+def _packages(uses: tuple[OrgUse, ...]) -> str:
+    noun = "package" if len(uses) == 1 else "packages"
+    return f"{noun} {_join([u.package for u in uses])}"
+
+
+def org_relate_lines(org: tuple[OrgLink, ...]) -> list[str]:
+    """`related`'s lines for uncloned org repos: one per direction, with where it's asked for."""
+    lines = []
+    for link in org:
+        sides = (("→", "uses its", link.uses_its), ("←", "uses this repo's", link.uses_ours))
+        for arrow, verb, uses in sides:
+            if not uses:
+                continue
+            where = next((u.where for u in uses if u.where), "")
+            tail = f" ({where})" if where else ""
+            line = f"{arrow} {link.repo} (org repo, not cloned): {verb} {_packages(uses)}{tail}"
+            lines.append(clean_inline(line, _LINE_MAX))
+    return lines
+
+
+def links_json(repo_id: str, found: tuple[Neighbor, ...], org: tuple[OrgLink, ...] = ()) -> dict:
     return {
         "repo": repo_id,
         "links": [
@@ -107,6 +176,19 @@ def links_json(repo_id: str, found: tuple[Neighbor, ...]) -> dict:
                 ],
             }
             for n in found
+        ],
+        "org_links": [
+            {
+                "repo": link.repo,
+                "host": link.host,
+                "direction": {ONE_WAY_OUT: "out", ONE_WAY_IN: "in"}.get(
+                    org_direction(link), "both"
+                ),
+                "summary": org_phrases(link),
+                "uses_its": [{"package": u.package, "where": u.where} for u in link.uses_its],
+                "uses_ours": [{"package": u.package, "where": u.where} for u in link.uses_ours],
+            }
+            for link in org
         ],
     }
 
