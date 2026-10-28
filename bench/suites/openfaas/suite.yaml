@@ -1,6 +1,7 @@
 name: openfaas
 workspace: fetched
 related_repos_doc: related_repos.md
+org: {org: openfaas}  # --scope repo reads the repos a session doesn't have through it
 # OpenFaaS (github.com/openfaas), 38 repos: the coupled core (gateway, providers, CLI, SDKs,
 # queue worker, watchdogs, connectors, templates, store) and the org's other repos a developer
 # would have cloned beside it (docs, archived cloud/bootstrap, release tooling). Mostly MIT; faas,

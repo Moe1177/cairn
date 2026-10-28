@@ -23,9 +23,9 @@ def _summary(records: Sequence["RunRecord"]) -> list[str]:
     """Success counts every run; token/cost/turn means use only runs that didn't error,
     since an errored run reports zeros that would flatter its condition."""
     lines = [
-        "| Condition | Runs | Success | Fresh tokens | Cache-read tokens | Cost (USD) | Turns "
-        "| Errors |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Condition | Runs | Success | Fresh tokens | Cache-read tokens | Cost (USD) | Time (s) "
+        "| Turns | Errors |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for condition in dict.fromkeys(r.condition for r in records):
         rows = [r for r in records if r.condition == condition]
@@ -36,6 +36,7 @@ def _summary(records: Sequence["RunRecord"]) -> list[str]:
             f"| {_mean([r.result.fresh_tokens for r in ok]):,.0f} "
             f"| {_mean([r.result.cache_read_tokens for r in ok]):,.0f} "
             f"| {_mean([r.result.cost_usd for r in ok]):.4f} "
+            f"| {_mean([r.result.duration_ms for r in ok]) / 1000:.1f} "
             f"| {_mean([r.result.num_turns for r in ok]):.1f} "
             f"| {len(rows) - len(ok)} |"
         )
@@ -72,8 +73,8 @@ def _tools_used(records: Sequence["RunRecord"], *, level: str = "##") -> list[st
 
 def _per_task(records: Sequence["RunRecord"]) -> list[str]:
     lines = [
-        "| Condition | Task | Success | Recall | Cost (USD) |",
-        "|---|---|---|---|---|",
+        "| Condition | Task | Success | Recall | Cost (USD) | Time (s) |",
+        "|---|---|---|---|---|---|",
     ]
     for condition in dict.fromkeys(r.condition for r in records):
         for task_id in dict.fromkeys(r.task_id for r in records):
@@ -81,10 +82,12 @@ def _per_task(records: Sequence["RunRecord"]) -> list[str]:
             if not rows:
                 continue
             passed = sum(r.grade.success for r in rows)
+            ok = [r.result for r in rows if not r.result.is_error]
             lines.append(
                 f"| {condition} | {task_id} | {passed}/{len(rows)} "
                 f"| {_mean([r.grade.recall for r in rows]):.2f} "
-                f"| {_mean([r.result.cost_usd for r in rows if not r.result.is_error]):.4f} |"
+                f"| {_mean([r.cost_usd for r in ok]):.4f} "
+                f"| {_mean([r.duration_ms for r in ok]) / 1000:.1f} |"
             )
     return lines
 

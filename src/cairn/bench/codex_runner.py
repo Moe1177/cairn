@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import time
 import tomllib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -159,7 +160,16 @@ class CodexRunner:
             cmd += ["-c", setting]
         return [*cmd, prompt]
 
-    def run(self, prompt: str, cwd: Path, ws: Path, mcp_config: Path | None) -> RunResult:
+    def run(
+        self,
+        prompt: str,
+        cwd: Path,
+        ws: Path,
+        mcp_config: Path | None,
+        hidden: Sequence[Path] = (),
+    ) -> RunResult:
+        """`hidden` can't be kept from Codex: its read-only sandbox reads the whole disk, through
+        a shell. So `cairn bench --scope repo`, which relies on it, refuses Codex."""
         self.check()
         context = ws / CONTEXT_FILE
         instructions = context.read_text(encoding="utf-8") if context.is_file() else None

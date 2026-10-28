@@ -3,11 +3,13 @@
 import os
 import posixpath
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 from cairn.bench.suite import Task
+from cairn.config import OrgSource
 
 _SEGMENT = r"[\w@.\-\[\]]+"
 # Windows absolute, POSIX absolute, then relative `a/b/c` paths (either slash).
@@ -97,12 +99,37 @@ def _by_suffix(ws_root: str) -> dict[str, tuple[str, ...]]:
     return {suffix: tuple(files) for suffix, files in index.items()}
 
 
-def _resolve(path: str, context: str, ws_root: Path) -> str:
-    """A bare path in `context`, or else the one workspace file it ends: an answer that writes
-    `handlers/x.ts` under "all in `stubs/queue/`" names that file if no other ends that way."""
+def _line_repos(line: str, repo_ids: set[str]) -> list[tuple[int, int, str]]:
+    """Where the line names each repo (`acme/orders-svc`, "the orders-svc repo")."""
+    return [
+        (found.start(), found.end(), repo)
+        for repo in repo_ids
+        for found in re.finditer(rf"(?<![\w-]){re.escape(repo)}(?![\w-])", line)
+    ]
+
+
+def _named_near(named: Sequence[tuple[int, int, str]], start: int, end: int) -> list[str]:
+    """The repos the line names outside the path at `start:end`, nearest first: "unlike faas,
+    golang-http-template has `x.yml`" means the template's file, and "`x.go` in `acme/go-sdk`"
+    go-sdk's. A repo named before the path wins a tie."""
+    gaps = [
+        (start - m_end, 0, repo) if m_end <= start else (m_start - end, 1, repo)
+        for m_start, m_end, repo in named
+        if m_end <= start or m_start >= end
+    ]
+    return list(dict.fromkeys(repo for _, _, repo in sorted(gaps)))
+
+
+def _resolve(path: str, context: str, ws_root: Path, named: Sequence[str] = ()) -> str:
+    """A bare path in `context`, else in the repo its line names nearest it ("`acme/orders-svc`:
+    `app/x.py`"), else the one workspace file it ends: an answer that writes `handlers/x.ts`
+    under "all in `stubs/queue/`" names that file if no other ends that way."""
     candidate = f"{context}/{path}"
     if (ws_root / candidate).is_file():
         return candidate
+    for repo in named:
+        if (ws_root / repo / path).is_file():
+            return f"{repo}/{path}"
     matches = _by_suffix(str(ws_root)).get(path.strip("/"), ()) if ws_root.is_dir() else ()
     return matches[0] if len(matches) == 1 else candidate
 
@@ -133,7 +160,9 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             context = heading if isinstance(heading, str) else working_repo
             continue
         row = _row_repo(line, repo_ids) or context
-        for token in _PATH.findall(line):
+        named = _line_repos(line, repo_ids)
+        for match in _PATH.finditer(line):
+            token = match.group(0)
             # `lib/cart.ts:7`, `lib/cart.ts:7:3`, `lib/cart.ts#L7`: the file, not a line in it.
             path = _LINE.sub("", token.replace("\\", "/").rstrip(_TRAILING)).rstrip(_TRAILING)
             if path.startswith("/") or _DRIVE.match(path):
@@ -144,14 +173,54 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             else:
                 path = _strip_root_tail(path, ws_parts, repo_ids)
                 if path.split("/", 1)[0] not in repo_ids:
-                    path = _resolve(path, row, ws_root)
+                    path = _resolve(
+                        path, row, ws_root, _named_near(named, match.start(), match.end())
+                    )
             path = posixpath.normpath(path)
             if not path.startswith(".."):
                 found.add(path)
     return found
 
 
-def grade(task: Task, text: str, ws_root: Path, repo_ids: set[str]) -> Grade:
+_REST = r"([^\s`'\"()|<>,;]+)"
+
+
+def org_paths(text: str, org: OrgSource, ws_root: Path, repo_ids: set[str]) -> str:
+    """An org repo's file as the org tools print it (`openfaas/faas/x.go`), or a link to it
+    (`https://github.com/openfaas/faas/blob/main/x.go`, a raw.githubusercontent.com one), as
+    the workspace path `faas/x.go`. Only when the workspace has that file: a folder that merely
+    shares the org's name (`chart/openfaas/templates/x.yaml`) keeps its own path."""
+    canonical = {repo.lower(): repo for repo in repo_ids}
+    host, owner = re.escape(org.host), re.escape(org.org)
+
+    def in_workspace(repo: str, rest: str) -> str | None:
+        name = canonical.get(repo.lower())
+        path = _LINE.sub("", rest.rstrip(_TRAILING)).rstrip(_TRAILING)
+        return f"{name}/{rest}" if name and (ws_root / name / path).is_file() else None
+
+    def link(match: re.Match[str]) -> str:
+        repo, parts = match.group(1) or match.group(2), match.group(3).split("/")
+        for cut in range(1, len(parts)):  # a branch name may hold slashes: try each split
+            found = in_workspace(repo, "/".join(parts[cut:]))
+            if found:
+                return found
+        return match.group(0)
+
+    links = re.compile(
+        rf"(?i)(?:https?://)?(?:{host}/{owner}/([\w.-]+)/(?:-/)?(?:blob|tree|raw)/"
+        rf"|raw\.githubusercontent\.com/{owner}/([\w.-]+)/){_REST}"
+    )
+    text = links.sub(link, text)
+    plain = re.compile(rf"(?i)(?<![\w./-])(?:{host}/)?{owner}/([\w.-]+)/{_REST}")
+    return plain.sub(lambda m: in_workspace(m.group(1), m.group(2)) or m.group(0), text)
+
+
+def grade(
+    task: Task, text: str, ws_root: Path, repo_ids: set[str], org: OrgSource | None = None
+) -> Grade:
+    """`org`: the suite's org, when the agent read the other repos through it (--scope repo)."""
+    if org is not None:
+        text = org_paths(text, org, ws_root, repo_ids)
     keywords_ok = all(k.lower() in text.lower() for k in task.expect_keywords)
     if not task.expect_files:
         return Grade(success=keywords_ok, recall=1.0 if keywords_ok else 0.0, precision=1.0)

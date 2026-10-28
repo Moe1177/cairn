@@ -15,6 +15,7 @@ from cairn.bench.workspace import materialize
 from cairn.emit import write_outputs
 from cairn.integrations.claude import install_claude
 from cairn.integrations.server_command import server_command
+from cairn.org.view import org_index_lines
 from cairn.paths import cairn_dir, index_file
 from cairn.render.index import render_index
 from cairn.scan import scan_workspace
@@ -75,6 +76,9 @@ def set_up(condition: str, suite: Suite, suite_dir: Path, ws: Path, run_dir: Pat
             result.authored,
             threshold=result.config.index_threshold,
             with_cards=False,
+            # The org's repos stay in (only an org-configured workspace has any): with no cards
+            # to read, they are all C knows of the repos it doesn't have.
+            org_lines=org_index_lines(ws, result.workspace, result.config),
         )
         atomic_write_text(index_file(ws), text)
         install_claude(ws)

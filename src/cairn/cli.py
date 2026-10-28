@@ -584,6 +584,14 @@ def bench(
             help="Continue a run's .jsonl log: runs it lacks, and runs a usage limit stopped.",
         ),
     ] = None,
+    scope: Annotated[
+        str,
+        typer.Option(
+            "--scope",
+            help="workspace: every repo on disk. repo: only the task's repo; the others are "
+            "read through the suite's org.",
+        ),
+    ] = "workspace",
 ) -> None:
     """Measure what cairn saves: run a suite headlessly in Claude Code or Codex under each
     condition."""
@@ -591,11 +599,17 @@ def bench(
     from cairn.bench.conditions import CONDITIONS
     from cairn.bench.run import run_bench
     from cairn.bench.runner import ClaudeRunner
+    from cairn.bench.solo import SCOPES
     from cairn.bench.suite import load_suite
     from cairn.integrations.homes import codex_home
 
     if harness not in ("claude", "codex"):
         _fail(f"unknown harness {harness} (choose claude or codex).")
+    if scope not in SCOPES:
+        _fail(f"unknown scope {scope} (choose {' or '.join(SCOPES)}).")
+    if scope == "repo" and harness == "codex":
+        # Its read-only sandbox reads the whole disk through a shell: the other repos too.
+        _fail("--scope repo needs claude: Codex can't be kept out of the other repos' folders.")
 
     chosen = _comma_list(conditions)
     unknown = [c for c in chosen if c not in CONDITIONS]
@@ -609,6 +623,8 @@ def bench(
     missing = [t for t in task_ids or () if t not in {task.id for task in suite.tasks}]
     if missing:
         _fail(f"unknown task {', '.join(missing)} in suite {suite.name}.")
+    if scope == "repo" and suite.org is None:
+        _fail(f"suite {suite.name} names no org (org: in suite.yaml) for --scope repo to read.")
     if shutil.which(harness) is None:
         tool = "Claude Code" if harness == "claude" else "Codex"
         _fail(f"the `{harness}` CLI is not on PATH; install {tool} to run benchmarks.")
@@ -639,6 +655,7 @@ def bench(
                 now=stamp,
                 meta=meta,
                 resume=resume,
+                scope=scope,
             )
     except CairnError as exc:  # BenchStopped (a usage limit) or a suite that can't be fetched
         _fail(str(exc))

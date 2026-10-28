@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 import yaml
 from pydantic import StringConstraints, ValidationError, model_validator
 
+from cairn.config import OrgSource
 from cairn.errors import CairnInputError
 from cairn.model.graph import Frozen
 
@@ -36,6 +37,8 @@ class Suite(Frozen):
     related_repos_doc: str
     tasks: tuple[Task, ...]
     sources: tuple[Source, ...] = ()
+    # The org the repos come from: `cairn bench --scope repo` reaches the other repos through it.
+    org: OrgSource | None = None
 
     @model_validator(mode="after")
     def _portable_unique_sources(self) -> "Suite":
