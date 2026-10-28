@@ -124,3 +124,32 @@ def test_the_branch_comes_from_the_package_index(tmp_path: Path, hub: TreeHub) -
     save_index(org_packages_file(ws, "github.com", "acme"), index)
     tools.org_file_text(ws, "worker", "gone.go")
     assert hub.trees == [("acme/worker", "trunk")]
+
+
+def test_a_repo_the_host_lacks_is_named_as_such_and_not_held(tmp_path: Path, hub: TreeHub) -> None:
+    hub.paths = ()  # what GitHub's 404 on the tree comes back as
+    ws = org_workspace(tmp_path)
+    for path in ("main.go", ""):
+        text = tools.org_file_text(ws, "wroker", path)
+        assert text.startswith("Found no files in acme/wroker: check its name")
+    assert len(hub.trees) == 2  # nothing held: the next call asks again
+
+
+def test_a_branch_gone_since_the_index_falls_back_to_head(
+    tmp_path: Path, hub: TreeHub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ws = org_workspace(tmp_path)
+    index = PackageIndex(
+        org="acme",
+        host="github.com",
+        built="2026-10-27T00:00:00+00:00",
+        ms=1.0,
+        repos=(RepoPackages(repo="acme/worker", branch="master"),),
+    )
+    save_index(org_packages_file(ws, "github.com", "acme"), index)
+    real = hub.tree
+    monkeypatch.setattr(
+        hub, "tree", lambda repo, ref: ((), False) if ref == "master" else real(repo, ref)
+    )
+    assert "Did you mean" in tools.org_file_text(ws, "worker", "readConfig.go")
+    assert hub.trees == [("acme/worker", "HEAD")]

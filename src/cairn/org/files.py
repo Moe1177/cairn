@@ -73,6 +73,11 @@ def render_missing(repo: str, wanted: str, paths: Sequence[str], *, cut: bool) -
     """No file `wanted` in `repo`: the files it most likely meant, or else what its nearest
     folder holds."""
     wanted = wanted.strip("/")
+    if not paths:  # a host answers a repo it doesn't have with no files, too
+        return (
+            f"Found no files in {repo}: check its name (resolve_repo finds an org repo by a few "
+            "words), or its default branch is empty."
+        )
     head = f"No file {_safe(wanted)} in {repo}"
     if cut:
         head += " (the repo's file list was cut short, so it may still be there)"
@@ -81,8 +86,6 @@ def render_missing(repo: str, wanted: str, paths: Sequence[str], *, cut: bool) -
         return "\n".join([f"{head}. Did you mean:", *(f"- {_safe(p)}" for p in near)])
     folder = nearest_folder(paths, wanted)
     entries = folder_entries(paths, folder)
-    if not entries:
-        return f"{head}: its default branch has no files."
     return f"{head}.\n" + render_folder(repo, folder, entries, cut=False)
 
 

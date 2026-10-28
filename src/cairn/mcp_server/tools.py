@@ -462,7 +462,12 @@ def _repo_files(ws_root: Path, source: OrgSource, full: str) -> tuple[tuple[str,
         "",
     )
     paths, cut = _with_client(source, lambda client: client.tree(full, branch or "HEAD"))
+    if not paths and branch:  # the index's branch may be gone since (a default branch renamed)
+        paths, cut = _with_client(source, lambda client: client.tree(full, "HEAD"))
+    if not paths:  # no such repo (a host answers 404 with no files), or an empty one: not held
+        return paths, cut
     with _FILES_LOCK:
+        _FILES.pop(key, None)
         if len(_FILES) >= _FILES_HELD:
             _FILES.pop(next(iter(_FILES)))  # the oldest
         _FILES[key] = (time.monotonic(), paths, cut)
