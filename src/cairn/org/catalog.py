@@ -235,7 +235,11 @@ def render_org_card(
         facts.append("A fork.")
     lines += [f"- {fact}" for fact in facts]
     lines += list(extra)
-    then = "; find_similar searches its code with the rest of the org." if searchable else "."
+    then = (
+        "; search_org and find_similar search its code with the rest of the org."
+        if searchable
+        else "."
+    )
     lines += [
         "",
         f"Read its files with read_org_file (repo {repo.name}, path README.md first){then}",

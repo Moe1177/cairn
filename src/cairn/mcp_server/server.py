@@ -87,6 +87,16 @@ def build_server(ws_root: Path | None, *, start: Path | None = None) -> MCPServe
         return answer(lambda ws: tools.similar_text(ws, task, terms, org))
 
     @server.tool()
+    def search_org(terms: list[str], org: str = "") -> str:
+        """Where the org's code uses something, in its repos that aren't on disk (searches the
+        org's repos on GitHub or GitLab; nothing is cloned): which templates import an export,
+        what reads a metric, env var, header, queue or secret, which repo builds an image or
+        names a contract-test provider. terms: 1-4 strings the code literally contains (e.g.
+        ["ApiKey1", "gateway_function_invocation_total"]); each is one search, run at once.
+        Then read_org_file(repo, path). org: only when several orgs are configured."""
+        return answer(lambda ws: tools.search_org_text(ws, terms, org))
+
+    @server.tool()
     def org_profile(org: str = "") -> str:
         """The org's stack: the languages, datastores, queues, frameworks, auth, test and deploy
         tools its recently pushed repos use, their common libraries, and the org's own shared
