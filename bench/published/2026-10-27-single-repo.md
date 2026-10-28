@@ -91,7 +91,8 @@ reads as a tool for prior art before building a feature.
 and a path apart: "`openfaas/faas`: `gateway/metrics/metrics.go`", or "in the
 `openfaas/faas-middleware` repo, at `oauth/config.go:91`". The grader gave those paths to the
 starting repo, where they aren't files. A bare path that isn't a file of the starting repo now
-belongs to the first repo its line names that has it. Every log above was regraded with it, in
+belongs to the repo its line names nearest it, if that repo has it ("unlike faas,
+golang-http-template has `x.yml`" is the template's file). Every log above was regraded with it, in
 every condition alike; it changed 15 of 132 grades, eight of them from failed to answered. On the
 2026-10-11 hard-task logs it changes one run (Haiku, no map, `remote-build-signature`), from
 failed to answered.

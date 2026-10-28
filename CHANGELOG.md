@@ -134,7 +134,8 @@ All notable changes to cairn are documented here. The format follows
 ### Fixed
 - **Benchmark grading credits a path its line gives a repo for.** "`openfaas/faas`:
   `gateway/metrics/metrics.go`" and "in the `faas-middleware` repo, at `oauth/config.go`" now
-  count for that repo when the starting repo has no such file. Regrading the 2026-10-11
+  count for the repo the line names nearest the path, when the starting repo has no such file
+  and that repo has. Regrading the 2026-10-11
   hard-task logs changes one run, from failed to answered.
 - **Benchmark grading credits two more ways of naming a file.** A path in a table row whose own
   cell names the repo (`| ipv-cri-kbv-api | infrastructure/lambda/template.yaml |`) now counts
