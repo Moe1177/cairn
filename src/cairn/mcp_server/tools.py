@@ -316,14 +316,19 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
                 lines.append(clean_inline(line, 400))
     found = "\n".join(_cap(lines)) if lines else f"Nothing in the map matches '{query}'."
     # The map holds only the repos on disk; an org's others are a code search away.
-    orgs = [o for o in load_config(ws_root).orgs if o.kind != "git"]  # git: no code search
+    orgs = [o.org for o in load_config(ws_root).orgs if o.kind != "git"]  # git: no code search
     if not orgs:
         return found
-    names = ", ".join(o.org for o in orgs)
-    term = json.dumps(clean_inline(query.strip(), 80))
+    term = query.strip()
+    # The query itself when it survives as one inert line, else a placeholder to fill in.
+    shown = json.dumps(term) if term and clean_inline(term, 120) == term else '"<name>"'
+    calls = [
+        f"search_org([{shown}]" + (f", org={json.dumps(org)})" if len(orgs) > 1 else ")")
+        for org in orgs
+    ]
     return (
-        f"{found}\nThe map covers only the repos on disk. For uses in {names}'s other repos, "
-        f"search their code: search_org([{term}])."
+        f"{found}\nThe map covers only the repos on disk. For uses in {', '.join(orgs)}'s other "
+        f"repos, search their code: {' or '.join(calls)}."
     )
 
 

@@ -18,12 +18,14 @@ from cairn.errors import CairnError
 from cairn.locate.terms import concept_terms, literal_terms
 from cairn.remote.host import CodeHit, CodeHost, SearchPage
 from cairn.security.redact import redact
+from cairn.security.text import clean_inline
 
 MAX_TERMS = 4  # each is a search, and code search allows 10 a minute
 PER_SEARCH = 30
 _RRF_K = 10
 _TERM_MAX = 100
 _FRAGMENT_MAX = 240
+_PATH_MAX = 300  # a path is one line however long a repo makes it
 
 # Copies of someone else's code: never the org's prior art, however well they match.
 _VENDORED = re.compile(
@@ -196,8 +198,12 @@ def render_similar(result: SimilarResult, *, uses: bool = False) -> str:
     lines = [head, *notes]
     for hit in result.hits:
         name = hit.repo[len(result.org) + 1 :]  # always the org's: _rank keeps no other
-        lines.append(f"- {name}/{hit.path}  (matched {', '.join(hit.matched)})")
-        lines.extend(f"    {fragment}" for fragment in hit.fragments[:1])
+        # A path and its code are the repo's authors' text: each stays one inert line.
+        where = clean_inline(f"{name}/{hit.path}", _PATH_MAX)
+        lines.append(f"- {where}  (matched {', '.join(hit.matched)})")
+        lines.extend(
+            f"    {clean_inline(fragment, _FRAGMENT_MAX)}" for fragment in hit.fragments[:1]
+        )
     lines.append(
         "Read a match with read_org_file(repo, path) to confirm it; the host's code search "
         "covers default branches and may miss a file, so a short list isn't proof of no others."

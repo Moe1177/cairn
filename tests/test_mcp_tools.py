@@ -71,6 +71,19 @@ def test_find_across_points_to_the_org_s_code_search(ws: Path) -> None:
     assert "- eats exposes db table" in tools.find_across_text(ws, "cook_profiles")
 
 
+def test_with_several_orgs_find_across_names_each_one(ws: Path) -> None:
+    config = config_file(ws)
+    data = yaml.safe_load(config.read_text(encoding="utf-8")) if config.is_file() else {}
+    orgs = [{"org": "acme"}, {"org": "beta"}]
+    config.write_text(yaml.safe_dump({**(data or {}), "orgs": orgs}), encoding="utf-8")
+    text = tools.find_across_text(ws, "ApiKey1")
+    assert text.endswith(
+        'search_org(["ApiKey1"], org="acme") or search_org(["ApiKey1"], org="beta").'
+    )
+    long = "x" * 200  # cut short, it would find nothing: a placeholder instead
+    assert tools.find_across_text(ws, long).endswith('search_org(["<name>"], org="beta").')
+
+
 def test_stale_repo_is_rescanned_before_answering(ws: Path) -> None:
     # Review Focus 3
     repo = ws / "eats-admin"
