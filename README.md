@@ -518,14 +518,14 @@ What this shows:
     started in.
   - [bench/published/2026-10-11-hard-tasks.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-11-hard-tasks.md)
     has the tasks, the definition and every failure.
-- **Starting in one repo is where the org tools count** (2026-10-27 pilot, one run per cell). A
+- **Starting in one repo is where the org tools count** (2026-10-27, three runs per task). A
   session usually opens in one repo, with the org's others not cloned; `cairn bench --scope
   repo` runs each task that way, kept out of every other folder. On the same 11 hard tasks:
   - With no map or with the INDEX, both models answered 1.
-  - With cairn's org tools, Sonnet 5.5 answered 9 and Haiku 5.5 answered 7, after two changes
-    the failures led to: `read_org_file` lists folders and suggests the file a wrong path meant,
-    and `search_org` finds where the org's code uses a name. Before them: 4 and 5.
-  - With every repo on disk: 11 and 10, and faster (Sonnet's median session 18 s against 23 s).
+  - With cairn's org tools, Sonnet 5.5 answered 26 of 33 runs and Haiku 5.5 21, after two
+    changes the failures led to: `read_org_file` lists folders and suggests the file a wrong path
+    meant, and `search_org` finds where the org's code uses a name. Before them: 16 and 16.
+  - With every repo on disk: 33 and 31, and faster (Sonnet's median session 16 s against 23 s).
   - [bench/published/2026-10-27-single-repo.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-27-single-repo.md)
     has the method, every failure and what is still missing.
 
@@ -805,7 +805,7 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
 13. ✅ GitLab (gitlab.com and self-managed, groups with subgroups) for every org feature.
 14. ✅ Orgs on any git host, from a list of repo URLs, read through git itself.
 15. ✅ Sessions that start in one repo: `cairn bench --scope repo`. From one repo, the org tools
-    took Sonnet from 1 to 9 of 11 hard tasks (11 with every repo on disk), after
+    took Sonnet from 1 of 11 hard tasks to 26 of 33 runs (33 with every repo on disk), after
     `read_org_file` learned to list folders and `search_org` arrived.
 16. Descriptions for plain git repos, from their READMEs, so their cards and catalog search have
     more than a name.

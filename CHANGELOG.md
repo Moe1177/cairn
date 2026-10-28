@@ -14,18 +14,18 @@ All notable changes to cairn are documented here. The format follows
   and denied the run's other folders and the suite. Answers are graded against the whole pinned
   workspace, with the org tools' `owner/repo/path` and links read as workspace paths. Before the
   sessions, the run checks each answer file and keyword on the org's default branch and notes
-  in the log what moved since the suite's pinned commit. Pilot results (11 hard tasks):
+  in the log what moved since the suite's pinned commit. Results (11 hard tasks):
   [bench/published/2026-10-27-single-repo.md](bench/published/2026-10-27-single-repo.md).
 - **`search_org`: where the org's code uses a name.** Which templates import an export, what
   reads a metric, env var or queue, which repo builds an image: the org's code search on GitHub
   or GitLab, worded as uses rather than prior art. `find_across` knows only the repos on disk,
   and now ends with a pointer to it when an org is configured. From one repo, it turned
-  `retire-core-api-keys` from failed to answered for Haiku and Sonnet.
+  `retire-core-api-keys` from failed to answered for Haiku and Sonnet, in all three runs.
 - **`read_org_file` finds its way in a repo nobody cloned.** A folder's path lists what the folder
   holds, and a path that isn't there lists the files it most likely meant: the same path in
   another case (`readConfig.go` -> `readconfig.go`), files of the same name anywhere, then paths
   spelled alike, or else what its nearest existing folder holds. From one repo, Sonnet answered
-  8 hard tasks instead of 4 with it.
+  23 of 33 hard-task runs instead of 16 with it.
 - **Orgs on any git host.** An org in the config can list its repos by URL (`repos:`, https or
   ssh), and cairn reads them through git itself with git's own login: Gitea, Forgejo,
   Bitbucket, sourcehut or a bare server. It keeps one clone per repo holding only its latest
