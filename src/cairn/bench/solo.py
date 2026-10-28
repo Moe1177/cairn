@@ -35,31 +35,51 @@ def write_org_config(ws: Path, org: OrgSource) -> None:
     atomic_write_text(config_file(ws), yaml.safe_dump({"orgs": [entry]}, sort_keys=False))
 
 
-def prepare_org(cache_ws: Path, org: OrgSource, tasks: Sequence[Task]) -> dict[str, list[str]]:
+def prepare_org(
+    cache_ws: Path, org: OrgSource, tasks: Sequence[Task], ws: Path
+) -> dict[str, list[str]]:
     """Read the org's catalog, packages and profile into `cache_ws`'s caches (what INDEX's org
     section and the org tools start from: no session pays for the first read, so timings don't
-    depend on task order), and return each task's answer files that the org's default branch
-    doesn't have, or that couldn't be checked: the suite pins older commits, and the org tools
-    read the latest."""
+    depend on task order), and return what each task's answer lost on the org's default branch:
+    the suite pins older commits (`ws`), and the org tools read the latest."""
     write_org_config(cache_ws, org)
     catalog_index(cache_ws, org)
     packages_text(cache_ws, org=org.org)
     profile_text(cache_ws, org.org)
-    drift: dict[str, list[str]] = {}
-    for task in tasks:
-        for path in task.expect_files:
-            repo, _, inside = path.partition("/")
-            if repo == task.repo:
-                continue  # on disk, at the pinned commit
-            full = org_repo(org, repo)
-            try:
-                there = with_client(org, lambda c, f=full, i=inside: c.file_exists(f, i))
-            except CairnError as exc:
-                drift.setdefault(task.id, []).append(f"{path} (unchecked: {exc})")
-                continue
-            if not there:
-                drift.setdefault(task.id, []).append(path)
-    return drift
+    drift = {task.id: _drift(org, task, ws) for task in tasks}
+    return {task: lost for task, lost in drift.items() if lost}
+
+
+def _drift(org: OrgSource, task: Task, ws: Path) -> list[str]:
+    """The task's answer files outside its repo that the org no longer has (or that couldn't be
+    checked), and the keywords those files held at the pinned commit and no longer hold (a
+    version pin bumped since: an agent reading the org gives the new one)."""
+    lost: list[str] = []
+    pinned: list[str] = []
+    latest: list[str] = []
+    for path in task.expect_files:
+        repo, _, inside = path.partition("/")
+        if repo == task.repo:
+            continue  # on disk, at the pinned commit
+        full = org_repo(org, repo)
+        try:
+            text = with_client(org, lambda c, f=full, i=inside: c.read_file(f, i))
+            there = text is not None or with_client(
+                org, lambda c, f=full, i=inside: c.file_exists(f, i)
+            )
+        except CairnError as exc:
+            lost.append(f"{path} (unchecked: {exc})")
+            continue
+        if not there:
+            lost.append(path)
+        elif text is not None and (ws / path).is_file():  # binary or too big: nothing to compare
+            pinned.append((ws / path).read_text(encoding="utf-8", errors="replace").lower())
+            latest.append(text.lower())
+    for keyword in task.expect_keywords:
+        word = keyword.lower()
+        if any(word in p for p in pinned) and not any(word in t for t in latest):
+            lost.append(f"keyword {keyword!r}")
+    return lost
 
 
 def solo_workspace(
@@ -86,6 +106,6 @@ def drift_note(drift: Mapping[str, Sequence[str]]) -> str:
         return ""
     files = "; ".join(f"{task}: {', '.join(paths)}" for task, paths in sorted(drift.items()))
     return (
-        "These answer files aren't on the org's default branch, so an agent reading the org "
-        f"can't find them: {files}."
+        "These answer files, or keywords in them, aren't on the org's default branch, so an "
+        f"agent reading the org can't find them: {files}."
     )

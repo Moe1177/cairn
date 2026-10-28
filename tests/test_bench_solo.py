@@ -33,7 +33,9 @@ def suite_with_org(tmp_path: Path, org: str | None = "shopverse") -> Path:
     return suite
 
 
-def no_drift(cache_ws: Path, org: OrgSource, tasks: Sequence[Task]) -> dict[str, list[str]]:
+def no_drift(
+    cache_ws: Path, org: OrgSource, tasks: Sequence[Task], ws: Path
+) -> dict[str, list[str]]:
     return {}
 
 
@@ -183,7 +185,10 @@ def test_codex_cant_run_repo_scope(tmp_path: Path) -> None:
 
 
 def test_drift_goes_in_the_header(tmp_path: Path) -> None:
-    def drifted(cache_ws: Path, org: OrgSource, tasks: Sequence[Task]) -> dict[str, list[str]]:
+    def drifted(
+        cache_ws: Path, org: OrgSource, tasks: Sequence[Task], ws: Path
+    ) -> dict[str, list[str]]:
+        assert (ws / "orders-svc" / ".git").is_dir()  # the pinned workspace, to compare with
         return {"refund-logic": ["orders-svc/app/refunds.py"]}
 
     out = tmp_path / "out"
@@ -337,15 +342,27 @@ def test_prepare_org_warms_the_caches_and_finds_drift(
     monkeypatch.setattr(solo, "catalog_index", lambda ws, org: calls.append("catalog"))
     monkeypatch.setattr(solo, "packages_text", lambda ws, org: calls.append("packages"))
     monkeypatch.setattr(solo, "profile_text", lambda ws, org: calls.append("profile"))
+    latest = {
+        "app/main.py": "PIN = '0.12.5'\nPORT = 8082",
+        "app/big.bin": None,  # binary or over the limit: there, but not compared
+    }
 
     class Client:
-        def file_exists(self, repo: str, path: str) -> bool:
+        def read_file(self, repo: str, path: str) -> str | None:
             calls.append(f"{repo}/{path}")
             if path == "app/moved.py":
                 raise CairnError("shopverse/orders-svc has moved")
-            return path != "app/gone.py"
+            return latest.get(path)
+
+        def file_exists(self, repo: str, path: str) -> bool:
+            return path in latest
 
     monkeypatch.setattr(solo, "with_client", lambda org, call: call(Client()))
+    ws = tmp_path / "ws"
+    (ws / "orders-svc" / "app").mkdir(parents=True)
+    (ws / "orders-svc" / "app" / "main.py").write_text("PIN = '0.12.4'\nPORT = 8082")
+    (ws / "admin" / "lib").mkdir(parents=True)
+    (ws / "admin" / "lib" / "db.ts").write_text("// HOST")
     task = Task(
         id="t",
         category="impact",
@@ -354,15 +371,18 @@ def test_prepare_org_warms_the_caches_and_finds_drift(
         expect_files=(
             "admin/lib/db.ts",
             "orders-svc/app/main.py",
+            "orders-svc/app/big.bin",
             "orders-svc/app/gone.py",
             "orders-svc/app/moved.py",
         ),
+        expect_keywords=("0.12.4", "8082", "host", "nowhere"),
     )
-    drift = solo.prepare_org(tmp_path / "cache", ORG, [task])
+    drift = solo.prepare_org(tmp_path / "cache", ORG, [task], ws)
     assert drift == {
         "t": [
             "orders-svc/app/gone.py",
             "orders-svc/app/moved.py (unchecked: shopverse/orders-svc has moved)",
+            "keyword '0.12.4'",  # 8082 still there; host is in the task's own repo
         ]
     }
     assert calls == [
@@ -370,6 +390,7 @@ def test_prepare_org_warms_the_caches_and_finds_drift(
         "packages",
         "profile",
         "shopverse/orders-svc/app/main.py",  # the task's own repo is on disk: never read
+        "shopverse/orders-svc/app/big.bin",
         "shopverse/orders-svc/app/gone.py",
         "shopverse/orders-svc/app/moved.py",
     ]

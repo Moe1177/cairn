@@ -30,8 +30,9 @@ _RUN_WS = re.compile(
     r"(?<![\w.:\\/-])(?:[A-Za-z]:)?[\\/][^\s`'\"()|,]*?cairn-bench-[^\\/\s]+[\\/]ws(?=[\\/])"
 )
 _SOLO_PREFIX = "cairn-bench-solo-"
-# Warms an org's caches in a folder and returns each task's answer files the org lost.
-OrgSetup = Callable[[Path, OrgSource, Sequence[Task]], Mapping[str, Sequence[str]]]
+# Warms an org's caches in a folder and returns what each task's answer (pinned in the
+# workspace) lost on the org.
+OrgSetup = Callable[[Path, OrgSource, Sequence[Task], Path], Mapping[str, Sequence[str]]]
 
 
 @dataclass(frozen=True)
@@ -118,7 +119,7 @@ def run_bench(
         ws = make_workspace(suite, suite_dir, Path(tmp), source) if todo else Path(tmp)
         repo_ids = {p.name for p in ws.iterdir() if (p / ".git").exists()}
         if org is not None and todo:
-            note = drift_note(org_setup(Path(tmp) / _ORG_CACHE, org, tasks))
+            note = drift_note(org_setup(Path(tmp) / _ORG_CACHE, org, tasks, ws))
             if note:
                 header["org_drift"] = note
         # Every invocation leaves a header line, so a log says which settings and tools made it.
