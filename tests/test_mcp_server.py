@@ -22,7 +22,7 @@ def test_find_workspace_walks_up(materialize, tmp_path: Path, monkeypatch) -> No
 
 
 @pytest.mark.anyio
-async def test_server_exposes_eleven_tools(materialize) -> None:
+async def test_server_exposes_twelve_tools(materialize) -> None:
     ws = materialize("mini-eats").resolve()
     tools.rescan(ws)
     server = build_server(ws)
@@ -41,6 +41,7 @@ async def test_server_exposes_eleven_tools(materialize) -> None:
             "related",
             "repo_card",
             "resolve_repo",
+            "search_org",
         ]
         result = await client.call_tool("resolve_repo", {"name_or_alias": "owner portal"})
         assert result.content[0].text.startswith("- eats-admin")

@@ -213,6 +213,7 @@ and you can commit them so your team shares them.
 | `find_across` | Which repos expose or use a table, package, or path |
 | `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
 | `find_similar` | Where the org already implemented a feature (its repos on GitHub or GitLab, nothing cloned); needs `orgs:` in the config |
+| `search_org` | Where the org's code uses a name: which repos import an export, read a metric or env var, build an image (same search as `find_similar`); `find_across` points to it, since its map holds only the repos on disk |
 | `read_org_file` | A file from an org repo, without cloning it |
 | `org_profile` | The org's stack: the datastores, frameworks, auth, test and deploy tools and libraries its active repos use, and its own shared packages |
 | `org_packages` | The org's own libraries its repos share, where each is defined and who uses it; with a name, one package's users and code that calls it |

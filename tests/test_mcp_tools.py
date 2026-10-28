@@ -2,8 +2,10 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 
 from cairn.mcp_server import tools
+from cairn.paths import config_file
 from cairn.render.tokens import estimate_tokens
 
 
@@ -52,6 +54,21 @@ def test_find_across_lists_owners_and_users(ws: Path) -> None:
     text = tools.find_across_text(ws, "cook_profiles")
     assert "- eats exposes db table 'cook_profiles'" in text
     assert "- eats-admin consumes db table 'cook_profiles'" in text
+
+
+def test_find_across_points_to_the_org_s_code_search(ws: Path) -> None:
+    assert "search_org" not in tools.find_across_text(ws, "cook_profiles")  # no org: no pointer
+    config = config_file(ws)
+    data = yaml.safe_load(config.read_text(encoding="utf-8")) if config.is_file() else {}
+    orgs = [{"org": "acme"}, {"org": "lab", "repos": ["https://git.x/lab/a"]}]
+    config.write_text(yaml.safe_dump({**(data or {}), "orgs": orgs}), encoding="utf-8")
+    text = tools.find_across_text(ws, ' Api"Key1 ')
+    assert text.startswith("Nothing in the map matches")
+    # Only acme: lab is plain git, which has no code search.
+    assert text.endswith(
+        """For uses in acme's other repos, search their code: search_org(["Api\\"Key1"])."""
+    )
+    assert "- eats exposes db table" in tools.find_across_text(ws, "cook_profiles")
 
 
 def test_stale_repo_is_rescanned_before_answering(ws: Path) -> None:

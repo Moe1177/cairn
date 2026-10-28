@@ -2,6 +2,7 @@
 
 import contextlib
 import functools
+import json
 import threading
 import time
 from collections.abc import Callable
@@ -313,7 +314,17 @@ def find_across_text(ws_root: Path, query: str, kind: str | None = None) -> str:
                 label = fact.kind.value.replace("_", " ")
                 line = f"- {repo.id} {direction} {label} '{fact.value}'{where}"
                 lines.append(clean_inline(line, 400))
-    return "\n".join(_cap(lines)) if lines else f"Nothing in the map matches '{query}'."
+    found = "\n".join(_cap(lines)) if lines else f"Nothing in the map matches '{query}'."
+    # The map holds only the repos on disk; an org's others are a code search away.
+    orgs = [o for o in load_config(ws_root).orgs if o.kind != "git"]  # git: no code search
+    if not orgs:
+        return found
+    names = ", ".join(o.org for o in orgs)
+    term = json.dumps(clean_inline(query.strip(), 80))
+    return (
+        f"{found}\nThe map covers only the repos on disk. For uses in {names}'s other repos, "
+        f"search their code: search_org([{term}])."
+    )
 
 
 @locked
@@ -357,6 +368,16 @@ def similar_text(ws_root: Path, task: str, terms: list[str], org: str = "") -> s
     return render_similar(
         _with_client(source, lambda client: find_similar(client, source.org, task, terms))
     )
+
+
+def search_org_text(ws_root: Path, terms: list[str], org: str = "") -> str:
+    """Where the org's code uses `terms`, over the host's code search (nothing is cloned).
+    Reads only the config, so it never waits on the workspace lock."""
+    source = pick_org(load_config(ws_root).orgs, org)
+    if not any(t.strip() for t in terms):
+        return "Give the names to search for (terms): an export, metric, env var, image, ..."
+    found = _with_client(source, lambda client: find_similar(client, source.org, "", terms))
+    return render_similar(found, uses=True)
 
 
 _PROFILE_LOCK = threading.Lock()  # two calls at once read the org once

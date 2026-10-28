@@ -169,7 +169,7 @@ class GitRepos:
     def _no_search(self) -> str:
         return (
             f"{self.org} is a list of plain git repos, which have no code search: find_similar "
-            "works on GitHub and GitLab orgs. read_org_file and org_packages read these repos."
+            "and search_org work on GitHub and GitLab orgs. read_org_file and org_packages read these repos."
         )
 
     def _known(self, repo: str) -> str:
