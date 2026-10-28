@@ -1,5 +1,6 @@
 """How the workspace's own repos meet the org's uncloned ones: which org repos define the packages
-local repos depend on, for INDEX and for an org repo's card.
+local repos depend on, and which use the packages a local repo defines: for INDEX, an org repo's
+card, and the org lines of `links` and `related`.
 
 Read from the caches only (the org's package index and repo catalog): mapping a folder makes no
 network calls. Org text a repo controls (its description) stays out of INDEX, which every
@@ -8,8 +9,9 @@ session loads; names, languages and counts go in.
 
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
-from cairn.model.graph import FactKind, Repo, Workspace
+from cairn.model.graph import Fact, FactKind, Repo, Workspace
 from cairn.org.catalog import CatalogRepo, OrgCatalog
 from cairn.org.packages import OrgPackage, PackageIndex, org_packages, plain_name
 from cairn.security.text import clean_inline
@@ -141,3 +143,69 @@ def card_extras(workspace: Workspace, index: PackageIndex | None, repo: str) -> 
     if here:
         lines.append(f"- Used by these workspace repos: {', '.join(here)}")
     return lines
+
+
+@dataclass(frozen=True)
+class OrgUse:
+    package: str  # its name, without the ecosystem
+    where: str  # repo/file:line (a workspace repo's) or owner/name/manifest (an org repo's)
+
+
+@dataclass(frozen=True)
+class OrgLink:
+    """An uncloned org repo linked to a workspace repo by packages."""
+
+    repo: str  # owner/name
+    host: str
+    uses_its: tuple[OrgUse, ...] = ()  # packages the workspace repo uses from it
+    uses_ours: tuple[OrgUse, ...] = ()  # the workspace repo's packages it uses
+
+
+OrgPackages = tuple[str, Sequence[OrgPackage]]  # (host, the org's packages)
+
+
+def org_links(
+    workspace: Workspace, repo_id: str, orgs: Sequence[OrgPackages]
+) -> tuple[OrgLink, ...]:
+    """The uncloned org repos `repo_id` is linked to: those defining a package it uses, and
+    those using a package it defines (when its remote is the package's home). Repos cloned
+    here are left out: the map's own links cover them. Those it uses come first, then by name."""
+    repo = workspace.repo(repo_id)
+    if repo is None:
+        return ()
+    clones = local_clones(workspace)
+    remote = (repo.remote or "").lower().removesuffix(".git")
+    its: dict[tuple[str, str], dict[str, OrgUse]] = {}
+    ours: dict[tuple[str, str], dict[str, OrgUse]] = {}
+    for host, packages in orgs:
+        homes = {package_key(p.name): p for p in packages if p.home}
+        for fact in repo.contracts.consumes:
+            package = homes.get(package_key(fact.value)) if fact.kind is FactKind.PACKAGE else None
+            if package and f"{host}/{package.home}".lower() not in clones:
+                name = package.name.partition(":")[2]
+                found = its.setdefault((host, package.home), {})
+                found.setdefault(name, OrgUse(name, _where(fact)))
+        for package in packages:
+            if not remote or f"{host}/{package.home}".lower() != remote:
+                continue
+            name = package.name.partition(":")[2]
+            for user, manifests in package.users:
+                if f"{host}/{user}".lower() in clones or user.lower() == package.home.lower():
+                    continue
+                where = f"{user}/{manifests[0]}" if manifests else ""
+                ours.setdefault((host, user), {}).setdefault(name, OrgUse(name, where))
+    links = [
+        OrgLink(
+            repo=name,
+            host=host,
+            uses_its=tuple(its.get((host, name), {}).values()),
+            uses_ours=tuple(ours.get((host, name), {}).values()),
+        )
+        for host, name in {*its, *ours}
+    ]
+    return tuple(sorted(links, key=lambda link: (not link.uses_its, link.repo.lower())))
+
+
+def _where(fact: Fact) -> str:
+    ev = fact.evidence[0] if fact.evidence else None
+    return f"{ev.repo}/{ev.file}:{ev.line}" if ev else ""

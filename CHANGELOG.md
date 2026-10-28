@@ -8,6 +8,12 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **`links` and `related` reach org repos nobody cloned.** With `orgs:` in the config, after the
+  map's own links comes a list of the org's uncloned repos linked to this one by packages: those
+  defining a package it uses (`→`), and those using a package it defines (`←`, when its remote
+  is the package's home). Read from the org's package cache, so it stays offline, and empty
+  until `org_packages` has read the org. A widely used library shows ten, then a count.
+  `cairn links --json` adds them under `org_links`; `--evidence` shows the manifest behind each.
 - **Sessions that start in one repo: `cairn bench --scope repo`.** Each task's session runs with
   only its starting repo on disk and the suite's org (`org:` in `suite.yaml`) configured, its
   caches read once beforehand. Claude Code's file tools are confined to the session's workspace

@@ -1,7 +1,7 @@
-"""The org's uncloned repos where an agent already looks: resolve_repo's answers, repo_card, and
-INDEX. The catalog is read over the API when its cache is a day old (resolve_repo and repo_card
-only, never under the workspace lock); INDEX reads the caches alone, so mapping a folder stays
-offline.
+"""The org's uncloned repos where an agent already looks: resolve_repo's answers, repo_card,
+INDEX, links and related. The catalog is read over the API when its cache is a day old
+(resolve_repo and repo_card only, never under the workspace lock); INDEX, links and related read
+the caches alone, so mapping a folder and listing a repo's links stay offline.
 """
 
 import contextlib
@@ -27,8 +27,8 @@ from cairn.org.catalog import (
     render_org_card,
     save_catalog,
 )
-from cairn.org.links import card_extras, index_lines, local_clones
-from cairn.org.packages import load_index
+from cairn.org.links import OrgLink, OrgPackages, card_extras, index_lines, local_clones, org_links
+from cairn.org.packages import OrgPackage, load_index, org_packages
 from cairn.paths import org_catalog_file, org_packages_file
 from cairn.security.text import clean_inline
 
@@ -40,6 +40,9 @@ _INDEXES: dict[_Key, CatalogIndex] = {}  # the cached catalog, its words counted
 _FAILED: dict[_Key, float] = {}  # monotonic time of the last failed read
 # INDEX's org lines, kept while the cache files they came from are unchanged.
 _LINES: dict[tuple[object, ...], list[str]] = {}
+# Each org's packages, worked out from its cache file, kept while the file is unchanged.
+_PACKAGES_LOCK = threading.Lock()
+_PACKAGES: dict[Path, tuple[tuple[int, int] | None, tuple[OrgPackage, ...]]] = {}
 
 
 def catalog_index(ws_root: Path, source: OrgSource, *, refresh: bool = False) -> CatalogIndex:
@@ -179,3 +182,27 @@ def _stamp(path: Path) -> tuple[int, int] | None:
     except OSError:
         return None
     return stat.st_mtime_ns, stat.st_size
+
+
+def org_links_for(ws_root: Path, workspace: Workspace, repo_id: str) -> tuple[OrgLink, ...]:
+    """The uncloned org repos `repo_id` is linked to by packages, from the caches only (none
+    until org_packages has read the org)."""
+    orgs: list[OrgPackages] = []
+    for source in load_config(ws_root).orgs:
+        packages = _cached_packages(org_packages_file(ws_root, source.host, source.org))
+        if packages:
+            orgs.append((source.host, packages))
+    return org_links(workspace, repo_id, orgs)
+
+
+def _cached_packages(path: Path) -> tuple[OrgPackage, ...]:
+    stamp = _stamp(path)
+    with _PACKAGES_LOCK:
+        held = _PACKAGES.get(path)
+        if held is not None and held[0] == stamp:
+            return held[1]
+    index = load_index(path) if stamp is not None else None
+    packages = org_packages(index) if index is not None else ()
+    with _PACKAGES_LOCK:
+        _PACKAGES[path] = (stamp, packages)
+    return packages

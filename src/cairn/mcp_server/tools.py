@@ -6,6 +6,7 @@ import json
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypeVar
@@ -17,10 +18,10 @@ from cairn.errors import CairnError
 from cairn.integrations.claude import sync_claude
 from cairn.load import load_authored, load_config
 from cairn.mcp_server.query import answer as query_answer
-from cairn.model.graph import Confidence, FactKind, Package, Repo, Workspace
+from cairn.model.graph import Confidence, EdgeType, FactKind, Package, Repo, Workspace
 from cairn.org.access import client_for, forget_client, org_repo, pick_org
 from cairn.org.files import folder_entries, render_folder, render_missing
-from cairn.org.links import cloned_as
+from cairn.org.links import OrgLink, cloned_as
 from cairn.org.packages import (
     build_index,
     find_packages,
@@ -42,11 +43,18 @@ from cairn.org.profile import (
     save_profile,
 )
 from cairn.org.similar import find_similar, render_similar
-from cairn.org.view import org_card, org_matches
+from cairn.org.view import org_card, org_links_for, org_matches
 from cairn.paths import cards_dir, org_packages_file, org_profile_file
 from cairn.remote.host import CodeHost
 from cairn.render.card import relate_line
-from cairn.render.links import Neighbor, hidden_count, neighbors, render_links, repo_at
+from cairn.render.links import (
+    Neighbor,
+    hidden_count,
+    neighbors,
+    org_relate_lines,
+    render_links,
+    repo_at,
+)
 from cairn.resolve import resolve_repo
 from cairn.scan import ScanResult, scan_workspace
 from cairn.security.redact import redact
@@ -149,14 +157,19 @@ def find_repo(ws_root: Path, name: str) -> tuple[Repo | None, str]:
     return found, message
 
 
-LinksView = tuple[str, tuple[Neighbor, ...], int]
+@dataclass(frozen=True)
+class LinksView:
+    repo_id: str
+    linked: tuple[Neighbor, ...]
+    hidden: int  # repos only unconfirmed links reach
+    org: tuple[OrgLink, ...] = ()  # uncloned org repos linked by packages
 
 
 def links_view(
     ws_root: Path, repo: str, start: Path | None, *, include_unconfirmed: bool = False
 ) -> LinksView | str:
-    """(repo id, its linked repos, how many more only unconfirmed links reach), or a message.
-    No name means the repo that contains `start` (the folder the session runs in)."""
+    """The repo's links (the map's, then uncloned org repos'), or a message. No name means the
+    repo that contains `start` (the folder the session runs in)."""
     view, _ = _under_lock(ws_root, lambda: _links_view(ws_root, repo, start, include_unconfirmed))
     return view
 
@@ -179,7 +192,7 @@ def _links_view(
     workspace = _fresh(ws_root, found)
     linked = neighbors(workspace, found.id, include_unconfirmed=include_unconfirmed)
     hidden = 0 if include_unconfirmed else hidden_count(workspace, found.id)
-    return found.id, linked, hidden
+    return LinksView(found.id, linked, hidden, org_links_for(ws_root, workspace, found.id))
 
 
 def links_text(
@@ -188,8 +201,13 @@ def links_text(
     view = links_view(ws_root, repo, start, include_unconfirmed=include_unconfirmed)
     if isinstance(view, str):
         return view
-    repo_id, linked, hidden = view
-    return render_links(repo_id, linked, hidden=hidden, show_all="include_unconfirmed=true")
+    return render_links(
+        view.repo_id,
+        view.linked,
+        hidden=view.hidden,
+        show_all="include_unconfirmed=true",
+        org=view.org,
+    )
 
 
 def _package_owners(workspace: Workspace, lowered: str) -> list[tuple[Repo, Package]]:
@@ -288,11 +306,17 @@ def related_text(
         if (edge_type is None or e.type.value == edge_type)
         and (include_unconfirmed or e.confidence is not Confidence.AMBIGUOUS)
     ]
-    if not edges:
+    # The org's uncloned repos, linked by packages: from the caches, so still offline.
+    package_edges = edge_type in (None, EdgeType.DEPENDS_ON_PACKAGE.value)
+    org = org_links_for(ws_root, workspace, found.id) if package_edges else ()
+    if not edges and not org:
         return f"No matching relationships for {found.id}."
     edges.sort(key=lambda e: (-e.confidence.rank, -e.score, e.key))
     lines = _cap([relate_line(found.id, e) for e in edges])
-    return "\n".join([f"{found.id} relationships ({len(edges)}):", *lines])
+    lines = [f"{found.id} relationships ({len(edges)}):", *lines]
+    if org:
+        lines += [f"Org repos, not cloned ({len(org)}):", *_cap(org_relate_lines(org))]
+    return "\n".join(lines)
 
 
 @locked

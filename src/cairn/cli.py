@@ -274,11 +274,13 @@ def links(
         if not repo:
             _fail("You're not inside one of the mapped repos. Name one: `cairn links <repo>`.")
         _fail(view)
-    repo_id, linked, hidden = view
     if as_json:
-        typer.echo(json.dumps(links_json(repo_id, linked), indent=2))
+        typer.echo(json.dumps(links_json(view.repo_id, view.linked, view.org), indent=2))
     else:
-        typer.echo(_printable(render_links(repo_id, linked, evidence=evidence, hidden=hidden)))
+        text = render_links(
+            view.repo_id, view.linked, evidence=evidence, hidden=view.hidden, org=view.org
+        )
+        typer.echo(_printable(text))
 
 
 _ARROWS = str.maketrans({"→": "->", "←": "<-", "↔": "<->", "·": "-", "…": "..."})

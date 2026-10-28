@@ -181,6 +181,15 @@ and `↔ both ways` that each uses the other or they share something, like a dat
 `--evidence` for the file and line behind each link. In Claude Code, the plugin's `/cairn:links`
 does the same.
 
+With an org configured ([below](#org-repos-nobody-cloned)), the org's repos nobody cloned follow,
+linked by packages: those defining a package this repo uses, and those using one it defines.
+
+```
+Also linked to 2 org repos, not cloned (repo_card <owner/name> describes one; read_org_file reads it):
+  acme/log    → one way    uses its package github.com/acme/log
+  acme/admin  ← one way    uses this repo's package @acme/trips-client
+```
+
 ### Day to day
 
 ```bash
@@ -208,8 +217,8 @@ and you can commit them so your team shares them.
 |---|---|
 | `resolve_repo` | "Which repo is 'the payments service'?" With `orgs:`, the org's uncloned repos too |
 | `repo_card` | The card for a repo (re-scanned first if its HEAD moved), or for an org repo nobody cloned |
-| `links` | Which repos a repo is linked to, one line each with its direction (→ one way, ← one way, ↔ both ways); empty means the repo the session is in |
-| `related` | Everything connected to a repo, with evidence |
+| `links` | Which repos a repo is linked to, one line each with its direction (→ one way, ← one way, ↔ both ways); empty means the repo the session is in. With `orgs:`, the uncloned org repos linked by packages too |
+| `related` | Everything connected to a repo, with evidence; with `orgs:`, the uncloned org repos linked by packages too |
 | `find_across` | Which repos expose or use a table, package, or path |
 | `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
 | `find_similar` | Where the org already implemented a feature (its repos on GitHub or GitLab, nothing cloned); needs `orgs:` in the config |
@@ -440,6 +449,11 @@ A session sees the repos on disk. With `orgs:` in the config, it sees the org's 
 - `repo_card hashicorp/go-hclog` describes an org repo nobody cloned: its description,
   language, topics and last push, the packages it defines and how many org repos use them, the
   org's libraries it uses, and which workspace repos depend on it.
+- `links` and `related` list, after the map's own links, the uncloned org repos linked to a
+  repo by packages: `→` for one that defines a package it uses, `←` for one that uses a package
+  it defines (its remote must be the package's home). They read the package cache that
+  `org_packages` writes, so they make no network calls; a library hundreds of repos use shows
+  ten, then a count.
 - INDEX gains a short section: the uncloned org repos whose packages the workspace depends on,
   then those whose packages most org repos use (`org_index_repos`, 15 by default):
 
