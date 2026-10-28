@@ -3,6 +3,7 @@
 import os
 import posixpath
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -98,12 +99,26 @@ def _by_suffix(ws_root: str) -> dict[str, tuple[str, ...]]:
     return {suffix: tuple(files) for suffix, files in index.items()}
 
 
-def _resolve(path: str, context: str, ws_root: Path) -> str:
-    """A bare path in `context`, or else the one workspace file it ends: an answer that writes
-    `handlers/x.ts` under "all in `stubs/queue/`" names that file if no other ends that way."""
+def _line_repos(line: str, repo_ids: set[str]) -> list[str]:
+    """The repos a line names (`acme/orders-svc`, "the orders-svc repo"), first named first."""
+    named = []
+    for repo in repo_ids:
+        found = re.search(rf"(?<![\w-]){re.escape(repo)}(?![\w-])", line)
+        if found:
+            named.append((found.start(), repo))
+    return [repo for _, repo in sorted(named)]
+
+
+def _resolve(path: str, context: str, ws_root: Path, named: Sequence[str] = ()) -> str:
+    """A bare path in `context`, else in a repo its line names ("`acme/orders-svc`: `app/x.py`"),
+    else the one workspace file it ends: an answer that writes `handlers/x.ts` under "all in
+    `stubs/queue/`" names that file if no other ends that way."""
     candidate = f"{context}/{path}"
     if (ws_root / candidate).is_file():
         return candidate
+    for repo in named:
+        if (ws_root / repo / path).is_file():
+            return f"{repo}/{path}"
     matches = _by_suffix(str(ws_root)).get(path.strip("/"), ()) if ws_root.is_dir() else ()
     return matches[0] if len(matches) == 1 else candidate
 
@@ -134,6 +149,7 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             context = heading if isinstance(heading, str) else working_repo
             continue
         row = _row_repo(line, repo_ids) or context
+        named = _line_repos(line, repo_ids)
         for token in _PATH.findall(line):
             # `lib/cart.ts:7`, `lib/cart.ts:7:3`, `lib/cart.ts#L7`: the file, not a line in it.
             path = _LINE.sub("", token.replace("\\", "/").rstrip(_TRAILING)).rstrip(_TRAILING)
@@ -145,7 +161,7 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             else:
                 path = _strip_root_tail(path, ws_parts, repo_ids)
                 if path.split("/", 1)[0] not in repo_ids:
-                    path = _resolve(path, row, ws_root)
+                    path = _resolve(path, row, ws_root, named)
             path = posixpath.normpath(path)
             if not path.startswith(".."):
                 found.add(path)

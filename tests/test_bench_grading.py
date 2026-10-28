@@ -140,3 +140,28 @@ def test_an_ending_two_files_share_stays_in_the_working_repo(tmp_path: Path) -> 
     assert mentioned_files("see lib/config.ts", ws, "storefront", IDS) == {
         "storefront/lib/config.ts"
     }
+
+
+def test_a_path_on_a_line_that_names_a_repo_is_that_repo_s_file(tmp_path: Path) -> None:
+    # Benchmark finding (--scope repo): "`openfaas/faas`: `gateway/metrics/metrics.go`", and
+    # "in the `openfaas/faas-middleware` repo, at `oauth/config.go:91`", vendored copies aside.
+    ws = _ws(
+        tmp_path,
+        (
+            "orders-svc/app/main.py",
+            "admin/app/main.py",
+            "admin/lib/db.ts",
+            "storefront/lib/db.ts",
+            "storefront/vendor/orders-svc/app/main.py",
+        ),
+    )
+    text = (
+        "- in `orders-svc`: `app/main.py:12` builds the query\n"
+        "- `lib/db.ts` reads it (in this repo, not admin)\n"
+        "- the admin repo has its own app/main.py too\n"
+    )
+    assert mentioned_files(text, ws, "storefront", IDS) == {
+        "orders-svc/app/main.py",
+        "storefront/lib/db.ts",  # the working repo's file comes first
+        "admin/app/main.py",
+    }
