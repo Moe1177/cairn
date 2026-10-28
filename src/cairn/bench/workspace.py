@@ -11,6 +11,9 @@ from cairn.discover.git import GIT
 CLONE_MARKER = ".fixture-clone-of"
 _GIT = [*GIT, "-c", "user.name=cairn-bench", "-c", "user.email=bench@example.com"]
 _GIT += ["-c", "commit.gpgsign=false", "-c", "core.symlinks=false"]
+# No background maintenance after a commit: its detached run writes .git/objects/
+# maintenance.lock while the bench may be copying the repo (a flaky shutil.Error).
+_GIT += ["-c", "maintenance.auto=false", "-c", "gc.auto=0"]
 
 
 def _git(cwd: Path, *args: str) -> None:
