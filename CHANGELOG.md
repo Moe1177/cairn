@@ -8,6 +8,24 @@ All notable changes to cairn are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Sessions that start in one repo: `cairn bench --scope repo`.** Each task's session runs with
+  only its starting repo on disk and the suite's org (`org:` in `suite.yaml`) configured, its
+  caches read once beforehand. Claude Code's file tools are confined to the session's workspace
+  and denied the run's other folders and the suite. Answers are graded against the whole pinned
+  workspace, with the org tools' `owner/repo/path` and links read as workspace paths. Before the
+  sessions, the run checks each answer file and keyword on the org's default branch and notes
+  in the log what moved since the suite's pinned commit. Pilot results (11 hard tasks):
+  [bench/published/2026-10-27-single-repo.md](bench/published/2026-10-27-single-repo.md).
+- **`search_org`: where the org's code uses a name.** Which templates import an export, what
+  reads a metric, env var or queue, which repo builds an image: the org's code search on GitHub
+  or GitLab, worded as uses rather than prior art. `find_across` knows only the repos on disk,
+  and now ends with a pointer to it when an org is configured. From one repo, it turned
+  `retire-core-api-keys` from failed to answered for Haiku and Sonnet.
+- **`read_org_file` finds its way in a repo nobody cloned.** A folder's path lists what the folder
+  holds, and a path that isn't there lists the files it most likely meant: the same path in
+  another case (`readConfig.go` -> `readconfig.go`), files of the same name anywhere, then paths
+  spelled alike, or else what its nearest existing folder holds. From one repo, Sonnet answered
+  8 hard tasks instead of 4 with it.
 - **Orgs on any git host.** An org in the config can list its repos by URL (`repos:`, https or
   ssh), and cairn reads them through git itself with git's own login: Gitea, Forgejo,
   Bitbucket, sourcehut or a bare server. It keeps one clone per repo holding only its latest
@@ -114,6 +132,10 @@ All notable changes to cairn are documented here. The format follows
   each condition up in place. A 38-repo suite took about 27 minutes to copy on Windows.
 
 ### Fixed
+- **Benchmark grading credits a path its line gives a repo for.** "`openfaas/faas`:
+  `gateway/metrics/metrics.go`" and "in the `faas-middleware` repo, at `oauth/config.go`" now
+  count for that repo when the starting repo has no such file. Regrading the 2026-10-11
+  hard-task logs changes one run, from failed to answered.
 - **Benchmark grading credits two more ways of naming a file.** A path in a table row whose own
   cell names the repo (`| ipv-cri-kbv-api | infrastructure/lambda/template.yaml |`) now counts
   for that repo. A path written under a folder named once above it now counts for the one
