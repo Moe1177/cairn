@@ -213,6 +213,7 @@ and you can commit them so your team shares them.
 | `find_across` | Which repos expose or use a table, package, or path |
 | `query` | Where inside a repo: `file:line` hits, grep first, plus a deep index's symbols when built; says which search answered |
 | `find_similar` | Where the org already implemented a feature (its repos on GitHub or GitLab, nothing cloned); needs `orgs:` in the config |
+| `search_org` | Where the org's code uses a name: which repos import an export, read a metric or env var, build an image (same search as `find_similar`); `find_across` points to it, since its map holds only the repos on disk |
 | `read_org_file` | A file from an org repo, without cloning it |
 | `org_profile` | The org's stack: the datastores, frameworks, auth, test and deploy tools and libraries its active repos use, and its own shared packages |
 | `org_packages` | The org's own libraries its repos share, where each is defined and who uses it; with a name, one package's users and code that calls it |
@@ -517,6 +518,16 @@ What this shows:
     started in.
   - [bench/published/2026-10-11-hard-tasks.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-11-hard-tasks.md)
     has the tasks, the definition and every failure.
+- **Starting in one repo is where the org tools count** (2026-10-27, three runs per task). A
+  session usually opens in one repo, with the org's others not cloned; `cairn bench --scope
+  repo` runs each task that way, kept out of every other folder. On the same 11 hard tasks:
+  - With no map or with the INDEX, both models answered 1.
+  - With cairn's org tools, Sonnet 5.5 answered 26 of 33 runs and Haiku 5.5 21, after two
+    changes the failures led to: `read_org_file` lists folders and suggests the file a wrong path
+    meant, and `search_org` finds where the org's code uses a name. Before them: 16 and 16.
+  - With every repo on disk: 33 and 31, and faster (Sonnet's median session 16 s against 23 s).
+  - [bench/published/2026-10-27-single-repo.md](https://github.com/Moe1177/cairn/blob/main/bench/published/2026-10-27-single-repo.md)
+    has the method, every failure and what is still missing.
 
 Methods, every table with 95% intervals, paired Wilcoxon tests (raw and Holm-adjusted), the
 regressions, and the held-out results:
@@ -531,6 +542,7 @@ cairn bench bench/suites/sockshop --runs 3 --model haiku    # fetches the pinned
 cairn bench bench/suites/shopverse --conditions A,C --tasks gift-message
 cairn bench bench/suites/sockshop --resume bench/results/<stamp>.jsonl   # after a usage limit
 cairn bench bench/suites/sockshop --harness codex --runs 3      # Codex instead of Claude Code
+cairn bench bench/suites/onelogin --scope repo --conditions A,E  # each session in its own repo only
 cairn bench-regrade bench/suites/sockshop bench/results/<stamp>.jsonl   # grade a log again
 ```
 
@@ -792,8 +804,9 @@ Then delete `<folder>/.cairn/` and `~/.cairn/`.
     catalog, and INDEX lists those the workspace depends on, measured by `cairn bench-repos`.
 13. ✅ GitLab (gitlab.com and self-managed, groups with subgroups) for every org feature.
 14. ✅ Orgs on any git host, from a list of repo URLs, read through git itself.
-15. Benchmark sessions that start with only their own repo in view, the way a session opened in
-    one repo does.
+15. ✅ Sessions that start in one repo: `cairn bench --scope repo`. From one repo, the org tools
+    took Sonnet from 1 of 11 hard tasks to 26 of 33 runs (33 with every repo on disk), after
+    `read_org_file` learned to list folders and `search_org` arrived.
 16. Descriptions for plain git repos, from their READMEs, so their cards and catalog search have
     more than a name.
 

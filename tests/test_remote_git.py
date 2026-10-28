@@ -360,7 +360,9 @@ def test_a_plain_git_card_promises_no_search() -> None:
     assert "find_similar" not in card and "Last push" not in card  # a commit id isn't a time
     assert card.endswith("(repo acme/api, path README.md first).")
     dated = render_org_card(CatalogRepo(name="acme/api", pushed="2026-10-01T10:00:00Z"))
-    assert "Last push: 2026-10-01" in dated and "find_similar searches" in dated
+    assert (
+        "Last push: 2026-10-01" in dated and "search_org and find_similar search its code" in dated
+    )
 
 
 def test_a_busy_host_is_retried_then_named(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
