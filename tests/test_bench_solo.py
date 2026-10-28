@@ -360,9 +360,9 @@ def test_prepare_org_warms_the_caches_and_finds_drift(
     monkeypatch.setattr(solo, "with_client", lambda org, call: call(Client()))
     ws = tmp_path / "ws"
     (ws / "orders-svc" / "app").mkdir(parents=True)
-    (ws / "orders-svc" / "app" / "main.py").write_text("PIN = '0.12.4'\nPORT = 8082")
+    (ws / "orders-svc" / "app" / "main.py").write_text("PIN = '0.12.4'\nPORT = 8082 # 0.9.1")
     (ws / "admin" / "lib").mkdir(parents=True)
-    (ws / "admin" / "lib" / "db.ts").write_text("// HOST")
+    (ws / "admin" / "lib" / "db.ts").write_text("// HOST 0.9.1")
     task = Task(
         id="t",
         category="impact",
@@ -375,14 +375,15 @@ def test_prepare_org_warms_the_caches_and_finds_drift(
             "orders-svc/app/gone.py",
             "orders-svc/app/moved.py",
         ),
-        expect_keywords=("0.12.4", "8082", "host", "nowhere"),
+        expect_keywords=("0.12.4", "8082", "host", "nowhere", "0.9.1"),
     )
     drift = solo.prepare_org(tmp_path / "cache", ORG, [task], ws)
     assert drift == {
         "t": [
             "orders-svc/app/gone.py",
             "orders-svc/app/moved.py (unchecked: shopverse/orders-svc has moved)",
-            "keyword '0.12.4'",  # 8082 still there; host is in the task's own repo
+            # 8082 is still there; host and 0.9.1 are in the task's own repo (on disk).
+            "keyword '0.12.4'",
         ]
     }
     assert calls == [

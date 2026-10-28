@@ -165,3 +165,24 @@ def test_a_path_on_a_line_that_names_a_repo_is_that_repo_s_file(tmp_path: Path) 
         "storefront/lib/db.ts",  # the working repo's file comes first
         "admin/app/main.py",
     }
+
+
+def test_a_path_goes_to_the_repo_named_nearest_it(tmp_path: Path) -> None:
+    # Review finding: the first repo a line named won, even when the answer meant another.
+    ws = _ws(
+        tmp_path,
+        (
+            "orders-svc/.github/workflows/build.yml",
+            "admin/.github/workflows/build.yml",
+            "shared-types/builder/builder.go",
+            "admin/builder/builder.go",
+        ),
+    )
+    text = (
+        "Unlike orders-svc, admin publishes it in `.github/workflows/build.yml`.\n"
+        "It is signed in `builder/builder.go` in the shared-types repo, not admin.\n"
+    )
+    assert mentioned_files(text, ws, "storefront", IDS) == {
+        "admin/.github/workflows/build.yml",
+        "shared-types/builder/builder.go",  # named right after it; admin is further away
+    }

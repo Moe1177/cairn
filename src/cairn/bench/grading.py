@@ -99,20 +99,31 @@ def _by_suffix(ws_root: str) -> dict[str, tuple[str, ...]]:
     return {suffix: tuple(files) for suffix, files in index.items()}
 
 
-def _line_repos(line: str, repo_ids: set[str]) -> list[str]:
-    """The repos a line names (`acme/orders-svc`, "the orders-svc repo"), first named first."""
-    named = []
-    for repo in repo_ids:
-        found = re.search(rf"(?<![\w-]){re.escape(repo)}(?![\w-])", line)
-        if found:
-            named.append((found.start(), repo))
-    return [repo for _, repo in sorted(named)]
+def _line_repos(line: str, repo_ids: set[str]) -> list[tuple[int, int, str]]:
+    """Where the line names each repo (`acme/orders-svc`, "the orders-svc repo")."""
+    return [
+        (found.start(), found.end(), repo)
+        for repo in repo_ids
+        for found in re.finditer(rf"(?<![\w-]){re.escape(repo)}(?![\w-])", line)
+    ]
+
+
+def _named_near(named: Sequence[tuple[int, int, str]], start: int, end: int) -> list[str]:
+    """The repos the line names outside the path at `start:end`, nearest first: "unlike faas,
+    golang-http-template has `x.yml`" means the template's file, and "`x.go` in `acme/go-sdk`"
+    go-sdk's. A repo named before the path wins a tie."""
+    gaps = [
+        (start - m_end, 0, repo) if m_end <= start else (m_start - end, 1, repo)
+        for m_start, m_end, repo in named
+        if m_end <= start or m_start >= end
+    ]
+    return list(dict.fromkeys(repo for _, _, repo in sorted(gaps)))
 
 
 def _resolve(path: str, context: str, ws_root: Path, named: Sequence[str] = ()) -> str:
-    """A bare path in `context`, else in a repo its line names ("`acme/orders-svc`: `app/x.py`"),
-    else the one workspace file it ends: an answer that writes `handlers/x.ts` under "all in
-    `stubs/queue/`" names that file if no other ends that way."""
+    """A bare path in `context`, else in the repo its line names nearest it ("`acme/orders-svc`:
+    `app/x.py`"), else the one workspace file it ends: an answer that writes `handlers/x.ts`
+    under "all in `stubs/queue/`" names that file if no other ends that way."""
     candidate = f"{context}/{path}"
     if (ws_root / candidate).is_file():
         return candidate
@@ -150,7 +161,8 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             continue
         row = _row_repo(line, repo_ids) or context
         named = _line_repos(line, repo_ids)
-        for token in _PATH.findall(line):
+        for match in _PATH.finditer(line):
+            token = match.group(0)
             # `lib/cart.ts:7`, `lib/cart.ts:7:3`, `lib/cart.ts#L7`: the file, not a line in it.
             path = _LINE.sub("", token.replace("\\", "/").rstrip(_TRAILING)).rstrip(_TRAILING)
             if path.startswith("/") or _DRIVE.match(path):
@@ -161,7 +173,9 @@ def mentioned_files(text: str, ws_root: Path, working_repo: str, repo_ids: set[s
             else:
                 path = _strip_root_tail(path, ws_parts, repo_ids)
                 if path.split("/", 1)[0] not in repo_ids:
-                    path = _resolve(path, row, ws_root, named)
+                    path = _resolve(
+                        path, row, ws_root, _named_near(named, match.start(), match.end())
+                    )
             path = posixpath.normpath(path)
             if not path.startswith(".."):
                 found.add(path)

@@ -52,15 +52,18 @@ def prepare_org(
 
 def _drift(org: OrgSource, task: Task, ws: Path) -> list[str]:
     """The task's answer files outside its repo that the org no longer has (or that couldn't be
-    checked), and the keywords those files held at the pinned commit and no longer hold (a
-    version pin bumped since: an agent reading the org gives the new one)."""
+    checked), and the keywords those files held at the pinned commit that no answer file the
+    session can read still holds (a version pin bumped since: an agent reading the org gives
+    the new one)."""
     lost: list[str] = []
     pinned: list[str] = []
     latest: list[str] = []
     for path in task.expect_files:
         repo, _, inside = path.partition("/")
-        if repo == task.repo:
-            continue  # on disk, at the pinned commit
+        if repo == task.repo:  # on disk, at the pinned commit: it still has its keywords
+            if (ws / path).is_file():
+                latest.append((ws / path).read_text(encoding="utf-8", errors="replace").lower())
+            continue
         full = org_repo(org, repo)
         try:
             text = with_client(org, lambda c, f=full, i=inside: c.read_file(f, i))
