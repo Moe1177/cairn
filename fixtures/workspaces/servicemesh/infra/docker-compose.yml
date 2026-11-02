@@ -14,4 +14,4 @@ services:
   billing:
     build: ../billing
   kafka:
-    image: bitnami/kafka:3.7
+    image: soldevelo/kafka:3.7
