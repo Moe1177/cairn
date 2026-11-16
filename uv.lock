@@ -566,13 +566,14 @@ wheels = [
 
 [[package]]
 name = "graphifyy"
-version = "0.9.94"
+version = "0.9.108"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "networkx", version = "3.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pyyaml" },
     { name = "rapidfuzz" },
     { name = "tree-sitter" },
     { name = "tree-sitter-bash" },
@@ -601,9 +602,9 @@ dependencies = [
     { name = "tree-sitter-verilog" },
     { name = "tree-sitter-zig" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4f/ac/55ecfead7a749d76304fbfcabd8a495dd07b7d3d105336862274c820d779/graphifyy-0.9.94.tar.gz", hash = "sha256:08708a9b8fe9516e84e1fb23a5103da226a1e66107e3e41c72ea29fa2614a7a6", size = 2924085, upload-time = "2026-10-22T16:20:27.559Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/16/a2/1c678019373c8dff6728c137a7d24b56e7f8203c4ee546aae0decf770505/graphifyy-0.9.108.tar.gz", hash = "sha256:de1d155fbcff074a8bb4a71007942f420fb7e91c45eb618fcb8a076335fa713b", size = 3424555, upload-time = "2026-11-12T21:48:37.172Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/d6/7f8f6a9864774ae917d4515f6cc94639da2207a22aafefaa61923fad4f78/graphifyy-0.9.94-py3-none-any.whl", hash = "sha256:833322bb79ef720eb812dff0cb80f50b0b38f9cbbaa0446d546394a5dae75f27", size = 1734978, upload-time = "2026-10-22T16:20:25.072Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/90/bd658344de56e6692bedb2d0a6cfb89fa91ba111e3e81e8f0740c9e16419/graphifyy-0.9.108-py3-none-any.whl", hash = "sha256:71a0011e13135091bf71d9c58e93f12dbe219821ea366600129132f1c5a8fe9c", size = 1947658, upload-time = "2026-11-12T21:48:34.751Z" },
 ]
 
 [[package]]
